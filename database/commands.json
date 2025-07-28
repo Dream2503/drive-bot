@@ -1,0 +1,8 @@
+{
+    "!ls": "📁 View your uploaded file on the server.",
+    "!upload <google_drive_link>": "📤 Upload a file or folder from a public Google Drive link.",
+    "!download <filename>": "📥 Download a file by name from your storage to local.",
+    "!clear": "🧹 Clears bot-sent messages in your DM for a cleaner interface.",
+    "!ping": "🏓 Check if the bot is online and responding.",
+    "!help": "🆘 View all available commands and their usage."
+}

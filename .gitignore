@@ -1,0 +1,13 @@
+# Byte-compiled / cache
+__pycache__/
+*.py[cod]
+
+# VSCode / PyCharm
+.vscode/
+.idea/
+
+# Uploads
+upload/
+
+# Secrets
+database/bot_creds.txt
