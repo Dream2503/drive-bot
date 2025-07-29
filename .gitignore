@@ -6,8 +6,9 @@ __pycache__/
 .vscode/
 .idea/
 
-# Uploads
+# Uploads & Downloads
 upload/
+download/
 
 # Secrets
 database/bot_creds.txt
