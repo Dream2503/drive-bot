@@ -208,11 +208,22 @@ def get_original_filename(file_id: str) -> str:
 
         if match:
             filename = match.group(1)
-            write_log("INFO", "GET FILENAME", f"Retrieved filename '{filename}' for ID {file_id}")
+            write_log("INFO", "GET FILENAME", f"Retrieved filename from headers: '{filename}' for ID {file_id}")
             return filename
 
+        html = resp.text
+        title_match = re.search(r"<title>(.+?)</title>", html, re.IGNORECASE)
+
+        if title_match:
+            raw_title = title_match.group(1).strip()
+
+            if raw_title and not raw_title.lower().startswith("google"):
+                filename = raw_title.replace(" - Google Drive", "").strip()
+                write_log("INFO", "GET FILENAME", f"Extracted filename from HTML title: '{filename}' for ID {file_id}")
+                return filename
+
         fallback = f"{file_id}.downloaded"
-        write_log("ERROR", "GET FILENAME", f"Filename not found in headers. Using fallback: {fallback}")
+        write_log("ERROR", "GET FILENAME", f"Filename not found in headers or HTML. Using fallback: {fallback}")
         return fallback
 
     except Exception as e:
