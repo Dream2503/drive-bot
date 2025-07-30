@@ -9,6 +9,8 @@ __pycache__/
 # Uploads & Downloads
 upload/
 download/
+temp/
+logs.txt
 
 # Secrets
 database/bot_creds.txt
