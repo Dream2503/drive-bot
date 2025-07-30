@@ -6,18 +6,3 @@ gdown>=4.7.1
 
 # HTTP requests for filename metadata and general use
 requests>=2.28.0
-
-# File/directory handling, JSON, and regex are from the standard library,
-# but you may want to tidy dependencies for type hints/async use:
-typing-extensions>=4.0
-pathlib ; python_version < '3.4'
-
-# For type annotations (if used in old versions of Python)
-# You may remove typing-extensions/pathlib if on Python 3.7+
-
-# If you use colored logs or dotenv files, uncomment below as needed:
-# colorama>=0.4
-# python-dotenv>=0.21
-
-# (Optional) If you want to pin your Python version for cloud deployment (edit as needed):
-# python_version>='3.8'
