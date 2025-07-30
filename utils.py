@@ -27,9 +27,10 @@ import re
 import gdown
 import requests
 
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
-from settings import DRIVE, UPLOAD_PATH
+from settings import DRIVE, LOGS_PATH, TEMP_SPLIT_PATH
 
 # ─── Type Aliases ──────────────────────────────────────────────────
 HashID = Dict[str, int]
@@ -71,11 +72,15 @@ def load_json(path: Path) -> Any:
     if path.exists():
         try:
             with open(path, "r", encoding="utf-8") as f:
-                return json.load(f)
+                data = json.load(f)
+                write_log("INFO", "LOAD JSON", f"Loaded data from `{path}`")
+                return data
 
-        except Exception:
+        except Exception as e:
+            write_log("ERROR", "LOAD JSON", f"Failed to load `{path}`: {e}")
             return {}
 
+    write_log("INFO", "LOAD JSON", f"File `{path}` does not exist. Returning empty dict.")
     return {}
 
 
@@ -105,8 +110,14 @@ def save_json(data: Any, path: Path) -> None:
     - The function does not handle exceptions explicitly; calling code should manage file write errors.
     - Suitable for saving configuration, metadata, or other structured data persistently.
     """
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=4)
+    try:
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=4)
+
+        write_log("INFO", "SAVE JSON", f"Saved data to `{path}`")
+
+    except Exception as e:
+        write_log("ERROR", "SAVE JSON", f"Failed to save `{path}`: {e}")
 
 
 def extract_file_id(link: str) -> Optional[str]:
@@ -143,13 +154,18 @@ def extract_file_id(link: str) -> Optional[str]:
         match = re.search(r"/file/d/([a-zA-Z0-9_-]+)", link)
 
         if match:
-            return match.group(1)
+            file_id = match.group(1)
+            write_log("INFO", "EXTRACT FILE ID", f"Found ID via '/file/d/': {file_id}")
+            return file_id
 
         match = re.search(r"id=([a-zA-Z0-9_-]+)", link)
 
         if match:
-            return match.group(1)
+            file_id = match.group(1)
+            write_log("INFO", "EXTRACT FILE ID", f"Found ID via 'id=': {file_id}")
+            return file_id
 
+    write_log("ERROR", "EXTRACT FILE ID", f"Failed to extract file ID from link: {link}")
     return None
 
 
@@ -189,67 +205,78 @@ def get_original_filename(file_id: str) -> str:
         resp = requests.get(url, stream=True)
         disposition = resp.headers.get("Content-Disposition", "")
         match = re.search(r'filename="(.+?)"', disposition)
-        return match.group(1) if match else f"{file_id}.downloaded"
 
-    except Exception:
-        return f"{file_id}.downloaded"
+        if match:
+            filename = match.group(1)
+            write_log("INFO", "GET FILENAME", f"Retrieved filename '{filename}' for ID {file_id}")
+            return filename
+
+        fallback = f"{file_id}.downloaded"
+        write_log("ERROR", "GET FILENAME", f"Filename not found in headers. Using fallback: {fallback}")
+        return fallback
+
+    except Exception as e:
+        fallback = f"{file_id}.downloaded"
+        write_log("ERROR", "GET FILENAME", f"Exception occurred for ID {file_id}: {e}. Using fallback: {fallback}")
+        return fallback
 
 
 def download_drive_file(file_id: str, filename: str) -> Path:
     """
-    Downloads a file from Google Drive using its file ID and saves it locally in the configured upload directory.
+    Downloads a file from Google Drive using its file ID and saves it temporarily in the `temp/` directory.
 
     Responsibilities:
-    - Ensure the provided filename is safe to use as a local file name.
-    - Create the local upload directory if it doesn't exist.
-    - Use gdown to download the file from Google Drive's direct download URL.
-    - Raise informative exceptions if the filename is unsafe or the download fails.
-    - Return the path to the successfully downloaded file.
+    - Ensure the provided filename is safe for local storage.
+    - Use `gdown` to download the file from a direct Google Drive URL.
+    - Save the file in the configured `TEMP_SPLIT_PATH` directory.
+    - Raise informative exceptions on unsafe filenames or failed downloads.
+    - Return the full path to the downloaded temporary file.
 
     Args:
         file_id (str): The unique identifier of the Google Drive file to download.
-        filename (str): The desired local filename to save the downloaded file as.
+        filename (str): The desired filename to use for storing the downloaded file.
 
     Returns:
-        Path: The pathlib.Path object pointing to the downloaded file on disk.
+        Path: A `Path` object pointing to the downloaded file in the temp directory.
 
     Raises:
-        ValueError: If the provided filename appears unsafe (e.g., path traversal).
-        RuntimeError: If the download fails or the resulting file is not found.
+        ValueError: If the filename contains unsafe components.
+        RuntimeError: If the file download fails or the resulting file is missing.
 
     Usage:
-        Call this function internally during file upload flows when downloading
-        a file from a provided Google Drive link before chunking and uploading.
+        Used internally during the `!upload` command when handling Google Drive links.
 
     Flow:
-        1. Sanitize the filename to prevent directory traversal or absolute path use.
-        2. Ensure the upload directory (`UPLOAD_PATH`) exists on the filesystem.
-        3. Construct the direct download URL using the given file ID.
-        4. Use the `gdown` library to download the file to the resolved local path.
-        5. Verify the download succeeded by checking the result and file existence.
-        6. If successful, return the path to the downloaded file.
-        7. Raise exceptions if any issues arise during these steps.
+        1. Sanitize the filename to prevent unsafe paths.
+        2. Ensure the `TEMP_SPLIT_PATH` directory exists.
+        3. Build the direct download URL using the `file_id`.
+        4. Use `gdown` to download the file to the `temp/` directory.
+        5. Confirm the download succeeded.
+        6. Return the file's path.
 
     Notes:
-    - The function assumes network connectivity and Google Drive public link access.
-    - The safety check on filenames prevents accidental or malicious filesystem writes outside the intended folder.
-    - `gdown` handles Google Drive's download confirmation processes.
-    - For production, consider adding retries, timeout handling, and logging for robustness.
+    - `TEMP_SPLIT_PATH` is used to isolate temporary files from persistent upload/download data.
+    - This path is cleaned up after upload to prevent clutter or misuse.
     """
-    # Basic safety: Prevent dangerous filenames/paths
     safe_filename = Path(filename).name
 
     if ".." in safe_filename or safe_filename.startswith("/"):
+        write_log("ERROR", "DOWNLOAD FILE", f"Unsafe filename detected: {filename}")
         raise ValueError("Unsafe filename detected.")
 
-    UPLOAD_PATH.mkdir(exist_ok=True)
-    output_path = UPLOAD_PATH / safe_filename
+    TEMP_SPLIT_PATH.mkdir(exist_ok=True)
+    output_path = TEMP_SPLIT_PATH / safe_filename
     url = f"https://drive.google.com/uc?id={file_id}"
+
+    write_log("INFO", "DOWNLOAD FILE", f"Starting download for ID: {file_id}, saving as: {safe_filename}")
+
     result = gdown.download(url, str(output_path), quiet=False)
 
     if result is None or not output_path.exists():
+        write_log("ERROR", "DOWNLOAD FILE", f"Failed to download file ID: {file_id}")
         raise RuntimeError(f"Download failed for file ID {file_id}")
 
+    write_log("INFO", "DOWNLOAD FILE", f"Successfully downloaded to: {output_path}")
     return output_path
 
 
@@ -283,7 +310,9 @@ def hash_data_sha256(data: bytes) -> str:
     - This function does not perform any I/O or network operations.
     - Suitable for large files or data chunks processed as bytes.
     """
-    return hashlib.sha256(data).hexdigest()
+    hash_value = hashlib.sha256(data).hexdigest()
+    write_log("INFO", "HASH", f"Computed SHA-256: {hash_value}")
+    return hash_value
 
 
 def get_file_chunks(user_id: str, filename: str) -> FileData:
@@ -323,6 +352,44 @@ def get_file_chunks(user_id: str, filename: str) -> FileData:
     drive: Database = load_json(DRIVE)
 
     if user_id not in drive or filename not in drive[user_id]:
+        write_log("ERROR", "CHUNKS", f"File `{filename}` not found for user {user_id}.")
         raise FileNotFoundError(f"File `{filename}` not found for user {user_id}.")
 
-    return drive[user_id][filename]
+    chunks = drive[user_id][filename]
+    write_log("INFO", "CHUNKS", f"Retrieved {len(chunks)} chunks for `{filename}` (User: {user_id})")
+    return chunks
+
+
+def write_log(level: str, func: str, message: str) -> None:
+    """
+    Immediately appends a log message to `logs/log.txt` with a timestamp.
+
+    Responsibilities:
+        - Format the message with the given log level and current timestamp.
+        - Ensure the log directory exists.
+        - Append the formatted log entry to the `logs/log.txt` file.
+
+    Args:
+        level (str): The severity level of the log (e.g., "INFO", "ERROR").
+        func:
+        message (str): The log content to write.
+
+    Returns:
+        None
+
+    Usage:
+        Call this function with the appropriate log level and message.
+
+    Flow:
+        1. Format the message with timestamp and severity level.
+        2. Create the logs directory if it does not exist.
+        3. Append the formatted message to the log file.
+
+    Notes:
+        - Log entries are encoded as UTF-8.
+        - Appends to the log file without overwriting existing data.
+    """
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    with LOGS_PATH.open("a", encoding="utf-8") as f:
+        f.write(f"[{timestamp}] [{func}] [{level}] {message}\n")

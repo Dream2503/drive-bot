@@ -43,6 +43,8 @@ BASE_PATH = Path(".")
 DATABASE_PATH = BASE_PATH / "database"
 UPLOAD_PATH = BASE_PATH / "upload"
 DOWNLOAD_PATH = BASE_PATH / "download"
+TEMP_SPLIT_PATH = BASE_PATH / "temp"
+LOGS_PATH = BASE_PATH / "logs.txt"
 
 # Core data files
 DRIVE = DATABASE_PATH / "drive.json"  # Stores uploaded file metadata per user

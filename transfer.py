@@ -33,19 +33,13 @@ Notes:
 
 Author: Dream2503
 """
+import asyncio
+
 import discord
 from discord.ext import commands
 import settings
-from settings import app, MAX_PART_SIZE, DRIVE, UPLOAD_PATH, DOWNLOAD_PATH
-from utils import (
-    download_drive_file,
-    extract_file_id,
-    get_file_chunks, get_original_filename,
-    hash_data_sha256,
-    load_json,
-    save_json,
-    HashID,
-)
+from settings import app, MAX_PART_SIZE, UPLOAD_PATH, DOWNLOAD_PATH
+from utils import *
 
 
 async def upload_and_hash_part(data: bytes) -> HashID:
@@ -56,7 +50,7 @@ async def upload_and_hash_part(data: bytes) -> HashID:
     Responsibilities:
     - Ensure the upload channel (`FILE_DUMP`) is available for sending files.
     - Compute the SHA-256 hash of the given data chunk.
-    - Write the chunk to disk temporarily if it doesn’t already exist.
+    - Write the chunk to a temporary folder (`TEMP_SPLIT_PATH`) if it doesn’t already exist.
     - Upload the chunk as a file attachment to the Discord channel.
     - Delete the temporary file after successful upload.
     - Return a dictionary mapping the chunk’s hash to the Discord message ID for tracking.
@@ -74,32 +68,28 @@ async def upload_and_hash_part(data: bytes) -> HashID:
     Flow:
         1. Check that `settings.FILE_DUMP` channel is set; raise error if not.
         2. Compute the SHA-256 hash of the chunk.
-        3. Determine the file path for the chunk based on the hash.
+        3. Determine the file path for the chunk using `TEMP_SPLIT_PATH`.
         4. If the chunk file does not exist locally, write the bytes to disk.
         5. Open the chunk file and upload it as a Discord file attachment.
         6. Upon successful upload, delete the local chunk file.
         7. Return a dictionary with the hash as key and uploaded message ID as value.
 
     Notes:
-    - Temporary files are stored and cleaned in the configured `UPLOAD_PATH`.
+    - Temporary files are stored and cleaned from `TEMP_SPLIT_PATH`, not `UPLOAD_PATH`.
     - Uses Python 3.8+’s `unlink(missing_ok=True)` to safely delete files.
     - Assumes the upload channel is a valid `discord.TextChannel`.
     """
-
-    if settings.FILE_DUMP is None:
-        raise RuntimeError("FILE_DUMP channel is not set in settings.")
-
     part_hash = hash_data_sha256(data)
-    part_path = UPLOAD_PATH / part_hash
+    part_path = TEMP_SPLIT_PATH / part_hash
 
-    # Write the chunk for uploading if not already present
     if not part_path.exists():
         part_path.write_bytes(data)
+        write_log("INFO", "UPLOAD HASH PART", f"Written chunk to temp path: {part_path}")
 
-    with part_path.open("rb") as f:
-        message = await settings.FILE_DUMP.send(file=discord.File(f, filename=part_hash))
-
-    part_path.unlink(missing_ok=True)  # Remove temp file after upload (Python 3.8+)
+    message = await settings.FILE_DUMP.send(file=discord.File(part_path, filename=part_hash))
+    write_log("INFO", "UPLOAD HASH PART", f"Uploaded part `{part_hash}` to Discord (Message ID: {message.id})")
+    part_path.unlink(missing_ok=True)
+    write_log("INFO", "UPLOAD HASH PART", f"Deleted temp part file: {part_path}")
     return {part_hash: message.id}
 
 
@@ -131,7 +121,7 @@ async def upload(ctx: commands.Context, *paths: str) -> None:
         - `!upload all` to upload all files in the local upload folder.
 
     Flow:
-        1. Extract the invoking user's Discord ID.
+        1. Extract the invoking user's username.
         2. Validate that at least one path or link is provided; else send usage instructions.
         3. If 'all' is specified, enumerate all files in the local upload directory to upload.
         4. For each input path or link:
@@ -152,100 +142,81 @@ async def upload(ctx: commands.Context, *paths: str) -> None:
     - Provides robust error handling with user notifications and resource cleanup.
     - Designed for sequential processing; concurrency or parallel uploads can be added later as an enhancement.
     """
-    user_id = str(ctx.author.id)
+    username = ctx.author.name.upper()
+    user_id = ctx.author.id
 
     if not paths:
-        await ctx.send("❗ Usage: `!upload <google_drive_link|filename> [filename2 ...]` or `!upload all`")
+        await ctx.send(f"❗ <@{user_id}> Usage: `!upload <google_drive_link|filename> [filename2 ...]` or `!upload all`")
+        write_log("ERROR", "UPLOAD", f"[{username}] invoked without providing paths.")
         return
 
-    # If 'all' specified, collect all files inside UPLOAD_PATH
     if "all" in (p.lower() for p in paths):
         all_files = [p.name for p in UPLOAD_PATH.iterdir() if p.is_file()]
 
         if not all_files:
-            await ctx.send("📂 The upload folder is empty. Add files before using `!upload all`.")
+            await ctx.send(f"📂 <@{user_id}> The upload folder is empty. Add files before using `!upload all`.")
+            write_log("ERROR", "UPLOAD", f"[{username}] used `!upload all` but upload folder is empty.")
             return
 
         paths = tuple(all_files)
+        write_log("INFO", "UPLOAD", f"[{username}] using `!upload all`: {paths}")
 
     successful_uploads = []
     failed_uploads = []
 
     for input_path in paths:
         file_was_downloaded = False
+        filename = ""
 
-        # Determine if input is local file or Google Drive link
-        local_file = (UPLOAD_PATH / input_path).resolve()
-        is_local = local_file.exists()
+        try:
+            local_file = (UPLOAD_PATH / input_path).resolve()
+            is_local = local_file.exists()
 
-        if is_local:
-            filename = local_file.name
-            saved_path = local_file
-            await ctx.send(f"📤 Uploading local file `{filename}` from `{UPLOAD_PATH}` folder...")
+            if is_local:
+                filename = local_file.name
+                saved_path = local_file
+                await ctx.send(f"📤 <@{user_id}> Uploading local file `{filename}` from `{UPLOAD_PATH}` folder...")
+                write_log("INFO", "UPLOAD", f"[{username}] Found local file: {filename}")
 
-        else:
-            # Treat as Google Drive link
-            try:
-                await ctx.send(f"📥 Downloading file from Google Drive link: {input_path}")
+            else:
                 file_id = extract_file_id(input_path)
 
                 if not file_id:
-                    await ctx.send(f"❌ Invalid Google Drive link format: `{input_path}`")
+                    await ctx.send(f"❌ <@{user_id}> Invalid Google Drive link format: `{input_path}`")
                     failed_uploads.append(input_path)
+                    write_log("ERROR", "UPLOAD", f"[{username}] Invalid Google Drive link: {input_path}")
                     continue
 
+                await ctx.send(f"📥 <@{user_id}> Downloading file from Google Drive ID: {file_id}")
                 filename = get_original_filename(file_id)
-
-            except Exception as e:
-                await ctx.send(f"❌ Failed to parse Google Drive link `{input_path}`: `{e}`")
-                failed_uploads.append(input_path)
-                continue
-
-            try:
-                saved_path = download_drive_file(file_id, filename)
+                saved_path = await asyncio.to_thread(download_drive_file, file_id, filename)
                 file_was_downloaded = True
-                await ctx.send(f"✅ File downloaded as `{filename}`.")
+                await ctx.send(f"✅ <@{user_id}> File downloaded as `{filename}`.")
+                write_log("INFO", "UPLOAD", f"[{username}] Downloaded file `{filename}` from Google Drive.")
 
-            except Exception as e:
-                await ctx.send(f"❌ Failed to download file `{filename}`: `{e}`")
-                failed_uploads.append(input_path)
-                continue
-
-        # Check for duplicates
-        try:
             drive = load_json(DRIVE)
-            drive.setdefault(user_id, {})
+            drive.setdefault(username.lower(), {})
 
-            if filename in drive[user_id]:
-                await ctx.send(f"🔁 File `{filename}` is already uploaded. Skipping re-upload.")
-
-                if file_was_downloaded and saved_path.exists():
-                    saved_path.unlink()
-
+            if filename in drive[username.lower()]:
+                await ctx.send(f"🔁 <@{user_id}> File `{filename}` is already uploaded. Skipping re-upload.")
                 failed_uploads.append(filename)
+                write_log("INFO", "UPLOAD", f"[{username}] File `{filename}` already exists. Skipped.")
                 continue
 
-        except Exception as e:
-            await ctx.send(f"❌ Error loading drive metadata: `{e}`")
+            file_size = saved_path.stat().st_size
+            hashes = []
 
-            if file_was_downloaded and saved_path.exists():
-                saved_path.unlink()
-
-            failed_uploads.append(filename)
-            continue
-
-        # Upload Process (split, hash, upload)
-        file_size = saved_path.stat().st_size
-        hashes = []
-
-        try:
             if file_size <= MAX_PART_SIZE:
                 data = saved_path.read_bytes()
                 hashes = [await upload_and_hash_part(data)]
+                write_log("INFO", "UPLOAD", f"[{username}] Uploaded single-part file `{filename}`.")
 
             else:
+                split_path = TEMP_SPLIT_PATH / filename
                 total_parts = (file_size + MAX_PART_SIZE - 1) // MAX_PART_SIZE
-                status_msg = await ctx.send(f"📤 Uploading part 1/{total_parts} of `{filename}`...")
+                status_msg = await ctx.send(f"📤 <@{user_id}> Uploading part 1/{total_parts} of `{filename}`...")
+                write_log("INFO", "UPLOAD",
+                          f"[{username}] Starting multi-part upload: `{filename}` ({total_parts} parts).")
 
                 with saved_path.open("rb") as f:
                     for part_num in range(1, total_parts + 1):
@@ -254,45 +225,48 @@ async def upload(ctx: commands.Context, *paths: str) -> None:
                         if not chunk:
                             break
 
+                        part_file = split_path.with_name(f"{split_path.stem}.part{part_num:03d}{split_path.suffix}")
+                        part_file.write_bytes(chunk)
                         hashes.append(await upload_and_hash_part(chunk))
+                        part_file.unlink(missing_ok=True)
+
+                        write_log("INFO", "UPLOAD",
+                                  f"[{username}] Uploaded part {part_num}/{total_parts} of `{filename}`.")
 
                         if part_num < total_parts:
-                            await status_msg.edit(
-                                content=f"📤 Uploading part {part_num + 1}/{total_parts} of `{filename}`...")
+                            await status_msg.edit(content=f"📤 <@{user_id}> Uploading part {part_num + 1}/{total_parts}"
+                                                          f" of `{filename}`...")
 
-                await status_msg.edit(content=f"✅ All {total_parts} parts of `{filename}` uploaded.")
+                await status_msg.edit(content=f"✅ <@{user_id}> All {total_parts} parts of `{filename}` uploaded.")
+                write_log("INFO", "UPLOAD", f"[{username}] Completed multi-part upload: `{filename}`")
 
-        except Exception as e:
-            await ctx.send(f"❌ Failed during file upload of `{filename}`: `{e}`")
-
-            if file_was_downloaded and saved_path.exists():
-                saved_path.unlink()
-
-            failed_uploads.append(filename)
-            continue
-
-        # Save metadata & clean up
-        try:
-            drive[user_id][filename] = hashes
+            drive = load_json(DRIVE)
+            drive.setdefault(username.lower(), {})
+            drive[username.lower()][filename] = hashes
             save_json(drive, DRIVE)
+            successful_uploads.append(filename)
+            write_log("INFO", "UPLOAD", f"[{username}] File `{filename}` saved to drive with {len(hashes)} part(s).")
 
         except Exception as e:
-            await ctx.send(f"⚠️ Upload succeeded but failed to save metadata for `{filename}`: `{e}`")
+            await ctx.send(f"❌ <@{user_id}> Failed to upload `{input_path or filename}`: `{e}`")
+            failed_uploads.append(input_path or filename)
+            write_log("ERROR", "UPLOAD", f"[{username}] Exception uploading `{input_path or filename}`: {e}")
 
-        if file_was_downloaded and saved_path.exists():
-            saved_path.unlink()
-            await ctx.send(f"🧹 Removed downloaded file `{filename}`.")
+        finally:
+            if file_was_downloaded and 'saved_path' in locals() and saved_path.exists():
+                saved_path.unlink()
+                await ctx.send(f"🧹 <@{user_id}> Removed downloaded file `{filename}`.")
+                write_log("INFO", "UPLOAD", f"[{username}] Removed temporary downloaded file `{filename}`.")
 
-        successful_uploads.append(filename)
-
-    # Summary message
     summary_msg = ""
 
     if successful_uploads:
-        summary_msg += f"✅ Successfully uploaded → | {' | '.join(successful_uploads)} |\n"
+        summary_msg += f"✅ <@{user_id}> Uploaded {len(successful_uploads)} file(s): {', '.join(successful_uploads)}\n"
+        write_log("INFO", "UPLOAD", f"[{username}] Successfully uploaded files: {successful_uploads}")
 
     if failed_uploads:
-        summary_msg += f"⚠️ Failed to upload → | {' | '.join(failed_uploads)} |"
+        summary_msg += f"⚠️ <@{user_id}> Failed to upload {len(failed_uploads)} file(s): {', '.join(failed_uploads)}"
+        write_log("ERROR", "UPLOAD", f"[{username}] Failed to upload files: {failed_uploads}")
 
     await ctx.send(summary_msg.strip())
 
@@ -337,51 +311,57 @@ async def download(ctx: commands.Context, *filenames: str) -> None:
         4. After processing all files, send a summary reporting successful and failed downloads.
 
     Notes:
-    - Output files are saved using specified filenames in the `download/` directory.
+    - Output files are saved using specified filenames in the `download/<username>/` directory.
     - Partial files are deleted on error to avoid leaving corrupted files.
     - Requires bot permissions to fetch messages and download attachments in the configured `FILE_DUMP` channel.
     - Efficiently streams chunks to avoid high memory usage, supporting large files as well as batch downloads.
     """
-    user_id = str(ctx.author.id)
+    username = ctx.author.name.upper()
+    user_id = ctx.author.id
 
-    # Collect candidate files
     drive = load_json(DRIVE)
-    user_files = drive.get(user_id, {})
+    user_files = drive.get(username.lower(), {})
 
     if not filenames:
-        await ctx.send("❗ Usage: `!download <filename> [filename2 ...]` or `!download all`")
+        await ctx.send(f"❗ <@{user_id}> Usage: `!download <filename> [filename2 ...]` or `!download all`")
+        write_log("ERROR", "DOWNLOAD", f"[{username}] called without filenames.")
         return
 
     requested_files = list(filenames)
 
-    # Expand 'all' to all available user files (case-insensitive search for 'all')
     if any(f.lower() == "all" for f in requested_files):
         if not user_files:
-            await ctx.send("📁 Your drive is empty—nothing to download.")
+            await ctx.send(f"📁 <@{user_id}> Your drive is empty—nothing to download.")
+            write_log("ERROR", "DOWNLOAD", f"[{username}] tried to download all, but drive is empty.")
             return
 
         requested_files = list(user_files.keys())
+        write_log("INFO", "DOWNLOAD", f"[{username}] requested all files: {requested_files}")
 
     successful, failed = [], []
 
+    user_folder = DOWNLOAD_PATH / username.lower()
+    user_folder.mkdir(parents=True, exist_ok=True)
+
     for filename in requested_files:
         if filename not in user_files:
-            await ctx.send(f"❌ File `{filename}` not found in your drive. Skipping.")
+            await ctx.send(f"❌ <@{user_id}> File `{filename}` not found in your drive. Skipping.")
             failed.append(filename)
+            write_log("ERROR", "DOWNLOAD", f"[{username}] File `{filename}` not found.")
             continue
 
         if settings.FILE_DUMP is None:
-            await ctx.send("❌ Internal error: file storage channel not set.")
+            await ctx.send(f"❌ <@{user_id}> Internal error: file storage channel not set.")
             failed.append(filename)
+            write_log("ERROR", "DOWNLOAD", f"[{username}] FILE_DUMP is not configured.")
             continue
 
         chunks = user_files[filename]
         total_parts = len(chunks)
-        await ctx.send(f"🔎 Validating `{filename}`...")
-
-        final_path = DOWNLOAD_PATH / filename
-        DOWNLOAD_PATH.mkdir(exist_ok=True)
-        status = await ctx.send(f"📥 Downloading {total_parts} parts for `{filename}`...")
+        await ctx.send(f"🔎 <@{user_id}> Validating `{filename}`... Starting download.")
+        write_log("INFO", "DOWNLOAD", f"[{username}] Starting download for `{filename}` ({total_parts} parts)")
+        final_path = user_folder / filename
+        status = await ctx.send(f"📥 <@{user_id}> Downloading {total_parts} parts for `{filename}`...")
 
         try:
             with open(final_path, "wb") as output:
@@ -397,41 +377,47 @@ async def download(ctx: commands.Context, *filenames: str) -> None:
                         attachment = msg.attachments[0]
                         data = await attachment.read()
                         output.write(data)
-                        await status.edit(content=f"📥 Downloaded part {i + 1}/{total_parts}...")
+                        await status.edit(content=f"📥 <@{user_id}> Downloaded part {i + 1}/{total_parts} for "
+                                                  f"`{filename}`...")
+                        write_log("INFO", "DOWNLOAD", f"<[{username}] Downloaded part {i + 1} of `{filename}`.")
 
                     except Exception as e:
-                        await status.edit(content=f"⚠️ Failed at part {i + 1}: `{e}`")
+                        await status.edit(content=f"⚠️ <@{user_id}> Failed at part {i + 1} of `{filename}`: `{e}`")
+                        write_log("ERROR", "DOWNLOAD", f"[{username}] Failed at part {i + 1} of `{filename}`: {e}")
 
-                        # Clean up partial file on error
                         if final_path.exists():
                             final_path.unlink()
+                            write_log("INFO", "DOWNLOAD", f"Deleted incomplete file `{final_path}`.")
 
                         failed.append(filename)
-                        break  # Skip to next requested file
+                        break
 
                 else:
-                    await status.edit(content=f"✅ File `{filename}` reconstructed and saved as `{filename}`"
-                                              f" in `download/` folder.")
+                    await status.edit(content=f"✅ <@{user_id}> File `{filename}` saved in "
+                                              f"`download/{username.lower()}/`.")
                     successful.append(filename)
-                    continue  # only runs if not broken out of 'for' loop above
+                    write_log("INFO", "DOWNLOAD", f"[{username}] Downloaded file `{filename}` successfully.")
+                    continue
 
-        # If failed in any inner loop: file already marked as failed
         except Exception as e:
-            await status.edit(content=f"❌ Failed to write file `{filename}`: `{e}`")
+            await status.edit(content=f"❌ <@{user_id}> Failed to write file `{filename}`: `{e}`")
 
             if final_path.exists():
                 final_path.unlink()
+                write_log("INFO", "DOWNLOAD", f"Deleted partially written file `{final_path}`.")
 
             failed.append(filename)
+            write_log("ERROR", "DOWNLOAD", f"[{username}] Exception writing file `{filename}`: {e}")
 
-    # Send summary
     summary = ""
 
     if successful:
-        summary += f"✅ Downloaded → | {' | '.join(successful)} |\n"
+        summary += f"✅ <@{user_id}> Downloaded → | {' | '.join(successful)} |\n"
+        write_log("INFO", "DOWNLOAD", f"[{username}] Successfully downloaded: {successful}")
 
     if failed:
-        summary += f"⚠️ Failed → | {' | '.join(failed)} |"
+        summary += f"⚠️ <@{user_id}> Failed → | {' | '.join(failed)} |"
+        write_log("ERROR", "DOWNLOAD", f"[{username}] Failed downloads: {failed}")
 
     if summary:
         await ctx.send(summary.strip())
@@ -480,72 +466,88 @@ async def remove(ctx: commands.Context, *filenames: str) -> None:
     - Sequential processing ensures clear progress feedback and error handling without recursion.
     - Designed to avoid unhandled exceptions to maintain a smooth user experience.
     """
-    user_id = str(ctx.author.id)
+    username = ctx.author.name.upper()
+    user_id = ctx.author.id
 
     if not filenames:
-        await ctx.send("❗ Usage: `!remove <filename> [filename2 ...]` or `!remove all`")
+        await ctx.send(f"❗ <@{user_id}> Usage: `!remove <filename> [filename2 ...]` or `!remove all`")
+        write_log("ERROR", "REMOVE", f"[{username}] called without filenames.")
         return
 
     drive = load_json(DRIVE)
-    user_files = drive.get(user_id, {})
+    user_files = drive.get(username.lower(), {})
 
-    # Handle 'all' keyword: delete all files regardless of other filenames
     if "all" in (name.lower() for name in filenames):
         if not user_files:
-            await ctx.send("📁 Your drive is already empty.")
+            await ctx.send(f"📁 <@{user_id}> Your drive is already empty.")
+            write_log("INFO", "REMOVE", f"[{username}] attempted to remove all but drive is empty.")
             return
 
-        filenames = list(user_files.keys())  # override filenames to all files
-        await ctx.send(f"🧹 Removing **{len(filenames)}** files from your drive...")
+        filenames = list(user_files.keys())
+        await ctx.send(f"🧹 <@{user_id}> Removing **{len(filenames)}** files from your drive...")
+        write_log("INFO", "REMOVE", f"[{username}] requested to remove all files: {filenames}")
 
-    # Loop over given filenames and delete each
     for filename in filenames:
         if filename not in user_files:
-            await ctx.send(f"📁 File `{filename}` not found in your drive. Skipping.")
+            await ctx.send(f"📁 <@{user_id}> File `{filename}` not found in your drive. Skipping.")
+            write_log("ERROR", "REMOVE", f"[{username}] File `{filename}` not found.")
             continue
 
         try:
-            chunks = get_file_chunks(user_id, filename)
+            chunks = get_file_chunks(username.lower(), filename)
             total_parts = len(chunks)
             message_ids = [list(part.values())[0] for part in chunks]
+            write_log("INFO", "REMOVE", f"[{username}] Preparing to delete `{filename}` with {total_parts} parts.")
 
         except Exception as e:
-            await ctx.send(f"⚠️ Error retrieving chunks for `{filename}`: `{e}`")
+            await ctx.send(f"⚠️ <@{user_id}> Error retrieving chunks for `{filename}`: `{e}`")
+            write_log("ERROR", "REMOVE", f"[{username}] Failed to get chunks for `{filename}`: {e}")
             continue
 
-        status = await ctx.send(f"🗑️ Deleting `{filename}`... 0/{total_parts}")
+        status = await ctx.send(f"🗑️ <@{user_id}> Deleting `{filename}`... 0/{total_parts}")
         deleted = 0
 
         for i, msg_id in enumerate(message_ids):
             try:
-                await status.edit(content=f"🗑️ Deleting `{filename}`... {i + 1}/{total_parts}")
+                await status.edit(content=f"🗑️ <@{user_id}> Deleting `{filename}`... {i + 1}/{total_parts}")
                 msg = await settings.FILE_DUMP.fetch_message(msg_id)
                 await msg.delete()
                 deleted += 1
+                write_log("INFO", "REMOVE", f"[{username}] Deleted part {i + 1} of `{filename}`.")
 
             except discord.NotFound:
+                write_log("ERROR", "REMOVE", f"[{username}] Message ID `{msg_id}` not found for `{filename}`.")
                 continue
 
             except discord.Forbidden:
-                await status.edit(content="🚫 Missing permissions to delete messages.")
+                await status.edit(content=f"🚫 <@{user_id}> Missing permissions to delete messages.")
+                write_log("ERROR", "REMOVE", f"[{username}] Missing permissions to delete message `{msg_id}`.")
                 return
 
             except Exception as e:
-                await status.edit(content=f"⚠️ Failed at message ID `{msg_id}`: `{e}`")
+                await status.edit(content=f"⚠️ <@{user_id}> Failed at message ID `{msg_id}`: `{e}`")
+                write_log("ERROR", "REMOVE", f"[{username}] Failed to delete message `{msg_id}`: {e}")
                 return
 
-        # Remove metadata for deleted file
         try:
-            drive = load_json(DRIVE)  # reload in case of concurrent changes
+            drive = load_json(DRIVE)
 
-            if filename in drive.get(user_id, {}):
-                del drive[user_id][filename]
+            if filename in drive.get(username.lower(), {}):
+                del drive[username.lower()][filename]
+
+                if not drive[username.lower()]:
+                    del drive[username.lower()]
+
                 save_json(drive, DRIVE)
+                write_log("INFO", "REMOVE", f"[{username}] Metadata updated after removing `{filename}`.")
 
-            user_files = drive.get(user_id, {})  # update local copy to reflect changes
+            user_files = drive.get(username.lower(), {})
 
         except Exception as e:
-            await ctx.send(f"⚠️ Deleted chunks but failed to update metadata for `{filename}`: `{e}`")
+            await ctx.send(f"⚠️ <@{user_id}> Deleted chunks but failed to update metadata for `{filename}`: `{e}`")
+            write_log("ERROR", "REMOVE",
+                      f"[{username}] Failed to update DRIVE metadata after deleting `{filename}`: {e}")
 
-        await status.edit(content=f"✅ `{filename}` deleted ({deleted}/{total_parts} parts).")
-        await ctx.send(f"📁 `{filename}` has been fully removed from your drive.")
+        await status.edit(content=f"✅ <@{user_id}> `{filename}` deleted ({deleted}/{total_parts} parts).")
+        await ctx.send(f"📁 <@{user_id}> `{filename}` has been fully removed from your drive.")
+        write_log("INFO", "REMOVE", f"[{username}] Completed deletion of `{filename}` ({deleted}/{total_parts}).")

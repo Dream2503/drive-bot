@@ -30,7 +30,8 @@ import settings  # Configuration and bot instance
 import commands  # Command handlers for bot features
 import transfer  # File upload & download logic (including !upload & !download)
 
-from settings import app, UPLOAD_PATH, FILE_DUMP_ID
+from settings import app, UPLOAD_PATH, DOWNLOAD_PATH, TEMP_SPLIT_PATH, LOGS_PATH, FILE_DUMP_ID
+from utils import write_log
 
 
 @app.event
@@ -39,53 +40,58 @@ async def on_ready():
     Discord bot event handler triggered once when the bot successfully connects and is ready.
 
     Responsibilities:
-        - Ensures the `upload/` directory exists to hold temporary upload files.
-        - Fetches and caches the `FILE_DUMP` Discord channel object by ID for later file storage and retrieval.
-        - Logs important startup information and error messages to the console for diagnostics.
+        - Ensures required local directories exist for bot operations:
+            - `UPLOAD_PATH` for user-uploaded files.
+            - `DOWNLOAD_PATH` for reassembled downloads.
+            - `TEMP_SPLIT_PATH` for temporary chunked files.
+        - Fetches and caches the `FILE_DUMP` Discord channel object by ID for file chunk storage.
+        - Logs startup details and diagnostic messages to both console and file.
 
     Usage:
-        Automatically called by the Discord.py event loop upon bot startup.
-        Sets up necessary directories and validates critical channel references before bot becomes operational.
+        Automatically invoked by the Discord.py event loop upon bot startup.
+        Sets up critical paths and validates the upload channel before the bot begins serving commands.
 
     Flow:
-        1. Create the `UPLOAD_PATH` directory if it does not exist.
-        2. Retrieve the Discord channel object corresponding to `FILE_DUMP_ID` and store it in `settings.FILE_DUMP`.
-        3. If the channel is not found, output error messages suggesting permission or configuration issues.
-        4. Otherwise, output the channel name and id to confirm proper setup.
-        5. Print the bot's login username and ID to confirm successful startup.
+        1. Create the `upload/`, `download/`, and `temp/` directories if they don’t already exist.
+        2. Retrieve and cache the `FILE_DUMP` channel object using its ID.
+        3. Log error messages if the channel is not accessible, suggesting permission/config issues.
+        4. Log success messages if setup completes as expected, including bot and channel identity.
 
     Notes:
-        - Requires `UPLOAD_PATH` and `FILE_DUMP_ID` to be properly defined in `settings.py`.
-        - The cached `FILE_DUMP` channel is used for uploading and fetching file chunks uploaded as Discord messages.
-        - Proper permissions to read messages and send/delete in `FILE_DUMP` channel are essential.
+        - Requires `UPLOAD_PATH`, `DOWNLOAD_PATH`, and `TEMP_SPLIT_PATH` to be defined in `settings.py`.
+        - Requires `FILE_DUMP_ID` to reference a valid `discord.TextChannel` where the bot has send/delete permissions.
+        - These checks ensure all runtime paths are ready and prevent errors during uploads/downloads.
     """
-    UPLOAD_PATH.mkdir(exist_ok=True)  # Make sure the upload/ directory exists for incoming files
-    settings.FILE_DUMP = app.get_channel(FILE_DUMP_ID)  # Cache the file dump channel by ID, needed for file operations
+    UPLOAD_PATH.mkdir(exist_ok=True)
+    DOWNLOAD_PATH.mkdir(exist_ok=True)
+    TEMP_SPLIT_PATH.mkdir(exist_ok=True)
+    open(LOGS_PATH, "a").close()
+    write_log("INFO", "INIT", "Created required directories.")
+    settings.FILE_DUMP = app.get_channel(FILE_DUMP_ID)
 
     if settings.FILE_DUMP is None:
-        print("❌ Failed to fetch FILE_DUMP channel.")
-        print(f"   → Check FILE_DUMP_ID ({FILE_DUMP_ID}) and bot permissions.")
+        write_log("ERROR", "INIT", f"Failed to fetch FILE_DUMP channel with ID {FILE_DUMP_ID}. Check permissions.")
 
     else:
-        print(f"📤 FILE_DUMP channel set: {settings.FILE_DUMP.name} (id={settings.FILE_DUMP.id})")
+        write_log("INFO", "INIT", f"FILE_DUMP channel set: {settings.FILE_DUMP.name} (id={settings.FILE_DUMP.id})")
 
-    print(f"✅ Bot is online. Logged in as {app.user} (id={app.user.id})")
+    write_log("INFO", "INIT", f"Bot is online. Logged in as {app.user} (id={app.user.id})")
 
 
 if __name__ == "__main__":
     try:
-        # Loads and cleans your bot token from a secure file
         with open("database/bot_creds.txt") as f:
             token = f.read().strip()
 
             if not token:
-                raise ValueError("Empty token in 'bot_creds.txt'.")
+                write_log("ERROR", "MAIN", "Empty token in 'bot_creds.txt'.")
+                exit(0)
 
-        print("⏳ Starting Drive Bot...")
+        write_log("INFO", "MAIN", "Starting Drive Bot...")
         app.run(token)
 
     except FileNotFoundError:
-        print("❌ Missing 'database/bot_creds.txt'. Please place your bot token in this file.")
+        write_log("ERROR", "MAIN", "Missing 'database/bot_creds.txt'. Please place your bot token in this file.")
 
     except Exception as e:
-        print(f"❌ Critical error during bot startup: {e}")
+        write_log("ERROR", "MAIN", f"Critical error during bot startup: {e}")

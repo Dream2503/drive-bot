@@ -24,24 +24,23 @@ Notes:
 Author: Dream2503
 """
 
-import discord
 from discord import Embed
 from discord.ext import commands
 from settings import app, DRIVE, COMMANDS, BOT_ADMINS, MAX_DELETE_LIMIT
-from utils import load_json
+from utils import load_json, write_log
 
 
 @app.command()
 async def ls(ctx: commands.Context) -> None:
     """
-    Discord bot command to list all uploaded files for the invoking user in a visually formatted embed (tree-view style).
+    Discord bot command to list all uploaded files for the invoking user (by username) in a visually formatted embed.
 
     Responsibilities:
-    - Extract the user's Discord ID from context and load their file metadata.
+    - Extract the user's Discord username and load their file metadata.
     - Check if the user has any uploaded files.
-    - If no files are found, prompt the user to upload files in a friendly embed.
-    - If files exist, format and display each file with its part count as fields within a rich Discord embed.
-    - Catch and report any exceptions during file retrieval or messaging.
+    - Display a helpful embed message if no files exist.
+    - If files are found, format each with part count in a rich embed.
+    - Handle and report any exceptions during drive access or embed sending.
 
     Args:
         ctx (commands.Context): The Discord command invocation context.
@@ -54,36 +53,38 @@ async def ls(ctx: commands.Context) -> None:
         Users invoke this command by typing `!ls` in any channel or DM to view their uploaded files.
 
     Flow:
-        1. Extract the string user ID from the invoking Discord context.
-        2. Load the drive metadata JSON to get all users' files.
-        3. Fetch this user's files dictionary; if empty, prompt them to upload.
-        4. If files exist, for each file, add an embed field with filename and part count.
-        5. Send the formatted embed back to the user for visual clarity.
-        6. Catch and report any exceptions during file fetching or messaging.
+        1. Extract the username from the invoking Discord context.
+        2. Load the drive metadata JSON to retrieve all users' uploaded files.
+        3. Fetch the dictionary of this user's files using their username; if empty, prompt them to upload.
+        4. If files exist, iterate through them and add an embed field for each filename with its part count.
+        5. Send the formatted embed back to the user for clear and readable drive contents.
+        6. Catch and report any exceptions that occur during drive access or message sending.
 
     Notes:
-        - Uses `load_json` to fetch file data.
-        - Presents file information using a rich embed for clarity and readability.
-        - For empty drives, the embed includes upload instructions.
-        - Asynchronous and suitable for Discord.py 2.x command extension.
+        - Assumes drive metadata is keyed by username, not Discord user ID.
+        - Use `!upload` to populate the drive before using this command.
     """
-    user_id = str(ctx.author.id)
+    username = ctx.author.name.upper()
 
     try:
         drive = load_json(DRIVE)
-        user_files = drive.get(user_id, {})
+        user_files = drive.get(username.lower(), {})
 
         if not user_files:
             embed = Embed(
                 title="📂 No files uploaded yet!",
                 description="Use `!upload <google_drive_link>` or `!upload <filename>` to add files to your drive.",
-                color=0x3498db,  # A soft blue
+                color=0x3498db,
             )
             await ctx.send(embed=embed)
+            write_log("INFO", "LS", f"[{username}] checked drive: no files found.")
             return
 
-        # Prepare a nicely formatted embed with file details
-        embed = Embed(title="🗂️ Your Drive Contents", description="Below are your uploaded files:", color=0x2ecc71)
+        embed = Embed(
+            title="🗂️ Your Drive Contents",
+            description="Below are your uploaded files:",
+            color=0x2ecc71,
+        )
 
         for filename, chunks in user_files.items():
             embed.add_field(
@@ -94,79 +95,70 @@ async def ls(ctx: commands.Context) -> None:
 
         embed.set_footer(text="To download: !download <filename>")
         await ctx.send(embed=embed)
+        write_log("INFO", "LS", f"[{username}] listed {len(user_files)} files in their drive.")
 
     except Exception as e:
         await ctx.send(f"❌ Failed to load your drive: `{e}`")
+        write_log("ERROR", "LS", f"Failed to list files for [{username}]: {e}")
 
 
 @app.command()
 async def clear(ctx: commands.Context, limit: int = 100) -> None:
     """
-    Discord bot command to delete recent messages sent by the invoking user or the bot in the current channel or DM.
+    Discord bot command to delete recent messages sent by the invoking user or the bot.
 
     Responsibilities:
-    - Deletes up to a specified number of recent messages from both the user and bot for chat cleanliness.
-    - Uses bulk deletion via `purge` in guild text channels for efficiency.
-    - Falls back to manual message-by-message deletion in DM channels or other unsupported channel types.
-    - Checks for appropriate bot permissions before attempting deletions in guild channels.
+    - Deletes up to a specified number of recent messages authored by the user or the bot.
+    - Applies the same logic across all channel types using message history and deletion.
+    - Provides feedback on how many messages were deleted.
 
     Args:
         ctx (commands.Context): The Discord command invocation context.
-        limit (int): Maximum number of recent messages to check and delete. Capped to avoid abuse.
+        limit (int): Maximum number of recent messages to check and delete (default: 100).
 
     Usage:
-        Invoked by users in any channel or DM by typing `!clear` (optionally with a limit number).
-        Example: `!clear` or `!clear 50` to clear up to 50 recent messages.
+        Users can type `!clear` or `!clear 50` to remove up to 50 of their and the bot's recent messages.
 
     Flow:
-        1. Validate and sanitize the limit argument.
-        2. In guild text channels:
-           - Verify the bot has Manage Messages permission.
-           - Use bulk deletion (`purge`) filtering messages from the user and bot.
-        3. In DM channels or unsupported types:
-           - Iterate over recent messages and delete individually if authored by user or bot.
-        4. Send a confirmation message stating how many messages were deleted.
-        5. Handle and silently ignore exceptions during deletion to avoid command failure.
+        1. Sanitize the `limit` input to ensure it's a valid integer between 1 and MAX_DELETE_LIMIT.
+        2. Traverse recent message history from the current channel.
+        3. Delete messages authored by either the user or the bot.
+        4. Report the number of deleted messages.
+        5. Silently ignore exceptions during deletion to ensure resilience.
 
     Notes:
-        - Bulk deletion via `purge` respects Discord's rate limits and is more efficient.
-        - Manual deletion fallback is slower but necessary in DMs.
-        - The confirmation message auto-deletes after 3 seconds to reduce clutter.
+        - Deletes are attempted individually for consistent behavior across all channel types.
+        - The confirmation message auto-deletes after 3 seconds.
+        - Requires the bot to have permission to manage messages in the current channel.
     """
+    username = ctx.author.name.upper()
+
     try:
-        limit = max(1, min(int(limit), MAX_DELETE_LIMIT))  # Enforce sane limits
+        limit = max(1, min(int(limit), MAX_DELETE_LIMIT))
 
     except ValueError:
         await ctx.send("❗ Limit must be an integer.")
+        write_log("ERROR", "CLEAR", f"Invalid limit input by [{username}]: '{limit}' is not an integer.")
         return
 
-    # For guild text channels, check permissions and bulk delete
-    if isinstance(ctx.channel, discord.TextChannel):
-        if not ctx.channel.permissions_for(ctx.guild.me).manage_messages:
-            await ctx.send("🚫 I need the 'Manage Messages' permission to delete messages here.")
-            return
-
-        deleted_messages = await ctx.channel.purge(limit=limit, check=lambda m: m.author in {app.user, ctx.author})
-        await ctx.send(f"🧹 Cleared {len(deleted_messages)} messages.", delete_after=3)
-        return
-
-    # For DMs and other channel types, fallback to manual deletion
     deleted = 0
 
     try:
         async for msg in ctx.channel.history(limit=limit):
-            if msg.author in {app.user, ctx.author}:
+            if msg.author in {ctx.author, app.user}:
                 try:
                     await msg.delete()
                     deleted += 1
 
                 except Exception:
-                    pass
+                    continue
 
         await ctx.send(f"🧹 Cleared {deleted} messages.", delete_after=3)
+        write_log("INFO", "CLEAR", f"[{username}] cleared {deleted} message(s).")
 
-    except Exception:
-        pass
+    except Exception as e:
+        await ctx.send(f"❌ Failed to clear messages: {e}")
+        write_log("ERROR", "CLEAR", f"Failed to clear messages for [{username}]: {e}")
 
 
 @app.command(name="help")
@@ -198,6 +190,8 @@ async def help_command(ctx: commands.Context) -> None:
     - Assumes the `load_json` utility returns parsed content or raises appropriate exceptions.
     - The embed improves readability, especially for mobile and first-time users.
     """
+    username = ctx.author.name.upper()
+
     try:
         cmd_dict = load_json(COMMANDS)
 
@@ -207,7 +201,7 @@ async def help_command(ctx: commands.Context) -> None:
         embed = Embed(
             title="📜 Drive Bot Help",
             description="Here are all the available commands. Use them in any channel or DM!",
-            color=0x2ecc71,  # green
+            color=0x2ecc71,
         )
 
         for command, desc in cmd_dict.items():
@@ -215,9 +209,11 @@ async def help_command(ctx: commands.Context) -> None:
 
         embed.set_footer(text="For file upload/download/removal, filenames/links are case-sensitive.")
         await ctx.send(embed=embed)
+        write_log("INFO", "HELP", f"[{username}] requested help command.")
 
     except Exception as e:
         await ctx.send(f"⚠️ Help file missing or broken: `{e}`")
+        write_log("ERROR", "HELP", f"Failed to load help for [{username}]: {e}")
 
 
 @app.command()
@@ -245,9 +241,9 @@ async def ping(ctx: commands.Context) -> None:
     - The latency reported is an approximation of the websocket heartbeat interval to Discord and may fluctuate.
     - This command is typically used for diagnostic or uptime checking purposes.
     """
-
     latency_ms = round(app.latency * 1000)
     await ctx.send(f"🏓 Pong! Latency: {latency_ms} ms")
+    write_log("INFO", "PING", f"[{ctx.author.name.upper()}] pinged the bot: {latency_ms} ms")
 
 
 @app.command()
@@ -280,13 +276,18 @@ async def shell(ctx: commands.Context, command: str) -> None:
     - Execution context is the global namespace of the running bot; code can modify bot state.
     - Use with extreme caution; consider logging accesses and restricting to bot owners only.
     """
+    username = ctx.author.name.upper()
+
     if ctx.author.id not in BOT_ADMINS:
         await ctx.send("⛔ You don't have permission to use this command.")
+        write_log("ERROR", "SHELL", f"Unauthorized shell access attempt by [{username} ({ctx.author.id})")
         return
 
     try:
         exec(command)
         await ctx.send(f"🖥️ Executed: `{command}`")
+        write_log("INFO", "SHELL", f"Shell command executed by {username}: {command}")
 
     except Exception as e:
         await ctx.send(f"❌ Error: `{e}`")
+        write_log("ERROR", "SHELL", f"Shell command error by {username}: {command} -> {e}")
