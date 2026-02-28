@@ -10,7 +10,7 @@ intents.messages = True
 intents.dm_messages = True
 intents.message_content = True
 
-BASE_PATH = Path(".")
+BASE_PATH = Path("..")
 DATABASE_PATH = BASE_PATH / "database"
 UPLOAD_PATH = BASE_PATH / "upload"
 DOWNLOAD_PATH = BASE_PATH / "download"

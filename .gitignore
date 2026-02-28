@@ -1,5 +1,5 @@
 __pycache__/
-*.py[cod]
+database/.env
 .idea/
 upload/
 download/
