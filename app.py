@@ -6,12 +6,12 @@ from utils import write_log
 
 
 @app.event
-async def on_ready():
+async def init():
     UPLOAD_PATH.mkdir(exist_ok=True)
     DOWNLOAD_PATH.mkdir(exist_ok=True)
     TEMP_SPLIT_PATH.mkdir(exist_ok=True)
     open(LOGS_PATH, "a").close()
-    write_log("INFO", "INIT", "Created required directories.")
+    write_log("INFO", "INIT", "Initiated required directories.")
     FILE_DUMP = app.get_channel(FILE_DUMP_ID)
 
     if FILE_DUMP:

@@ -1,8 +1,5 @@
-# Core Discord bot framework (v2.0 or later is recommended for modern bots)
-discord.py>=2.0
-
-# Google Drive file downloading
-gdown>=4.7.1
-
-# HTTP requests for filename metadata and general use
-requests>=2.28.0
+discord
+gdown
+requests
+psycopg2-binary
+python-dotenv
