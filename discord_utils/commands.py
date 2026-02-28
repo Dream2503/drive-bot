@@ -1,11 +1,13 @@
-from discord.ext import commands
+from discord.ext.commands import Context
+import settings
 from settings import app, BOT_ADMINS, MAX_DELETE_LIMIT
 from utils import write_log
 
 
 @app.command()
-async def clear(ctx: commands.Context, limit: int = 100) -> None:
+async def clear(ctx: Context, limit: int = 100) -> None:
     username = ctx.author.name.upper()
+    deleted = 0
 
     try:
         limit = max(1, min(int(limit), MAX_DELETE_LIMIT))
@@ -14,8 +16,6 @@ async def clear(ctx: commands.Context, limit: int = 100) -> None:
         await ctx.send("❗ Limit must be an integer.")
         write_log("ERROR", "CLEAR", f"Invalid limit input by [{username}]: '{limit}' is not an integer.")
         return
-
-    deleted = 0
 
     try:
         async for msg in ctx.channel.history(limit=limit):
@@ -36,19 +36,20 @@ async def clear(ctx: commands.Context, limit: int = 100) -> None:
 
 
 @app.command()
-async def ping(ctx: commands.Context) -> None:
-    latency_ms = round(app.latency * 1000)
-    await ctx.send(f"🏓 Pong! Latency: {latency_ms} ms")
-    write_log("INFO", "PING", f"[{ctx.author.name.upper()}] pinged the bot: {latency_ms} ms")
+async def ping(ctx: Context) -> None:
+    latency: float = round(app.latency * 1000)
+    await ctx.send(f"🏓 Pong! Latency: {latency} ms")
+    write_log("INFO", "PING", f"[{ctx.author.name.upper()}] pinged the bot: {latency} ms")
 
 
 @app.command()
-async def shell(ctx: commands.Context, command: str) -> None:
-    username = ctx.author.name.upper()
+async def shell(ctx: Context, command: str) -> None:
+    username: str = ctx.author.name.upper()
+    user_id: int = ctx.author.id
 
-    if ctx.author.id not in BOT_ADMINS:
+    if user_id not in BOT_ADMINS:
         await ctx.send("⛔ You don't have permission to use this command.")
-        write_log("ERROR", "SHELL", f"Unauthorized shell access attempt by [{username} ({ctx.author.id})")
+        write_log("ERROR", "SHELL", f"Unauthorized shell access attempt by [{username} ({user_id})")
         return
 
     try:

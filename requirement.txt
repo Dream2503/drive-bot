@@ -3,3 +3,4 @@ gdown
 requests
 psycopg2-binary
 python-dotenv
+io

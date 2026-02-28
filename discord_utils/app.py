@@ -1,21 +1,20 @@
 import commands
 import transfer
 
-from settings import *
+import settings
+from settings import app, TRANSFER_PATH, LOGS_PATH, FILE_DUMP_ID, BOT_CREDS
 from utils import write_log
 
 
 @app.event
-async def init():
-    UPLOAD_PATH.mkdir(exist_ok=True)
-    DOWNLOAD_PATH.mkdir(exist_ok=True)
-    TEMP_SPLIT_PATH.mkdir(exist_ok=True)
-    open(LOGS_PATH, "a").close()
+async def on_ready():
+    TRANSFER_PATH.mkdir(exist_ok=True)
+    open(LOGS_PATH, "w").close()
     write_log("INFO", "INIT", "Initiated required directories.")
-    FILE_DUMP = app.get_channel(FILE_DUMP_ID)
+    settings.FILE_DUMP = app.get_channel(FILE_DUMP_ID)
 
-    if FILE_DUMP:
-        write_log("INFO", "INIT", f"FILE_DUMP channel set: {FILE_DUMP.name} (id={FILE_DUMP.id})")
+    if settings.FILE_DUMP:
+        write_log("INFO", "INIT", f"FILE_DUMP channel set: {settings.FILE_DUMP.name} (id={settings.FILE_DUMP.id})")
 
     else:
         write_log("ERROR", "INIT", f"Failed to fetch FILE_DUMP channel with ID {FILE_DUMP_ID}. Check permissions.")
@@ -25,7 +24,7 @@ async def init():
 
 if __name__ == "__main__":
     try:
-        with open("database/bot_creds.txt") as f:
+        with open(BOT_CREDS) as f:
             token = f.read().strip()
 
             if not token:

@@ -1,8 +1,7 @@
-__pycache__/
-database/.env
 .idea/
-upload/
-download/
-temp/
-logs.txt
-database
+.virtualenv
+__pycache__/
+backend/database/.env
+discord_utils/bot_creds.txt
+discord_utils/logs.txt
+transfer
