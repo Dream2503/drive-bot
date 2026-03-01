@@ -1,18 +1,19 @@
-import settings
-
 from asyncio import to_thread
-from backend.database.utils import insert_files, get_file_links, get_username
-from discord import File, Message
-from discord.ext.commands import Context
 from io import BytesIO
 from pathlib import Path
-from settings import app, CURSOR, MAX_PART_SIZE, TRANSFER_PATH
-from utils import write_log
+
+import settings
+from backend.database.utils import get_file_links, get_username, insert_files
+from core.settings import TRANSFER_PATH
+from core.utils import write_log
+from discord import File, Message
+from discord.ext.commands import Context
+from settings import app, MAX_PART_SIZE
 
 
 @app.command()
 async def upload(ctx: Context, uid: int, filename: str) -> None:
-    username: str | None = get_username(CURSOR, uid, write_log)
+    username: str | None = get_username(uid, write_log)
 
     if not username:
         return
@@ -26,7 +27,7 @@ async def upload(ctx: Context, uid: int, filename: str) -> None:
 
         write_log("INFO", "UPLOAD", username, f"Found local file: {filename}")
 
-        if get_file_links(CURSOR, uid, filename, write_log):
+        if get_file_links(uid, filename, write_log):
             write_log("ERROR", "UPLOAD", username, f"File `{filename}` already exists.")
             return
 
@@ -59,7 +60,7 @@ async def upload(ctx: Context, uid: int, filename: str) -> None:
 
                     return
 
-        insert_files(CURSOR, uid, filename, links, write_log)
+        insert_files(uid, filename, links, write_log)
         write_log("INFO", "UPLOAD", username, f"Completed upload: `{filename}` ({len(links)} part(s)).")
 
     except Exception as e:
@@ -68,7 +69,7 @@ async def upload(ctx: Context, uid: int, filename: str) -> None:
 
 @app.command()
 async def download(ctx: Context, uid: int, filename: str) -> None:
-    username: str | None = get_username(CURSOR, uid, write_log)
+    username: str | None = get_username(uid, write_log)
 
     if not username:
         return
@@ -76,7 +77,7 @@ async def download(ctx: Context, uid: int, filename: str) -> None:
     final_path: Path = TRANSFER_PATH / filename
 
     try:
-        links: list[int] | None = get_file_links(CURSOR, uid, filename, write_log)
+        links: list[int] | None = get_file_links(uid, filename, write_log)
 
         if not links:
             write_log("ERROR", "DOWNLOAD", username, f"No such file `{filename}` in database.")

@@ -1,7 +1,7 @@
 .idea/
-.venv
+.virtualenv
 __pycache__/
-.env
-discord_utils/.env
-transfer
-frontend/node_modules
+backend/database/.env
+core/discord_utils/.env
+core/telegram_utils/.env
+core/transfer

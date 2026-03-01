@@ -1,7 +1,7 @@
 from typing import Callable
 
 
-def get_username(cursor, uid: int, logger: Callable[[str, str, str, str], None]) -> str | None:
+def get_username(uid: int, logger: Callable[[str, str, str, str], None]) -> str | None:
     cursor.execute(
             """
             SELECT username
@@ -20,7 +20,7 @@ def get_username(cursor, uid: int, logger: Callable[[str, str, str, str], None])
     return None
 
 
-def get_file_links(cursor, uid: int, filename: str, logger: Callable[[str, str, str, str], None]) -> list[int] | None:
+def get_file_links(uid: int, filename: str, logger: Callable[[str, str, str, str], None]) -> list[int] | None:
     username: str | None = get_username(cursor, uid, logger)
 
     if username:
@@ -45,7 +45,7 @@ def get_file_links(cursor, uid: int, filename: str, logger: Callable[[str, str, 
     return None
 
 
-def insert_files(cursor, uid: int, filename: str, links: list[int], logger: Callable[[str, str, str, str], None]) -> None:
+def insert_files(uid: int, filename: str, links: list[int], logger: Callable[[str, str, str, str], None]) -> None:
     username: str | None = get_username(cursor, uid, logger)
 
     if username:
@@ -65,3 +65,9 @@ def insert_files(cursor, uid: int, filename: str, links: list[int], logger: Call
         logger("INFO", "INSERT FILES", "", f"Query executed.")
         cursor.connection.commit()
         logger("INFO", "INSERT FILES", username, f"File `{filename}` saved to database with {len(links)} part(s).")
+
+
+def clear_files(logger: Callable[[str, str, str, str], None]) -> None:
+    cursor.execute("TRUNCATE TABLE owns, files RESTART IDENTITY;")
+    cursor.connection.commit()
+    logger("INFO", "CLEAR", "", f"Truncated the files table")

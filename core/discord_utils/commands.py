@@ -1,15 +1,39 @@
+import settings
+from backend.database.utils import clear_files
+from core.settings import LOG_HANDLER, TRANSFER_PATH
+from core.utils import write_log
 from discord.ext.commands import Context
-from settings import app, BOT_ADMINS, CURSOR, MAX_DELETE_LIMIT
-from utils import write_log
+from settings import app, BOT_ADMINS, FILE_DUMP_ID, MAX_DELETE_LIMIT
+
+
+@app.event
+async def on_ready():
+    TRANSFER_PATH.mkdir(exist_ok=True)
+    settings.FILE_DUMP = app.get_channel(FILE_DUMP_ID)
+    write_log("INFO", "INIT", "", "Initiated required directories.")
+
+    if settings.FILE_DUMP:
+        write_log("INFO", "INIT", "", f"FILE_DUMP channel set: {settings.FILE_DUMP.name} (id={settings.FILE_DUMP.id})")
+
+    else:
+        write_log("ERROR", "INIT", "", f"Failed to fetch FILE_DUMP channel with ID {FILE_DUMP_ID}. Check permissions.")
+
+    write_log("INFO", "INIT", str(app.user), f"Bot is online. Logged in (id={app.user.id})")
+
+
+@app.command()
+async def shutdown(ctx: Context):
+    await ctx.message.delete()
+    write_log("INFO", "SHUTDOWN", ctx.author.name, "Shutting down bot.")
+    LOG_HANDLER.close()
+    await app.close()
 
 
 @app.command()
 async def clear(ctx: Context, limit: int = MAX_DELETE_LIMIT) -> None:
     username: str = ctx.author.name
     deleted: int = 0
-    CURSOR.execute("TRUNCATE TABLE owns, files RESTART IDENTITY;")
-    CURSOR.connection.commit()
-    write_log("INFO", "CLEAR", username, f"Truncated the files table")
+    clear_files(write_log)
 
     try:
         limit: int = max(1, min(int(limit), MAX_DELETE_LIMIT))

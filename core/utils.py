@@ -1,5 +1,6 @@
 from datetime import datetime
-from settings import LOG_HANDLER
+
+from core.settings import LOG_HANDLER
 
 
 def write_log(level: str, func: str, user: str, message: str) -> None:
