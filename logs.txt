@@ -1,0 +1,47 @@
+[2026-03-01 08:27:21] [INFO] [MAIN] [] Starting Drive Bot...
+[2026-03-01 08:27:26] [INFO] [INIT] [] Initiated required directories.
+[2026-03-01 08:27:26] [INFO] [INIT] [] FILE_DUMP channel set: files-dump (id=1399311590616203284)
+[2026-03-01 08:27:26] [INFO] [INIT] [Drive Bot#1152] Bot is online. Logged in (id=1399287140885725245)
+[2026-03-01 08:27:53] [INFO] [GET USERNAME] [] Executed Query
+[2026-03-01 08:27:53] [INFO] [GET USERNAME] [dream] Successfully fetched user from database
+[2026-03-01 08:27:53] [INFO] [UPLOAD] [dream] Found local file: 100MB.bin
+[2026-03-01 08:27:54] [INFO] [GET USERNAME] [] Executed Query
+[2026-03-01 08:27:54] [INFO] [GET USERNAME] [dream] Successfully fetched user from database
+[2026-03-01 08:27:54] [INFO] [GET FILE LINKS] [] Executed Query
+[2026-03-01 08:27:54] [ERROR] [GET FILE LINKS] [dream] File: 100MB.bin not found in the database.
+[2026-03-01 08:27:54] [INFO] [UPLOAD] [dream] Starting upload: `100MB.bin` (11 part(s)).
+[2026-03-01 08:28:40] [INFO] [UPLOAD] [dream] Uploaded part 1/11 of `100MB.bin` to Discord. (Message ID: 1477583339178299554)
+[2026-03-01 08:29:25] [INFO] [UPLOAD] [dream] Uploaded part 2/11 of `100MB.bin` to Discord. (Message ID: 1477583529755021333)
+[2026-03-01 08:30:10] [INFO] [UPLOAD] [dream] Uploaded part 3/11 of `100MB.bin` to Discord. (Message ID: 1477583719899467878)
+[2026-03-01 08:30:56] [INFO] [UPLOAD] [dream] Uploaded part 4/11 of `100MB.bin` to Discord. (Message ID: 1477583908978688092)
+[2026-03-01 08:31:41] [INFO] [UPLOAD] [dream] Uploaded part 5/11 of `100MB.bin` to Discord. (Message ID: 1477584097357594857)
+[2026-03-01 08:32:26] [INFO] [UPLOAD] [dream] Uploaded part 6/11 of `100MB.bin` to Discord. (Message ID: 1477584288122798124)
+[2026-03-01 08:33:11] [INFO] [UPLOAD] [dream] Uploaded part 7/11 of `100MB.bin` to Discord. (Message ID: 1477584476187136193)
+[2026-03-01 08:33:58] [INFO] [UPLOAD] [dream] Uploaded part 8/11 of `100MB.bin` to Discord. (Message ID: 1477584668210757632)
+[2026-03-01 08:34:44] [INFO] [UPLOAD] [dream] Uploaded part 9/11 of `100MB.bin` to Discord. (Message ID: 1477584866391359589)
+[2026-03-01 08:35:29] [INFO] [UPLOAD] [dream] Uploaded part 10/11 of `100MB.bin` to Discord. (Message ID: 1477585056372494541)
+[2026-03-01 08:35:52] [INFO] [UPLOAD] [dream] Uploaded part 11/11 of `100MB.bin` to Discord. (Message ID: 1477585153277689896)
+[2026-03-01 08:35:52] [INFO] [GET USERNAME] [] Executed Query
+[2026-03-01 08:35:52] [INFO] [GET USERNAME] [dream] Successfully fetched user from database
+[2026-03-01 08:35:53] [INFO] [INSERT FILES] [dream] File `100MB.bin` saved to database with 11 part(s).
+[2026-03-01 08:35:53] [INFO] [UPLOAD] [dream] Completed upload: `100MB.bin` (11 part(s)).
+[2026-03-01 08:36:43] [INFO] [GET USERNAME] [] Executed Query
+[2026-03-01 08:36:43] [INFO] [GET USERNAME] [dream] Successfully fetched user from database
+[2026-03-01 08:36:44] [INFO] [GET USERNAME] [] Executed Query
+[2026-03-01 08:36:44] [INFO] [GET USERNAME] [dream] Successfully fetched user from database
+[2026-03-01 08:36:44] [INFO] [GET FILE LINKS] [] Executed Query
+[2026-03-01 08:36:44] [INFO] [GET FILE LINKS] [dream] Successfully fetched user and file links from the database.
+[2026-03-01 08:36:44] [INFO] [DOWNLOAD] [dream] Starting download for `100MB.bin` (11 part(s)).
+[2026-03-01 08:36:56] [INFO] [DOWNLOAD] [dream] Downloaded part 1/11 of `100MB.bin`.
+[2026-03-01 08:37:08] [INFO] [DOWNLOAD] [dream] Downloaded part 2/11 of `100MB.bin`.
+[2026-03-01 08:37:22] [INFO] [DOWNLOAD] [dream] Downloaded part 3/11 of `100MB.bin`.
+[2026-03-01 08:37:34] [INFO] [DOWNLOAD] [dream] Downloaded part 4/11 of `100MB.bin`.
+[2026-03-01 08:37:47] [INFO] [DOWNLOAD] [dream] Downloaded part 5/11 of `100MB.bin`.
+[2026-03-01 08:37:59] [INFO] [DOWNLOAD] [dream] Downloaded part 6/11 of `100MB.bin`.
+[2026-03-01 08:38:13] [INFO] [DOWNLOAD] [dream] Downloaded part 7/11 of `100MB.bin`.
+[2026-03-01 08:38:27] [INFO] [DOWNLOAD] [dream] Downloaded part 8/11 of `100MB.bin`.
+[2026-03-01 08:38:40] [INFO] [DOWNLOAD] [dream] Downloaded part 9/11 of `100MB.bin`.
+[2026-03-01 08:38:51] [INFO] [DOWNLOAD] [dream] Downloaded part 10/11 of `100MB.bin`.
+[2026-03-01 08:38:58] [INFO] [DOWNLOAD] [dream] Downloaded part 11/11 of `100MB.bin`.
+[2026-03-01 08:38:58] [INFO] [DOWNLOAD] [dream] Downloaded file `100MB.bin` successfully.
+[2026-03-01 08:40:51] [INFO] [SHUTDOWN] [] Shutting down bot.

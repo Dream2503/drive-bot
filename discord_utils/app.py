@@ -27,7 +27,7 @@ async def on_ready():
 @app.command()
 async def shutdown(ctx: Context):
     await ctx.message.delete()
-    write_log("INFO", "SHUTDOWN", "", "Shutting down bot.")
+    write_log("INFO", "SHUTDOWN", ctx.author.name, "Shutting down bot.")
     CURSOR.connection.close()
     LOG_HANDLER.close()
     await app.close()
@@ -37,7 +37,7 @@ if __name__ == "__main__":
     load_dotenv()
 
     try:
-        token = getenv("DISCORD_TOKEN")
+        token: str | None = getenv("DISCORD_TOKEN")
 
         if not token:
             write_log("ERROR", "MAIN", "", "DISCORD_TOKEN not found in environment.")

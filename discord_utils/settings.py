@@ -17,7 +17,7 @@ MAX_DELETE_LIMIT: int = 100
 BOT_ADMINS: tuple[int, int] = (848383053184237609, 1425774970533056522)
 FILE_DUMP: TextChannel | None = None
 CURSOR = init_db()
-LOG_HANDLER = open("logs.txt", 'a')
+LOG_HANDLER = open("../logs.txt", 'a')
 
 COMMAND_PREFIX: str = "!"
 app: Bot = Bot(command_prefix=COMMAND_PREFIX, intents=intents, help_command=None)

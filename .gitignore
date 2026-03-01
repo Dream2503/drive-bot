@@ -3,5 +3,4 @@
 __pycache__/
 backend/database/.env
 discord_utils/.env
-discord_utils/logs.txt
 transfer
