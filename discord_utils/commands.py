@@ -1,20 +1,21 @@
 from discord.ext.commands import Context
-import settings
-from settings import app, BOT_ADMINS, MAX_DELETE_LIMIT
+from settings import app, BOT_ADMINS, CURSOR, MAX_DELETE_LIMIT
 from utils import write_log
 
 
 @app.command()
-async def clear(ctx: Context, limit: int = 100) -> None:
-    username = ctx.author.name.upper()
-    deleted = 0
+async def clear(ctx: Context, limit: int = MAX_DELETE_LIMIT) -> None:
+    username: str = ctx.author.name
+    deleted: int = 0
+    CURSOR.execute("TRUNCATE TABLE owns, files RESTART IDENTITY;")
+    CURSOR.connection.commit()
+    write_log("INFO", "CLEAR", username, f"Truncated the files table")
 
     try:
-        limit = max(1, min(int(limit), MAX_DELETE_LIMIT))
+        limit: int = max(1, min(int(limit), MAX_DELETE_LIMIT))
 
     except ValueError:
-        await ctx.send("❗ Limit must be an integer.")
-        write_log("ERROR", "CLEAR", f"Invalid limit input by [{username}]: '{limit}' is not an integer.")
+        write_log("ERROR", "CLEAR", username, f"Invalid limit input: '{limit}' is not an integer.")
         return
 
     try:
@@ -27,36 +28,31 @@ async def clear(ctx: Context, limit: int = 100) -> None:
                 except Exception:
                     continue
 
-        await ctx.send(f"🧹 Cleared {deleted} messages.", delete_after=3)
-        write_log("INFO", "CLEAR", f"[{username}] cleared {deleted} message(s).")
+        write_log("INFO", "CLEAR", username, f"Cleared {deleted} message(s).")
 
     except Exception as e:
-        await ctx.send(f"❌ Failed to clear messages: {e}")
-        write_log("ERROR", "CLEAR", f"Failed to clear messages for [{username}]: {e}")
+        write_log("ERROR", "CLEAR", username, f"Failed to clear messages: {e}")
 
 
 @app.command()
 async def ping(ctx: Context) -> None:
     latency: float = round(app.latency * 1000)
     await ctx.send(f"🏓 Pong! Latency: {latency} ms")
-    write_log("INFO", "PING", f"[{ctx.author.name.upper()}] pinged the bot: {latency} ms")
+    write_log("INFO", "PING", ctx.author.name, f"Pinged the bot: {latency} ms")
 
 
 @app.command()
 async def shell(ctx: Context, command: str) -> None:
-    username: str = ctx.author.name.upper()
+    username: str = ctx.author.name
     user_id: int = ctx.author.id
 
     if user_id not in BOT_ADMINS:
-        await ctx.send("⛔ You don't have permission to use this command.")
-        write_log("ERROR", "SHELL", f"Unauthorized shell access attempt by [{username} ({user_id})")
+        write_log("ERROR", "SHELL", username, f"Unauthorized shell access attempt by ({user_id})")
         return
 
     try:
         exec(command)
-        await ctx.send(f"🖥️ Executed: `{command}`")
-        write_log("INFO", "SHELL", f"Shell command executed by {username}: {command}")
+        write_log("INFO", "SHELL", username, f"Shell command executed: {command}")
 
     except Exception as e:
-        await ctx.send(f"❌ Error: `{e}`")
-        write_log("ERROR", "SHELL", f"Shell command error by {username}: {command} -> {e}")
+        write_log("ERROR", "SHELL", username, f"Shell command error: {command} -> {e}")

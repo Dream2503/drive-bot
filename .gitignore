@@ -2,6 +2,6 @@
 .virtualenv
 __pycache__/
 backend/database/.env
-discord_utils/bot_creds.txt
+discord_utils/.env
 discord_utils/logs.txt
 transfer

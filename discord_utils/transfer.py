@@ -1,74 +1,84 @@
-from discord import File
-from discord.ext.commands import Context
-from io import BytesIO
-from settings import app, MAX_PART_SIZE, CURSOR, TRANSFER_PATH
-from utils import *
 import settings
 
-
-async def upload_part(data: bytes, filename: str) -> int:
-    write_log("INFO", "UPLOAD PART", f"Written chunk to temp path: {filename}")
-    message = await settings.FILE_DUMP.send(file=File(BytesIO(data), filename=filename))
-    write_log("INFO", "UPLOAD PART", f"Uploaded part `{filename}` to Discord (Message ID: {message.id})")
-    write_log("INFO", "UPLOAD PART", f"Deleted temp part file: {filename}")
-    return message.id
+from asyncio import to_thread
+from discord import File
+from discord.ext.commands import Context
+from pathlib import Path
+from io import BytesIO
+from settings import app, CURSOR, MAX_PART_SIZE, TRANSFER_PATH
+from utils import write_log
 
 
 @app.command()
 async def upload(ctx: Context, uid: int, upload_path: str) -> None:
-    CURSOR.execute("SELECT username FROM users WHERE uid = %s;", (uid,))
-    username: str = CURSOR.fetchone()[0]
+    CURSOR.execute(
+            "SELECT username "
+            "FROM users "
+            "WHERE uid = %s;", (uid,),
+    )
+    row: list[str] = CURSOR.fetchone()
+
+    if row:
+        username: str = row[0]
+        write_log("INFO", "UPLOAD", username, f"Successfully fetched user from database")
+
+    else:
+        write_log("ERROR", "UPLOAD", "", f"User not found in the database")
+        return
 
     try:
-        local_file = (TRANSFER_PATH / upload_path).resolve()
-        is_local = local_file.exists()
+        local_file: Path = (TRANSFER_PATH / upload_path).resolve()
 
-        if is_local:
+        if local_file.exists():
             filename: str = local_file.name
-            write_log("INFO", "UPLOAD", f"[{username}] Found local file: {filename}")
+            write_log("INFO", "UPLOAD", username, f"Found local file: {filename}")
 
         else:
-            write_log("ERROR", "UPLOAD", f"[{username}] Didn't find local file: {local_file}")
+            write_log("ERROR", "UPLOAD", username, f"local file not found: {local_file}")
             return
 
-        CURSOR.execute("SELECT fid FROM files WHERE fname = %s;", (filename,))
+        CURSOR.execute(
+                "SELECT * "
+                "FROM files f JOIN owns o ON f.fid = o.fid "
+                "WHERE o.uid = %s AND f.fname = %s;", (uid, filename),
+        )
 
         if CURSOR.fetchone():
-            write_log("ERROR", "UPLOAD", f"[{username}] File `{filename}` already exists.")
+            write_log("ERROR", "UPLOAD", username, f"File `{filename}` already exists.")
             return
 
-        file_size = local_file.stat().st_size
-        links = []
+        file_size: int = local_file.stat().st_size
+        links: list[int] = []
+        total_parts: int = (file_size + MAX_PART_SIZE - 1) // MAX_PART_SIZE
+        write_log("INFO", "UPLOAD", username, f"Starting upload: `{filename}` ({total_parts} part(s)).")
 
-        if file_size <= MAX_PART_SIZE:
-            data = local_file.read_bytes()
-            links = [await upload_part(data, filename)]
-            write_log("INFO", "UPLOAD", f"[{username}] Uploaded single-part file `{filename}`.")
+        with local_file.open("rb") as f:
+            for i in range(1, total_parts + 1):
+                chunk: bytes = await to_thread(f.read, MAX_PART_SIZE)
 
-        else:
-            total_parts = (file_size + MAX_PART_SIZE - 1) // MAX_PART_SIZE
-            write_log("INFO", "UPLOAD", f"[{username}] Starting multi-part upload: `{filename}` ({total_parts} parts).")
+                if not chunk:
+                    break
 
-            with local_file.open("rb") as f:
-                for i in range(1, total_parts + 1):
-                    chunk = f.read(MAX_PART_SIZE)
+                message = await settings.FILE_DUMP.send(file=File(BytesIO(chunk), filename=f"{filename}.part{i:03d}"))
+                links.append(message.id)
+                write_log("INFO", "UPLOAD", username, f"Uploaded part {i}/{total_parts} of `{filename}`to Discord. (Message ID: {message.id})")
 
-                    if not chunk:
-                        break
-
-                    links.append(await upload_part(chunk, filename))
-                    write_log("INFO", "UPLOAD", f"[{username}] Uploaded part {i}/{total_parts} of `{filename}`.")
-
-            write_log("INFO", "UPLOAD", f"[{username}] Completed multi-part upload: `{filename}`")
-
-        CURSOR.execute("INSERT INTO files (fname, flinks) VALUES (%s, %s) RETURNING fid;", (filename, links))
+        write_log("INFO", "UPLOAD", username, f"Completed upload: `{filename}` ({total_parts} part(s)).")
+        CURSOR.execute(
+                "INSERT INTO files (fname, flinks) "
+                "VALUES (%s, %s) "
+                "RETURNING fid;", (filename, links),
+        )
         fid = CURSOR.fetchone()[0]
-        CURSOR.execute("INSERT INTO owns (uid, fid) VALUES (%s, %s);", (uid, fid))
+        CURSOR.execute(
+                "INSERT INTO owns "
+                "VALUES (%s, %s);", (uid, fid),
+        )
         CURSOR.connection.commit()
-        write_log("INFO", "UPLOAD", f"[{username}] File `{filename}` saved to database with {len(links)} part(s).")
+        write_log("INFO", "UPLOAD", username, f"File `{filename}` saved to database with {len(links)} part(s).")
 
     except Exception as e:
-        write_log("ERROR", "UPLOAD", f"[{username}] Exception uploading `{upload_path}`: {e}")
+        write_log("ERROR", "UPLOAD", username, f"Exception uploading `{upload_path}`: {e}")
 
 # @app.command()
 # async def download(ctx: commands.Context, *filenames: str) -> None:

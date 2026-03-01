@@ -18,7 +18,7 @@ def init_db():
                 port=PORT,
                 dbname=DATABASE,
         )
-        return connection, connection.cursor()
+        return connection.cursor()
 
     except Exception as e:
         print(f"Failed to connect: {e}")
