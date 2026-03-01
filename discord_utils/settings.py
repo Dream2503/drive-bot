@@ -1,4 +1,4 @@
-from backend.database.init_db import init_db
+from backend.database.get_db import init_db
 from discord import Intents, TextChannel
 from discord.ext.commands import Bot
 from pathlib import Path
