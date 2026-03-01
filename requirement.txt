@@ -4,3 +4,8 @@ requests
 psycopg2-binary
 python-dotenv
 io
+fastapi[all]
+uvicorn
+sqlalchemy
+passlib[bcrypt]
+python-jose
