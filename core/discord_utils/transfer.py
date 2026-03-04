@@ -1,9 +1,8 @@
-from asyncio import to_thread
 from io import BytesIO
 from pathlib import Path
 
+import backend.database as database
 import settings
-from backend.database.utils import get_file_links, get_username, insert_files
 from core.settings import TRANSFER_PATH
 from core.utils import write_log
 from discord import File, Message
@@ -13,103 +12,121 @@ from settings import app, MAX_PART_SIZE
 
 @app.command()
 async def upload(ctx: Context, uid: int, filename: str) -> None:
-    username: str | None = get_username(uid, write_log)
+    user: database.User | None = database.get_user(write_log, uid=uid)
 
-    if not username:
+    if not user:
         return
 
     try:
-        local_file: Path = (TRANSFER_PATH / filename).resolve()
-
-        if not local_file.exists():
-            write_log("ERROR", "UPLOAD", username, f"Local file not found: {local_file}")
+        if database.get_file(write_log, fname=filename, uid=uid):
+            write_log("ERROR", "UPLOAD", user.username, f"File `{filename}` already exists.")
             return
 
-        write_log("INFO", "UPLOAD", username, f"Found local file: {filename}")
+        file_path: Path = (TRANSFER_PATH / Path(filename).name).resolve()
 
-        if get_file_links(uid, filename, write_log):
-            write_log("ERROR", "UPLOAD", username, f"File `{filename}` already exists.")
+        if not file_path.is_relative_to(TRANSFER_PATH.resolve()):
+            write_log("ERROR", "UPLOAD", user.username, f"Illegal file path attempted: {filename}.")
             return
 
-        file_size: int = local_file.stat().st_size
+        if not file_path.exists():
+            write_log("ERROR", "UPLOAD", user.username, f"Local file not found: {file_path}.")
+            return
+
+        write_log("INFO", "UPLOAD", user.username, f"Found local file: {file_path.name}.")
+        file_size: int = file_path.stat().st_size
         total_parts: int = (file_size + MAX_PART_SIZE - 1) // MAX_PART_SIZE
-        links: list[int] = []
-        write_log("INFO", "UPLOAD", username, f"Starting upload: `{filename}` ({total_parts} part(s)).")
+        links: list[str] = []
+        write_log("INFO", "UPLOAD", user.username, f"Starting upload: `{file_path.name}` ({total_parts} part(s)).")
 
-        with local_file.open("rb") as f:
+        with file_path.open("rb") as file:
             for i in range(1, total_parts + 1):
-                chunk: bytes = await to_thread(f.read, MAX_PART_SIZE)
+                chunk: bytes = file.read(MAX_PART_SIZE)
 
                 if not chunk:
                     break
 
                 try:
-                    msg_id: int = (await settings.FILE_DUMP.send(file=File(BytesIO(chunk), filename=f"{filename}.part{i:03d}"))).id
-                    links.append(msg_id)
-                    write_log("INFO", "UPLOAD", username, f"Uploaded part {i}/{total_parts} of `{filename}` to Discord. (Message ID: {msg_id})")
+                    msg_id: int = (await settings.FILE_DUMP.send(file=File(BytesIO(chunk), filename=f"{file_path.name}.part{i:03d}"))).id
+                    links.append(str(msg_id))
+                    progress: float = (i / total_parts) * 100
+
+                    write_log(
+                            "INFO", "UPLOAD", user.username,
+                            f"Uploaded part {i}/{total_parts} ({progress:.1f}%) of `{file_path.name}`. (Message ID: {msg_id})",
+                    )
 
                 except Exception as e:
-                    write_log("ERROR", "UPLOAD", username, f"Failed at part {i}/{total_parts}: {e}")
-
-                    for msg_id in links:
-                        try:
-                            await (await settings.FILE_DUMP.fetch_message(msg_id)).delete()
-
-                        except Exception:
-                            pass
-
+                    write_log("ERROR", "UPLOAD", user.username, f"Failed at part {i}/{total_parts}: {e}")
                     return
 
-        insert_files(uid, filename, links, write_log)
-        write_log("INFO", "UPLOAD", username, f"Completed upload: `{filename}` ({len(links)} part(s)).")
+        database.set_file(database.File(None, filename, links, "Discord", uid), write_log)
+        write_log("INFO", "UPLOAD", user.username, f"Completed upload: `{file_path.name}` with {len(links)} part(s).")
 
     except Exception as e:
-        write_log("ERROR", "UPLOAD", username, f"Exception uploading `{filename}`: {e}")
+        write_log("ERROR", "UPLOAD", user.username if user else "", f"Unhandled exception during upload: {e}\n{format_exc()}")
+
+
+from traceback import format_exc
 
 
 @app.command()
 async def download(ctx: Context, uid: int, filename: str) -> None:
-    username: str | None = get_username(uid, write_log)
+    user: database.User | None = database.get_user(write_log, uid=uid)
 
-    if not username:
+    if not user:
         return
 
-    final_path: Path = TRANSFER_PATH / filename
+    final_path: Path = (TRANSFER_PATH / Path(filename).name).resolve()
 
     try:
-        links: list[int] | None = get_file_links(uid, filename, write_log)
+        if not final_path.is_relative_to(TRANSFER_PATH.resolve()):
+            write_log("ERROR", "DOWNLOAD", user.username, f"Illegal file path attempted: {filename}.")
+            return
+
+        file: database.File | None = database.get_file(write_log, fname=filename, uid=uid)
+
+        if file:
+            if file.data_center == "Discord":
+                links = file.flinks
+                write_log("INFO", "DOWNLOAD", user.username, f"File `{filename}` located in database (data center: Discord).")
+
+            else:
+                write_log("ERROR", "DOWNLOAD", user.username, f"Unsupported data center `{file.data_center}` for file `{filename}`.")
+                return
+
+        else:
+            write_log("ERROR", "DOWNLOAD", user.username, f"File `{filename}` not found in database.")
+            return
 
         if not links:
-            write_log("ERROR", "DOWNLOAD", username, f"No such file `{filename}` in database.")
+            write_log("ERROR", "DOWNLOAD", user.username, f"No such file `{filename}` in database.")
             return
 
         total_parts: int = len(links)
-        write_log("INFO", "DOWNLOAD", username, f"Starting download for `{filename}` ({total_parts} part(s)).")
+        write_log("INFO", "DOWNLOAD", user.username, f"Starting download for `{final_path.name}` ({total_parts} part(s)).")
 
-        with final_path.open("wb") as output:
+        with final_path.open("wb") as file:
             for i, msg_id in enumerate(links, start=1):
                 try:
-                    msg: Message = await settings.FILE_DUMP.fetch_message(msg_id)
+                    msg: Message = await settings.FILE_DUMP.fetch_message(int(msg_id))
 
                     if not msg.attachments:
                         raise ValueError("No attachment found in message.")
 
-                    output.write(await msg.attachments[0].read())
-                    write_log("INFO", "DOWNLOAD", username, f"Downloaded part {i}/{total_parts} of `{filename}`.")
+                    file.write(await msg.attachments[0].read())
+                    progress: float = (i / total_parts) * 100
+
+                    write_log("INFO", "DOWNLOAD", user.username, f"Downloaded part {i}/{total_parts} ({progress:.1f}%) of `{final_path.name}`.")
 
                 except Exception as e:
-                    write_log("ERROR", "DOWNLOAD", username, f"Failed at part {i}/{total_parts} of `{filename}`: {e}")
-                    output.close()
+                    write_log("ERROR", "DOWNLOAD", user.username, f"Failed at part {i}/{total_parts} of `{final_path.name}`: {e}")
 
                     if final_path.exists():
                         final_path.unlink()
 
                     return
 
-        write_log("INFO", "DOWNLOAD", username, f"Downloaded file `{filename}` successfully.")
+        write_log("INFO", "DOWNLOAD", user.username, f"Downloaded file `{final_path.name}` successfully.")
 
     except Exception as e:
-        if final_path.exists():
-            final_path.unlink()
-
-        write_log("ERROR", "DOWNLOAD", username, f"Exception during download of `{filename}`: {e}")
+        write_log("ERROR", "DOWNLOAD", user.username if user else "", f"Unhandled exception during download of `{filename}`: {e}\n{format_exc()}")

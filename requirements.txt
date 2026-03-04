@@ -1,12 +1,11 @@
+bcrypt==4.0.1
 discord
+fastapi[all]
 gdown
-requests
+passlib[bcrypt]==1.7.4
 psycopg2-binary
 python-dotenv
-fastapi[all]
-uvicorn
-sqlalchemy
-passlib[bcrypt]==1.7.4
-bcrypt==4.0.1
 python-jose
 python-telegram-bot
+requests
+uvicorn

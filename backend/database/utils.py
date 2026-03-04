@@ -1,73 +1,199 @@
 from typing import Callable
 
+from .connection import CURSOR
+from .schema import File, User
 
-def get_username(uid: int, logger: Callable[[str, str, str, str], None]) -> str | None:
-    cursor.execute(
-            """
-            SELECT username
-            FROM users
-            WHERE uid = %s;
-            """, (uid,),
-    )
-    data: tuple[str] | None = cursor.fetchone()
-    logger("INFO", "GET USERNAME", "", f"Query executed.")
+
+def set_user(user: User, logger: Callable[[str, str, str, str], None]) -> None:
+    try:
+        CURSOR.execute(
+                """
+                INSERT INTO users (first_name, last_name, username, password)
+                VALUES (%s, %s, %s, %s);
+                """, (user.first_name, user.last_name, user.username, user.password),
+        )
+        logger("INFO", "SET USER", user.username, "Insert query executed.")
+        CURSOR.connection.commit()
+        logger("INFO", "SET USER", user.username, "User successfully inserted into database.")
+
+    except Exception as e:
+        logger("ERROR", "SET USER", user.username, f"Failed to insert user: {e}")
+
+
+def get_user(
+        logger: Callable[[str, str, str, str], None],
+        uid: int | None = None,
+        username: str | None = None,
+        fid: int | None = None,
+) -> User | None:
+    if uid is not None:
+        CURSOR.execute(
+                """
+                SELECT uid, first_name, last_name, username, password
+                FROM users
+                WHERE uid = %s;
+                """,
+                (uid,),
+        )
+        attribute, value = "uid", uid
+
+    elif username is not None:
+        CURSOR.execute(
+                """
+                SELECT uid, first_name, last_name, username, password
+                FROM users
+                WHERE username = %s;
+                """,
+                (username,),
+        )
+        attribute, value = "username", username
+
+    elif fid is not None:
+        CURSOR.execute(
+                """
+                SELECT uid, first_name, last_name, username, password
+                FROM users u
+                         JOIN files f ON f.uid = u.uid
+                WHERE f.fid = %s;
+                """,
+                (fid,),
+        )
+        attribute, value = "fid", fid
+
+    else:
+        logger("ERROR", "GET USER", "", "No search parameter provided.")
+        return None
+
+    logger("INFO", "GET USER", "", f"Select query executed for {attribute}={value}.")
+    data: tuple[int, str, str, str, str] | None = CURSOR.fetchone()
 
     if data:
-        logger("INFO", "GET USERNAME", data[0], f"Successfully fetched user from database.")
-        return data[0]
+        user: User = User(*data)
+        logger("INFO", "GET USER", user.username, "Successfully fetched user from database.")
+        return user
 
-    logger("ERROR", "GET USERNAME", "", f"User not found in the database")
+    logger("ERROR", "GET USER", "", "User not found in the database")
     return None
 
 
-def get_file_links(uid: int, filename: str, logger: Callable[[str, str, str, str], None]) -> list[int] | None:
-    username: str | None = get_username(cursor, uid, logger)
+def set_file(file: File, logger: Callable[[str, str, str, str], None]) -> None:
+    user: User | None = get_user(logger, uid=file.uid)
 
-    if username:
-        cursor.execute(
+    if user:
+        CURSOR.execute(
                 """
-                SELECT flinks
-                FROM files f
-                         JOIN owns o ON f.fid = o.fid
-                WHERE o.uid = %s
-                  AND f.fname = %s;
-                """, (uid, filename),
+                INSERT INTO files (fname, flinks, data_center, uid)
+                VALUES (%s, %s, %s, %s);
+                """, (file.fname, file.flinks, file.data_center, file.uid),
         )
-        data: tuple[list[int]] | None = cursor.fetchone()
-        logger("INFO", "GET FILE LINKS", "", f"Query executed.")
+        logger("INFO", "INSERT FILES", "", f"Insert query executed.")
+        CURSOR.connection.commit()
+        logger("INFO", "INSERT FILES", user.username, f"File `{file.fname}` saved to database with {len(file.flinks)} part(s).")
 
-        if data:
-            logger("INFO", "GET FILE LINKS", username, f"Successfully fetched user and file links from the database.")
-            return data[0]
 
-        logger("ERROR", "GET FILE LINKS", username, f"File: {filename} not found in the database.")
+def get_file(
+        logger: Callable[[str, str, str, str], None],
+        fid: int | None = None,
+        fname: str | None = None,
+        uid: int | None = None
+) -> File | None:
+    if fid is not None:
+        CURSOR.execute(
+                """
+                SELECT fid, fname, flinks, data_center, uid
+                FROM files
+                WHERE fid = %s;
+                """, (fid,),
+        )
+        attribute, value = "fid", fid
 
+    elif fname is not None and uid is not None:
+        CURSOR.execute(
+                """
+                SELECT fid, fname, flinks, data_center, uid
+                FROM files
+                WHERE fname = %s
+                  AND uid = %s;
+                """, (fname, uid),
+        )
+        attribute, value = ("fname", "uid"), (fname, uid)
+
+    else:
+        logger("ERROR", "GET FILE", "", "Invalid search parameters provided by caller.")
+        return None
+
+    logger("INFO", "GET FILE", "", f"Select query executed for {attribute}={value}.")
+    data: tuple[int, str, list[str], str, int] | None = CURSOR.fetchone()
+
+    if data:
+        file: File = File(*data)
+        logger("INFO", "GET FILE", file.fname, "Successfully fetched file from database.")
+        return file
+
+    logger("ERROR", "GET FILE", "", f"No file found for {attribute}={value}.")
     return None
 
 
-def insert_files(uid: int, filename: str, links: list[int], logger: Callable[[str, str, str, str], None]) -> None:
-    username: str | None = get_username(cursor, uid, logger)
-
-    if username:
-        cursor.execute(
+def get_files(
+        logger: Callable[[str, str, str, str], None],
+        fname: str | None = None,
+        data_center: str | None = None,
+        uid: int | None = None
+) -> list[File] | None:
+    if fname is not None:
+        CURSOR.execute(
                 """
-                INSERT INTO files (fname, flinks)
-                VALUES (%s, %s) RETURNING fid;
-                """, (filename, links),
+                SELECT fid, fname, flinks, data_center, uid
+                FROM files
+                WHERE fname = %s;
+                """, (fname,),
         )
-        fid: int = cursor.fetchone()[0]
-        cursor.execute(
+        attribute, value = "fname", fname
+
+    elif data_center is not None:
+        CURSOR.execute(
                 """
-                INSERT INTO owns
-                VALUES (%s, %s);
-                """, (uid, fid),
+                SELECT fid, fname, flinks, data_center, uid
+                FROM files
+                WHERE data_center = %s;
+                """, (data_center,),
         )
-        logger("INFO", "INSERT FILES", "", f"Query executed.")
-        cursor.connection.commit()
-        logger("INFO", "INSERT FILES", username, f"File `{filename}` saved to database with {len(links)} part(s).")
+        attribute, value = "data_center", data_center
+
+    elif uid is not None:
+        CURSOR.execute(
+                """
+                SELECT fid, fname, flinks, data_center, uid
+                FROM files
+                WHERE uid = %s;
+                """, (uid,),
+        )
+        attribute, value = "uid", uid
+
+    else:
+        logger("ERROR", "GET FILES", "", "No valid search parameter provided.")
+        return None
+
+    logger("INFO", "GET FILES", "", f"Select query executed for {attribute}={value}.")
+    data: list[tuple[int, str, list[str], str, int]] = CURSOR.fetchall()
+
+    if data:
+        files: list[File] = [File(*file) for file in data]
+        logger("INFO", "GET FILES", str(value), f"Successfully fetched {len(files)} file(s) from database.")
+        return files
+
+    logger("ERROR", "GET FILES", "", f"No files found for {attribute}={value}.")
+    return None
 
 
-def clear_files(logger: Callable[[str, str, str, str], None]) -> None:
-    cursor.execute("TRUNCATE TABLE owns, files RESTART IDENTITY;")
-    cursor.connection.commit()
-    logger("INFO", "CLEAR", "", f"Truncated the files table")
+def clear_file(logger: Callable[[str, str, str, str], None]) -> None:
+    """SHOULD BE REMOVED AFTER TESTING / DEBUG"""
+
+    CURSOR.execute(
+            """TRUNCATE TABLE files
+                RESTART IDENTITY;
+            """,
+    )
+    logger("INFO", "CLEAR", "", f"Truncate query executed.")
+    CURSOR.connection.commit()
+    logger("INFO", "CLEAR", "", f"Truncated the files table.")

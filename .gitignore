@@ -1,7 +1,6 @@
-.idea/
+.idea
 .virtualenv
-__pycache__/
+__pycache__
 backend/database/.env
-core/discord_utils/.env
-core/telegram_utils/.env
+core/.env
 core/transfer
