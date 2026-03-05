@@ -1,118 +1,175 @@
-from asyncio import to_thread
 from io import BytesIO
 from pathlib import Path
+from traceback import format_exc
 
-from backend.database.utils import get_file_links, get_username, insert_files
+from backend import database
+from core.module import Telegram
 from core.settings import TRANSFER_PATH
-from core.telegram_utils.settings import FILE_DUMP_ID, MAX_PART_SIZE
 from core.utils import write_log
-from telegram import InputFile
+from telegram import File, Message, Update
 from telegram.ext import ContextTypes
 
 
-async def upload(update, context: ContextTypes.DEFAULT_TYPE, uid: int, filename: str) -> None:
-    username: str | None = get_username(uid, write_log)
+async def upload(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if update.effective_chat.id != Telegram.FILE_DUMP_ID:
+        return
 
-    if not username:
+    username: str = update.effective_user.username or update.effective_user.first_name
+
+    if not context.args or len(context.args) < 2:
+        await update.message.reply_text("Usage: /upload <uid> <filename>")
         return
 
     try:
-        local_file: Path = (TRANSFER_PATH / filename).resolve()
+        uid: int = int(context.args[0])
+        filename: str = " ".join(context.args[1:])
 
-        if not local_file.exists():
-            write_log("ERROR", "UPLOAD", username, f"Local file not found: {local_file}")
+    except ValueError:
+        write_log("ERROR", Telegram, "UPLOAD", username, "Invalid UID provided.")
+        return
+
+    user: database.User | None = database.get_user(uid=uid)
+
+    if not user:
+        return
+
+    try:
+        if database.get_file(fname=filename, uid=uid):
+            write_log("ERROR", Telegram, "UPLOAD", user.username, f"File `{filename}` already exists.")
             return
 
-        write_log("INFO", "UPLOAD", username, f"Found local file: {filename}")
+        file_path: Path = (TRANSFER_PATH / Path(filename).name).resolve()
 
-        if get_file_links(uid, filename, write_log):
-            write_log("ERROR", "UPLOAD", username, f"File `{filename}` already exists.")
+        if not file_path.is_relative_to(TRANSFER_PATH.resolve()):
+            write_log("ERROR", Telegram, "UPLOAD", user.username, f"Illegal file path attempted: {filename}.")
             return
 
-        file_size: int = local_file.stat().st_size
-        total_parts: int = (file_size + MAX_PART_SIZE - 1) // MAX_PART_SIZE
-        links: list[int] = []
-        write_log("INFO", "UPLOAD", username, f"Starting upload: `{filename}` ({total_parts} part(s)).")
+        if not file_path.exists():
+            write_log("ERROR", Telegram, "UPLOAD", user.username, f"Local file not found: {file_path}.")
+            return
 
-        with local_file.open("rb") as f:
+        write_log("INFO", Telegram, "UPLOAD", user.username, f"Found local file: {file_path.name}.")
+
+        file_size: int = file_path.stat().st_size
+        total_parts: int = (file_size + Telegram.MAX_SIZE - 1) // Telegram.MAX_SIZE
+        links: list[str] = []
+        write_log("INFO", Telegram, "UPLOAD", user.username, f"Starting upload: `{file_path.name}` ({total_parts} part(s)).")
+
+        with file_path.open("rb") as file:
             for i in range(1, total_parts + 1):
-                chunk: bytes = await to_thread(f.read, MAX_PART_SIZE)
+                chunk: bytes = file.read(Telegram.MAX_SIZE)
 
                 if not chunk:
                     break
 
                 try:
-                    bio = BytesIO(chunk)
-                    bio.name = f"{filename}.part{i:03d}"
-                    msg = await context.bot.send_document(chat_id=FILE_DUMP_ID, document=InputFile(bio))
-                    msg_id: int = msg.message_id
-                    links.append(msg_id)
-                    write_log("INFO", "UPLOAD", username, f"Uploaded part {i}/{total_parts} of `{filename}` to Telegram. (Message ID: {msg_id})")
+                    msg_id: int = (await context.bot.send_document(
+                            chat_id=Telegram.FILE_DUMP_ID,
+                            document=BytesIO(chunk),
+                            filename=f"{file_path.name}{'' if total_parts == 1 else f'.part{i:03d}'}",
+                            write_timeout=36_000,
+                            read_timeout=36_000,
+                            connect_timeout=60,
+                            pool_timeout=36_000,
+                    )).id
+                    links.append(str(msg_id))
+                    progress: float = (i / total_parts) * 100
+
+                    write_log(
+                            "INFO", Telegram, "UPLOAD", user.username,
+                            f"Uploaded part {i}/{total_parts} ({progress:.1f}%) of `{file_path.name}`. (Message ID: {msg_id})",
+                    )
 
                 except Exception as e:
-                    write_log("ERROR", "UPLOAD", username, f"Failed at part {i}/{total_parts}: {e}")
-
-                    for msg_id in links:
-                        try:
-                            await context.bot.delete_message(chat_id=FILE_DUMP_ID, message_id=msg_id)
-                        except:
-                            pass
-
+                    write_log("ERROR", Telegram, "UPLOAD", user.username, f"Failed at part {i}/{total_parts}: {e}\n{format_exc()}")
                     return
 
-        insert_files(uid, filename, links, write_log)
-        write_log("INFO", "UPLOAD", username, f"Completed upload: `{filename}` ({len(links)} part(s)).")
+        database.set_file(database.File(None, filename, links, Telegram.NAME, uid))
+        write_log("INFO", Telegram, "UPLOAD", user.username, f"Completed upload: `{file_path.name}` with {len(links)} part(s).")
 
     except Exception as e:
-        write_log("ERROR", "UPLOAD", username, f"Exception uploading `{filename}`: {e}")
+        write_log("ERROR", Telegram, "UPLOAD", user.username if user else "", f"Unhandled exception during upload: {e}\n{format_exc()}")
 
 
-async def download(ctx: ContextTypes.DEFAULT_TYPE, uid: int, filename: str) -> None:
-    username: str | None = get_username(uid, write_log)
-
-    if not username:
+async def download(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if update.effective_chat.id != Telegram.FILE_DUMP_ID:
         return
 
-    final_path: Path = TRANSFER_PATH / filename
+    username: str = update.effective_user.username or update.effective_user.first_name
+
+    if not context.args or len(context.args) < 2:
+        await update.message.reply_text("Usage: /download <uid> <filename>")
+        return
 
     try:
-        links: list[int] | None = get_file_links(uid, filename, write_log)
+        uid: int = int(context.args[0])
+        filename: str = context.args[1]
+
+    except ValueError:
+        write_log("ERROR", Telegram, "DOWNLOAD", username, "Invalid UID provided.")
+        return
+
+    user: database.User | None = database.get_user(uid=uid)
+
+    if not user:
+        return
+
+    final_path: Path = (TRANSFER_PATH / Path(filename).name).resolve()
+
+    try:
+        if not final_path.is_relative_to(TRANSFER_PATH.resolve()):
+            write_log("ERROR", Telegram, "DOWNLOAD", user.username, f"Illegal file path attempted: {filename}.")
+            return
+
+        file: database.File | None = database.get_file(fname=filename, uid=uid)
+
+        if file:
+            if file.data_center == Telegram.NAME:
+                links = file.flinks
+                write_log("INFO", Telegram, "DOWNLOAD", user.username, f"File `{filename}` located in database (data center: Telegram).")
+
+            else:
+                write_log("ERROR", Telegram, "DOWNLOAD", user.username, f"Unsupported data center `{file.data_center}` for file `{filename}`.")
+                return
+
+        else:
+            write_log("ERROR", Telegram, "DOWNLOAD", user.username, f"File `{filename}` not found in database.")
+            return
 
         if not links:
-            write_log("ERROR", "DOWNLOAD", username, f"No such file `{filename}` in database.")
+            write_log("ERROR", Telegram, "DOWNLOAD", user.username, f"No such file `{filename}` in database.")
             return
 
         total_parts: int = len(links)
-        write_log("INFO", "DOWNLOAD", username, f"Starting download for `{filename}` ({total_parts} part(s)).")
+        write_log("INFO", Telegram, "DOWNLOAD", user.username, f"Starting download for `{final_path.name}` ({total_parts} part(s)).")
 
         with final_path.open("wb") as output:
             for i, msg_id in enumerate(links, start=1):
                 try:
-                    msg = await ctx.bot.get_chat(FILE_DUMP_ID)
-                    message = await msg.get_message(msg_id)
+                    msg: Message = await context.bot.get_message(chat_id=Telegram.FILE_DUMP_ID, message_id=int(msg_id))
 
-                    if not message.document:
+                    if not msg.document:
                         raise ValueError("No document found in message.")
 
-                    file = await message.document.get_file()
-                    chunk: bytes = await file.download_as_bytearray()
-
-                    output.write(chunk)
-                    write_log("INFO", "DOWNLOAD", username, f"Downloaded part {i}/{total_parts} of `{filename}`.")
+                    file_obj: File = await context.bot.get_file(msg.document.file_id)
+                    buffer: BytesIO = BytesIO()
+                    await file_obj.download_to_memory(buffer)
+                    output.write(buffer.getvalue())
+                    progress: float = (i / total_parts) * 100
+                    write_log(
+                            "INFO", Telegram, "DOWNLOAD", user.username,
+                            f"Downloaded part {i}/{total_parts} ({progress:.1f}%) of `{final_path.name}`.",
+                    )
 
                 except Exception as e:
-                    write_log("ERROR", "DOWNLOAD", username, f"Failed at part {i}/{total_parts} of `{filename}`: {e}")
-                    output.close()
+                    write_log("ERROR", Telegram, "DOWNLOAD", user.username, f"Failed at part {i}/{total_parts} of `{final_path.name}`: {e}")
 
                     if final_path.exists():
                         final_path.unlink()
 
                     return
 
-        write_log("INFO", "DOWNLOAD", username, f"Downloaded file `{filename}` successfully.")
+        write_log("INFO", Telegram, "DOWNLOAD", user.username, f"Downloaded file `{final_path.name}` successfully.")
 
     except Exception as e:
-        if final_path.exists():
-            final_path.unlink()
-
-        write_log("ERROR", "DOWNLOAD", username, f"Exception during download of `{filename}`: {e}")
+        write_log("ERROR", Telegram, "DOWNLOAD", user.username if user else "", f"Unhandled exception during download of `{filename}`: {e}")
