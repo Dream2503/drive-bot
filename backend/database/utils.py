@@ -4,7 +4,7 @@ from .connection import CURSOR
 from .schema import File, User
 
 
-def set_user(user: User) -> None:
+def add_user(user: User) -> None:
     try:
         CURSOR.execute(
                 """
@@ -20,12 +20,7 @@ def set_user(user: User) -> None:
         write_log("ERROR", Database, "SET USER", user.username, f"Failed to insert user: {e}")
 
 
-def get_user(
-        *,
-        uid: int | None = None,
-        username: str | None = None,
-        fid: int | None = None,
-) -> User | None:
+def get_user(*, uid: int | None = None, username: str | None = None, fid: int | None = None) -> User | None:
     if uid is not None:
         CURSOR.execute(
                 """
@@ -65,10 +60,10 @@ def get_user(
         return None
 
     write_log("INFO", Database, "GET USER", "", f"Select query executed for {attribute}={value}.")
-    data: tuple[int, str, str, str, str] | None = CURSOR.fetchone()
+    data: dict[str, int | str] | None = CURSOR.fetchone()
 
     if data:
-        user: User = User(*data)
+        user: User = User(**data)
         write_log("INFO", Database, "GET USER", user.username, "Successfully fetched user from database.")
         return user
 
@@ -76,7 +71,7 @@ def get_user(
     return None
 
 
-def set_file(file: File) -> None:
+def add_file(file: File) -> None:
     user: User | None = get_user(uid=file.uid)
 
     if user:
@@ -91,12 +86,7 @@ def set_file(file: File) -> None:
         write_log("INFO", Database, "INSERT FILES", user.username, f"File `{file.fname}` saved to database with {len(file.flinks)} part(s).")
 
 
-def get_file(
-        *,
-        fid: int | None = None,
-        fname: str | None = None,
-        uid: int | None = None
-) -> File | None:
+def get_file(*, fid: int | None = None, fname: str | None = None, uid: int | None = None) -> File | None:
     if fid is not None:
         CURSOR.execute(
                 """
@@ -123,10 +113,10 @@ def get_file(
         return None
 
     write_log("INFO", Database, "GET FILE", "", f"Select query executed for {attribute}={value}.")
-    data: tuple[int, str, list[str], str, int] | None = CURSOR.fetchone()
+    data: dict[str, int | str | list[str]] | None = CURSOR.fetchone()
 
     if data:
-        file: File = File(*data)
+        file: File = File(**data)
         write_log("INFO", Database, "GET FILE", file.fname, "Successfully fetched file from database.")
         return file
 
@@ -134,12 +124,7 @@ def get_file(
     return None
 
 
-def get_files(
-        *,
-        fname: str | None = None,
-        data_center: str | None = None,
-        uid: int | None = None
-) -> list[File] | None:
+def get_files(*, fname: str | None = None, data_center: str | None = None, uid: int | None = None) -> list[File] | None:
     if fname is not None:
         CURSOR.execute(
                 """
@@ -175,10 +160,10 @@ def get_files(
         return None
 
     write_log("INFO", Database, "GET FILES", "", f"Select query executed for {attribute}={value}.")
-    data: list[tuple[int, str, list[str], str, int]] = CURSOR.fetchall()
+    data: list[dict[str, int | str | list[str]]] = CURSOR.fetchall()
 
     if data:
-        files: list[File] = [File(*file) for file in data]
+        files: list[File] = [File(**file) for file in data]
         write_log("INFO", Database, "GET FILES", str(value), f"Successfully fetched {len(files)} file(s) from database.")
         return files
 
@@ -190,7 +175,8 @@ def clear_file() -> None:
     """SHOULD BE REMOVED AFTER TESTING / DEBUG"""
 
     CURSOR.execute(
-            """TRUNCATE TABLE files
+            """
+            TRUNCATE TABLE files
                 RESTART IDENTITY;
             """,
     )

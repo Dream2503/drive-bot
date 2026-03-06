@@ -14,11 +14,7 @@ def main() -> None:
         app.add_handler(CommandHandler("upload", upload))
         app.add_handler(CommandHandler("download", download))
         app.add_error_handler(error_handler)
-        app.run_polling(drop_pending_updates=True)
+        app.run_polling(drop_pending_updates=True, stop_signals=None)
 
     except Exception as e:
         write_log("ERROR", Telegram, "MAIN", "", f"Critical error during bot startup: {e}")
-
-
-if __name__ == "__main__":
-    main()

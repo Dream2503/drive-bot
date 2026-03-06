@@ -84,7 +84,7 @@ async def upload(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                     write_log("ERROR", Telegram, "UPLOAD", user.username, f"Failed at part {i}/{total_parts}: {e}\n{format_exc()}")
                     return
 
-        database.set_file(database.File(None, filename, links, Telegram.NAME, uid))
+        database.add_file(database.File(None, filename, links, Telegram.NAME, uid))
         write_log("INFO", Telegram, "UPLOAD", user.username, f"Completed upload: `{file_path.name}` with {len(links)} part(s).")
 
     except Exception as e:

@@ -2,13 +2,25 @@ from threading import Thread
 
 import discord_utils
 import telegram_utils
+import uvicorn
 
 
 def main() -> None:
-    discord_thread = Thread(target=discord_utils.main, daemon=True)
+    fastapi_thread = Thread(target=lambda: uvicorn.run("backend.main:app", host="0.0.0.0", port=8000, log_level="info"), daemon=True)
+    discord_thread: Thread = Thread(target=discord_utils.main, daemon=True)
+    telegram_thread: Thread = Thread(target=telegram_utils.main, daemon=True)
+
+    fastapi_thread.start()
     discord_thread.start()
-    telegram_utils.main()
+    telegram_thread.start()
+    fastapi_thread.join()
+    discord_thread.join()
+    telegram_thread.join()
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+
+    except:
+        pass

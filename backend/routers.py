@@ -1,35 +1,32 @@
+from backend import database
 from backend.database import User
 from fastapi import APIRouter, HTTPException
-from hashing import hash_password, verify_password
+from passlib.context import CryptContext
 
-router = APIRouter(prefix="/auth", tags=["Auth"])
+router: APIRouter = APIRouter(prefix="/auth", tags=["Auth"])
+HASH_CTX: CryptContext = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 @router.post("/signup")
-def signup(user: User):
-    existing_user = db.query(User).filter(User.username == user.username).first()
+def signup(user: User) -> dict[str, str]:
+    existing_user: User | None = database.get_user(username=user.username)
 
     if existing_user:
         raise HTTPException(status_code=400, detail="User already exists")
 
-    hashed_pwd = hash_password(user.password)
-    new_user = User(username=user.username, password=hashed_pwd)
-    db.add(new_user)
-    db.commit()
-    db.refresh(new_user)
+    user.password = HASH_CTX.hash(user.password)
+    database.add_user(user)
+    return {"message": "User created successfully"}
 
 
 @router.post("/signin")
-def signin(user: User):
-    db_user = db.query(User).filter(User.username == user.username).first()
+def signin(user: User) -> dict[str, str | int]:
+    existing_user: User | None = database.get_user(username=user.username)
 
-    if not db_user:
+    if not existing_user or not HASH_CTX.verify(user.password, existing_user.password):
         raise HTTPException(status_code=400, detail="Invalid credentials")
 
-    if not verify_password(user.password, db_user.hashed_password):
-        raise HTTPException(status_code=400, detail="Invalid credentials")
+    if existing_user.uid is None:
+        raise HTTPException(status_code=500, detail="User record corrupted")
 
-    return {
-        "message": "Login successful",
-        "uid": db_user.uid
-    }
+    return {"message": "Login successful", "uid": existing_user.uid}

@@ -1,5 +1,7 @@
 import AuthPage from "./pages/AuthPage";
-function App(){
-    return <AuthPage />;
+
+function App() {
+    return <AuthPage/>;
 }
+
 export default App

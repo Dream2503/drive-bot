@@ -15,7 +15,3 @@ def main() -> None:
     except Exception as e:
         write_log("ERROR", Discord, "MAIN", "", f"Critical startup failure: {e}\n{format_exc()}")
         raise
-
-
-if __name__ == "__main__":
-    main()

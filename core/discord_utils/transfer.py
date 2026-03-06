@@ -69,7 +69,7 @@ async def upload(ctx: Context, uid: int, filename: str) -> None:
                     write_log("ERROR", Discord, "UPLOAD", user.username, f"Failed at part {i}/{total_parts}: {e}")
                     return
 
-        database.set_file(database.File(None, filename, links, Discord.NAME, uid))
+        database.add_file(database.File(None, filename, links, Discord.NAME, uid))
         write_log("INFO", Discord, "UPLOAD", user.username, f"Completed upload: `{file_path.name}` with {len(links)} part(s).")
 
     except Exception as e:
