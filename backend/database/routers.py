@@ -1,7 +1,7 @@
 from os import getenv
 from backend.database import utils as db 
-from backend.database.schema import User,LoginRequest
-from fastapi import APIRouter, HTTPException
+from backend.database.schema import User,LoginRequest,File
+from fastapi import APIRouter, HTTPException, File as FastAPIFile, Form, UploadFile
 from backend.database.security import hash_password, verify_password
 from backend.database.jwt_handler import create_access_token
 
@@ -24,6 +24,17 @@ def login(credentials: LoginRequest):
         raise HTTPException(status_code=401, detail="Invalid username or password")
     
     access_token = create_access_token(data={"sub": user.username})
-    return {"Message": "Login successful", 
+    return {"message": "Login successful", 
             "access_token": access_token, 
             "token_type": "bearer"}
+
+@router.post("/upload")
+async def upload_file(file: UploadFile = FastAPIFile(...),data_center: str = Form(...),uid: int = Form(...)):
+    file_obj = File(
+        fname=file.filename,
+        flinks=["generated_link"],
+        data_center=data_center,
+        uid=uid
+    )
+    db.add_file(file_obj)
+    return {"message": "File uploaded successfully"}

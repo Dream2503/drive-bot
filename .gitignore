@@ -6,3 +6,4 @@ core/.env
 core/transfer
 frontend/node_modules
 .env
+.venv

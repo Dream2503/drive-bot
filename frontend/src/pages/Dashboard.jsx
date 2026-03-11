@@ -1,6 +1,9 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 export default function Dashboard() {
+
+    const navigate = useNavigate();
 
     const [file, setFile] = useState(null);
     const [uploadedSize, setUploadedSize] = useState(0);
@@ -18,7 +21,7 @@ export default function Dashboard() {
 
         try {
 
-            const response = await fetch("http://127.0.0.1:8000/upload", {
+            const response = await fetch("http://127.0.0.1:8000/auth/upload", {
                 method: "POST",
                 body: formData
             });
@@ -44,7 +47,6 @@ export default function Dashboard() {
                 Dashboard
             </h1>
 
-            {/* Upload Card */}
 
             <div className="bg-white shadow-md rounded-xl p-6 mb-6">
 
@@ -67,21 +69,36 @@ export default function Dashboard() {
 
             </div>
 
-            {/* Usage Stats */}
-
-            <div className="bg-white shadow-md rounded-xl p-6">
+            <div className="bg-white shadow-md rounded-xl p-6 mb-6">
 
                 <h2 className="text-xl font-semibold mb-4">
                     Monthly Usage
                 </h2>
 
-                <p className="text-lg">
-                    Total Uploaded This Month:
-                </p>
+                <p>Total Uploaded:</p>
 
                 <p className="text-3xl font-bold text-indigo-600 mt-2">
                     {uploadedSize.toFixed(2)} MB
                 </p>
+
+            </div>
+
+            <div className="bg-white shadow-md rounded-xl p-6">
+
+                <h2 className="text-xl font-semibold mb-4">
+                    Your Files
+                </h2>
+
+                <p className="mb-4">
+                    View all uploaded files and download them.
+                </p>
+
+                <button
+                    onClick={() => navigate("/files")}
+                    className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700"
+                >
+                    View Files
+                </button>
 
             </div>
 
