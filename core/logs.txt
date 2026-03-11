@@ -1,0 +1,9 @@
+[2026-03-11 21:08:28] [Telegram] [INFO] [MAIN] [] Starting Store Limitless Bot...
+[2026-03-11 21:08:28] [Discord] [INFO] [MAIN] [] Starting Store Limitless Bot...
+[2026-03-11 21:08:28,492] [INFO] [discord.client] logging in using static token
+[2026-03-11 21:08:30] [Telegram] [INFO] [INIT] [@StoreLimitless_bot] FILE_DUMP chat set: Store Limitless (id=-5171741313)
+[2026-03-11 21:08:30] [Telegram] [INFO] [INIT] [@StoreLimitless_bot] Bot is online. Logged in (id=8404712547)
+[2026-03-11 21:08:30,363] [INFO] [telegram.ext.Application] Application started
+[2026-03-11 21:08:31,070] [INFO] [discord.gateway] Shard ID None has connected to Gateway (Session ID: 38b829e643a6371444489153fd3a1dd8).
+[2026-03-11 21:08:33] [Discord] [INFO] [INIT] [StoreLimitless#1152] FILE_DUMP channel initialized: files-dump (id=1399311590616203284).
+[2026-03-11 21:08:33] [Discord] [INFO] [INIT] [StoreLimitless#1152] Bot online and ready (id=1399287140885725245).
