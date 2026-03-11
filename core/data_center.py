@@ -20,6 +20,10 @@ class Database(DataCenter, metaclass=ConfigMeta):
     pass
 
 
+class BackEnd(Database, metaclass=ConfigMeta):
+    pass
+
+
 class Discord(DataCenter, metaclass=ConfigMeta):
     NAME: str = "Discord"
     TOKEN: str = getenv("DISCORD_TOKEN")

@@ -1,3 +1,4 @@
+from time import sleep
 from typing import Any, Generator
 
 from backend.database import File
@@ -16,6 +17,7 @@ def upload(file: File) -> Generator[float, Any, None]:
             pass
 
     for i in range(10):
+        sleep(0.5)
         yield float(i)
 
 
@@ -30,4 +32,5 @@ def download(file: File) -> Generator[float, Any, None]:
             pass
 
     for i in range(10):
+        sleep(0.5)
         yield float(i)
