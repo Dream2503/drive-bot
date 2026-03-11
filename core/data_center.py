@@ -17,10 +17,12 @@ class ConfigMeta(type):
 
 
 class Database(DataCenter, metaclass=ConfigMeta):
+    NAME: str = "Database"
     pass
 
 
 class BackEnd(Database, metaclass=ConfigMeta):
+    NAME: str = "BackEnd"
     pass
 
 
