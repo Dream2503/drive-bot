@@ -6,7 +6,7 @@ from core import discord_utils, telegram_utils
 
 
 def main() -> None:
-    fastapi_thread = Thread(target=lambda: uvicorn.run("backend.server.main:app", host="0.0.0.0", port=8000, log_level="info"), daemon=True)
+    fastapi_thread = Thread(target=lambda: uvicorn.run("backend.server.app:app", host="0.0.0.0", port=8000, log_level="info"), daemon=True)
     discord_thread: Thread = Thread(target=discord_utils.main, daemon=True)
     telegram_thread: Thread = Thread(target=telegram_utils.main, daemon=True)
 
