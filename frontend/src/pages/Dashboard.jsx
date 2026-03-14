@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import {useEffect, useState} from "react";
 
 export default function Dashboard() {
 
@@ -6,7 +6,7 @@ export default function Dashboard() {
     const [showUpload, setShowUpload] = useState(false);
     const [contextMenu, setContextMenu] = useState(null);
     const [file, setFile] = useState(null);
-    const [dataCenter, setDataCenter] = useState("discord");
+    const [dataCenter, setDataCenter] = useState("Discord");
 
     const [uploading, setUploading] = useState(false);
     const [progress, setProgress] = useState(0);
@@ -75,8 +75,7 @@ export default function Dashboard() {
         e.preventDefault();
 
         setContextMenu({
-            x: e.pageX,
-            y: e.pageY
+            x: e.pageX, y: e.pageY
         });
     };
 
@@ -84,126 +83,115 @@ export default function Dashboard() {
         setContextMenu(null);
     };
 
-    return (
-        <div
-            className="min-h-screen bg-gray-100 p-6"
-            onClick={closeContextMenu}
-            onContextMenu={handleRightClick}
-        >
+    return (<div
+        className="min-h-screen bg-gray-100 p-6"
+        onClick={closeContextMenu}
+        onContextMenu={handleRightClick}
+    >
 
-            <div className="flex justify-between mb-6">
+        <div className="flex justify-between mb-6">
 
-                <h1 className="text-3xl font-bold">
-                    Dashboard
-                </h1>
+            <h1 className="text-3xl font-bold">
+                Dashboard
+            </h1>
 
-                <button
-                    onClick={() => setShowUpload(true)}
-                    className="bg-indigo-600 text-white px-4 py-2 rounded-lg"
-                >
-                    + New
-                </button>
-
-            </div>
-
-            <div className="bg-white rounded-xl shadow p-6 grid grid-cols-5 gap-4">
-
-                {files.map((file) => (
-                    <div
-                        key={file.id}
-                        className="p-4 border rounded-lg hover:bg-gray-100 cursor-pointer"
-                    >
-                        <p className="text-lg">📄</p>
-                        <p className="text-sm truncate">{file.name}</p>
-                    </div>
-                ))}
-
-            </div>
-
-            {contextMenu && (
-                <div
-                    className="absolute bg-white shadow rounded-lg p-2"
-                    style={{
-                        top: contextMenu.y,
-                        left: contextMenu.x
-                    }}
-                >
-                    <button
-                        className="block px-4 py-2 hover:bg-gray-100 w-full text-left"
-                        onClick={() => setShowUpload(true)}
-                    >
-                        Upload File
-                    </button>
-                </div>
-            )}
-
-            {showUpload && (
-                <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center">
-
-                    <div className="bg-white p-6 rounded-xl w-96">
-
-                        <h2 className="text-xl font-bold mb-4">
-                            Upload File
-                        </h2>
-
-                        <input
-                            type="file"
-                            onChange={(e) => setFile(e.target.files[0])}
-                            className="mb-4"
-                        />
-
-                        <select
-                            value={dataCenter}
-                            onChange={(e) => setDataCenter(e.target.value)}
-                            className="border p-2 rounded mb-4 w-full"
-                        >
-                            <option value="discord">Discord</option>
-                            <option value="telegram">Telegram</option>
-                        </select>
-
-                        <div className="flex justify-end gap-3">
-
-                            <button
-                                onClick={() => setShowUpload(false)}
-                                className="px-4 py-2 border rounded"
-                            >
-                                Cancel
-                            </button>
-
-                            <button
-                                onClick={handleUpload}
-                                disabled={uploading}
-                                className="px-4 py-2 bg-indigo-600 text-white rounded disabled:opacity-50"
-                            >
-                                {uploading ? "Uploading..." : "Upload"}
-                            </button>
-
-                        </div>
-
-                        {uploading && (
-                            <div className="mt-4">
-
-                                <div className="w-full bg-gray-200 rounded-full h-3">
-
-                                    <div
-                                        className="bg-indigo-600 h-3 rounded-full transition-all duration-300"
-                                        style={{ width: `${progress}%` }}
-                                    />
-
-                                </div>
-
-                                <p className="text-sm text-gray-500 mt-1">
-                                    {progress.toFixed(0)}%
-                                </p>
-
-                            </div>
-                        )}
-
-                    </div>
-
-                </div>
-            )}
+            <button
+                onClick={() => setShowUpload(true)}
+                className="bg-indigo-600 text-white px-4 py-2 rounded-lg"
+            >
+                + New
+            </button>
 
         </div>
-    );
+
+        <div className="bg-white rounded-xl shadow p-6 grid grid-cols-5 gap-4">
+
+            {files.map((file) => (<div
+                key={file.id}
+                className="p-4 border rounded-lg hover:bg-gray-100 cursor-pointer"
+            >
+                <p className="text-lg">📄</p>
+                <p className="text-sm truncate">{file.name}</p>
+            </div>))}
+
+        </div>
+
+        {contextMenu && (<div
+            className="absolute bg-white shadow rounded-lg p-2"
+            style={{
+                top: contextMenu.y, left: contextMenu.x
+            }}
+        >
+            <button
+                className="block px-4 py-2 hover:bg-gray-100 w-full text-left"
+                onClick={() => setShowUpload(true)}
+            >
+                Upload File
+            </button>
+        </div>)}
+
+        {showUpload && (<div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center">
+
+            <div className="bg-white p-6 rounded-xl w-96">
+
+                <h2 className="text-xl font-bold mb-4">
+                    Upload File
+                </h2>
+
+                <input
+                    type="file"
+                    onChange={(e) => setFile(e.target.files[0])}
+                    className="mb-4"
+                />
+
+                <select
+                    value={dataCenter}
+                    onChange={(e) => setDataCenter(e.target.value)}
+                    className="border p-2 rounded mb-4 w-full"
+                >
+                    <option value="Discord">Discord</option>
+                    <option value="Telegram">Telegram</option>
+                </select>
+
+                <div className="flex justify-end gap-3">
+
+                    <button
+                        onClick={() => setShowUpload(false)}
+                        className="px-4 py-2 border rounded"
+                    >
+                        Cancel
+                    </button>
+
+                    <button
+                        onClick={handleUpload}
+                        disabled={uploading}
+                        className="px-4 py-2 bg-indigo-600 text-white rounded disabled:opacity-50"
+                    >
+                        {uploading ? "Uploading..." : "Upload"}
+                    </button>
+
+                </div>
+
+                {uploading && (<div className="mt-4">
+
+                    <div className="w-full bg-gray-200 rounded-full h-3">
+
+                        <div
+                            className="bg-indigo-600 h-3 rounded-full transition-all duration-300"
+                            style={{width: `${progress}%`}}
+                        />
+
+                    </div>
+
+                    <p className="text-sm text-gray-500 mt-1">
+                        {progress.toFixed(0)}%
+                    </p>
+
+                </div>)}
+
+            </div>
+
+        </div>)}
+
+    </div>);
 }
