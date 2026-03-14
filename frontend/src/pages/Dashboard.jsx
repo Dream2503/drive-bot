@@ -1,23 +1,32 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
 
 export default function Dashboard() {
 
-    const navigate = useNavigate();
-
+    const [files, setFiles] = useState([]);
+    const [showUpload, setShowUpload] = useState(false);
+    const [contextMenu, setContextMenu] = useState(null);
     const [file, setFile] = useState(null);
-    const [uploadedSize, setUploadedSize] = useState(0);
     const [dataCenter, setDataCenter] = useState("discord");
-    const [successMsg, setSuccessMsg] = useState("");
-    const [progress, setProgress] = useState(0);
-    const [uploading, setUploading] = useState(false);
 
-    const handleFileChange = (e) => {
-        setFile(e.target.files[0]);
+    const [uploading, setUploading] = useState(false);
+    const [progress, setProgress] = useState(0);
+
+    useEffect(() => {
+        fetchFiles();
+    }, []);
+
+    const fetchFiles = async () => {
+        const res = await fetch("http://127.0.0.1:8000/auth/files");
+        const data = await res.json();
+        setFiles(data);
     };
 
     const handleUpload = () => {
-        if (!file) return;
+
+        if (!file) {
+            alert("Please select a file first");
+            return;
+        }
 
         const formData = new FormData();
         formData.append("file", file);
@@ -26,25 +35,31 @@ export default function Dashboard() {
 
         const xhr = new XMLHttpRequest();
 
+        setUploading(true);
+        setProgress(0);
+
         xhr.upload.onprogress = (e) => {
+
             if (e.lengthComputable) {
                 const percent = Math.round((e.loaded / e.total) * 100);
                 setProgress(percent);
             }
+
         };
 
         xhr.onload = () => {
+
             if (xhr.status === 200) {
-                const sizeMB = file.size / (1024 * 1024);
-                setUploadedSize(prev => prev + sizeMB);
-                setSuccessMsg(`"${file.name}" uploaded successfully!`);
-                setTimeout(() => setSuccessMsg(""), 3000);
+                setUploading(false);
+                setProgress(100);
+                setShowUpload(false);
                 setFile(null);
-                setProgress(0);
+                fetchFiles();
             } else {
                 alert("Upload failed");
+                setUploading(false);
             }
-            setUploading(false);
+
         };
 
         xhr.onerror = () => {
@@ -53,81 +68,141 @@ export default function Dashboard() {
         };
 
         xhr.open("POST", "http://127.0.0.1:8000/auth/upload");
-        setUploading(true);
         xhr.send(formData);
     };
 
+    const handleRightClick = (e) => {
+        e.preventDefault();
+
+        setContextMenu({
+            x: e.pageX,
+            y: e.pageY
+        });
+    };
+
+    const closeContextMenu = () => {
+        setContextMenu(null);
+    };
+
     return (
-        <div className="min-h-screen bg-gray-100 p-8">
+        <div
+            className="min-h-screen bg-gray-100 p-6"
+            onClick={closeContextMenu}
+            onContextMenu={handleRightClick}
+        >
 
-            <h1 className="text-3xl font-bold mb-8">
-                Dashboard
-            </h1>
+            <div className="flex justify-between mb-6">
 
-            <div className="bg-white shadow-md rounded-xl p-6 mb-6">
-
-                <h2 className="text-xl font-semibold mb-4">
-                    Upload File
-                </h2>
-
-                <input
-                    type="file"
-                    onChange={handleFileChange}
-                    className="mb-4"
-                />
-
-                <select
-                    value={dataCenter}
-                    onChange={(e) => setDataCenter(e.target.value)}
-                    className="mb-4 border p-2 rounded"
-                >
-                    <option value="discord">Discord</option>
-                    <option value="telegram">Telegram</option>
-                </select>
+                <h1 className="text-3xl font-bold">
+                    Dashboard
+                </h1>
 
                 <button
-                    onClick={handleUpload}
-                    disabled={uploading}
-                    className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    onClick={() => setShowUpload(true)}
+                    className="bg-indigo-600 text-white px-4 py-2 rounded-lg"
                 >
-                    {uploading ? "Uploading..." : "Upload"}
+                    + New
                 </button>
 
-                {uploading && (
-                    <div className="mt-4">
-                        <div className="w-full bg-gray-200 rounded-full h-3">
-                            <div
-                                className="bg-indigo-600 h-3 rounded-full transition-all duration-300"
-                                style={{ width: `${progress}%` }}
-                            />
-                        </div>
-                        <p className="text-sm text-gray-500 mt-1">{progress}%</p>
+            </div>
+
+            <div className="bg-white rounded-xl shadow p-6 grid grid-cols-5 gap-4">
+
+                {files.map((file) => (
+                    <div
+                        key={file.id}
+                        className="p-4 border rounded-lg hover:bg-gray-100 cursor-pointer"
+                    >
+                        <p className="text-lg">📄</p>
+                        <p className="text-sm truncate">{file.name}</p>
                     </div>
-                )}
-
-                {successMsg && (
-                    <p className="mt-3 text-green-600 font-medium">
-                        ✓ {successMsg}
-                    </p>
-                )}
+                ))}
 
             </div>
 
-            <div className="bg-white shadow-md rounded-xl p-6">
+            {contextMenu && (
+                <div
+                    className="absolute bg-white shadow rounded-lg p-2"
+                    style={{
+                        top: contextMenu.y,
+                        left: contextMenu.x
+                    }}
+                >
+                    <button
+                        className="block px-4 py-2 hover:bg-gray-100 w-full text-left"
+                        onClick={() => setShowUpload(true)}
+                    >
+                        Upload File
+                    </button>
+                </div>
+            )}
 
-                <h2 className="text-xl font-semibold mb-4">
-                    Monthly Usage
-                </h2>
+            {showUpload && (
+                <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center">
 
-                <p className="text-lg">
-                    Total Uploaded This Month:
-                </p>
+                    <div className="bg-white p-6 rounded-xl w-96">
 
-                <p className="text-3xl font-bold text-indigo-600 mt-2">
-                    {uploadedSize.toFixed(2)} MB
-                </p>
+                        <h2 className="text-xl font-bold mb-4">
+                            Upload File
+                        </h2>
 
-            </div>
+                        <input
+                            type="file"
+                            onChange={(e) => setFile(e.target.files[0])}
+                            className="mb-4"
+                        />
+
+                        <select
+                            value={dataCenter}
+                            onChange={(e) => setDataCenter(e.target.value)}
+                            className="border p-2 rounded mb-4 w-full"
+                        >
+                            <option value="discord">Discord</option>
+                            <option value="telegram">Telegram</option>
+                        </select>
+
+                        <div className="flex justify-end gap-3">
+
+                            <button
+                                onClick={() => setShowUpload(false)}
+                                className="px-4 py-2 border rounded"
+                            >
+                                Cancel
+                            </button>
+
+                            <button
+                                onClick={handleUpload}
+                                disabled={uploading}
+                                className="px-4 py-2 bg-indigo-600 text-white rounded disabled:opacity-50"
+                            >
+                                {uploading ? "Uploading..." : "Upload"}
+                            </button>
+
+                        </div>
+
+                        {uploading && (
+                            <div className="mt-4">
+
+                                <div className="w-full bg-gray-200 rounded-full h-3">
+
+                                    <div
+                                        className="bg-indigo-600 h-3 rounded-full transition-all duration-300"
+                                        style={{ width: `${progress}%` }}
+                                    />
+
+                                </div>
+
+                                <p className="text-sm text-gray-500 mt-1">
+                                    {progress.toFixed(0)}%
+                                </p>
+
+                            </div>
+                        )}
+
+                    </div>
+
+                </div>
+            )}
 
         </div>
     );
