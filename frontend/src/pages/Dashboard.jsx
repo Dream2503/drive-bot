@@ -1,12 +1,10 @@
-import {useEffect, useState} from "react";
+import { useEffect, useState } from "react";
 
 export default function Dashboard() {
 
     const [files, setFiles] = useState([]);
-    const [showUpload, setShowUpload] = useState(false);
-    const [contextMenu, setContextMenu] = useState(null);
     const [file, setFile] = useState(null);
-    const [dataCenter, setDataCenter] = useState("Discord");
+    const [dataCenter, setDataCenter] = useState("discord");
 
     const [uploading, setUploading] = useState(false);
     const [progress, setProgress] = useState(0);
@@ -16,125 +14,111 @@ export default function Dashboard() {
     }, []);
 
     const fetchFiles = async () => {
-        const res = await fetch("http://127.0.0.1:8000/auth/files");
-        const data = await res.json();
-        setFiles(data);
+
+        try {
+
+            const token = localStorage.getItem("token");
+
+            const res = await fetch("http://127.0.0.1:8000/auth/files", {
+                headers: {
+                    Authorization: `Bearer ${token}`
+                }
+            });
+
+            if (!res.ok) throw new Error("Failed to fetch files");
+
+            const data = await res.json();
+            setFiles(data);
+
+        } catch (err) {
+            console.error(err);
+        }
     };
 
-    const handleUpload = () => {
+    const handleUpload = async () => {
 
         if (!file) {
             alert("Please select a file first");
             return;
         }
 
+        const token = localStorage.getItem("token");
+
         const formData = new FormData();
         formData.append("file", file);
         formData.append("data_center", dataCenter);
-        formData.append("uid", 1);
-
-        const xhr = new XMLHttpRequest();
 
         setUploading(true);
         setProgress(0);
 
-        xhr.upload.onprogress = (e) => {
+        try {
 
-            if (e.lengthComputable) {
-                const percent = Math.round((e.loaded / e.total) * 100);
-                setProgress(percent);
+            const response = await fetch(
+                "http://127.0.0.1:8000/auth/upload",
+                {
+                    method: "POST",
+                    headers: {
+                        Authorization: `Bearer ${token}`
+                    },
+                    body: formData
+                }
+            );
+
+            if (!response.body) throw new Error("No response body");
+
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+
+            while (true) {
+
+                const { done, value } = await reader.read();
+
+                if (done) break;
+
+                const text = decoder.decode(value);
+                const lines = text.split("\n");
+
+                for (const line of lines) {
+
+                    if (!line.trim()) continue;
+
+                    const data = JSON.parse(line);
+
+                    if (data.progress !== undefined) {
+                        setProgress(data.progress);
+                    }
+
+                }
             }
 
-        };
+            setUploading(false);
+            setProgress(100);
+            setFile(null);
 
-        xhr.onload = () => {
+            fetchFiles();
 
-            if (xhr.status === 200) {
-                setUploading(false);
-                setProgress(100);
-                setShowUpload(false);
-                setFile(null);
-                fetchFiles();
-            } else {
-                alert("Upload failed");
-                setUploading(false);
-            }
+        } catch (err) {
 
-        };
-
-        xhr.onerror = () => {
+            console.error(err);
             alert("Upload failed");
             setUploading(false);
-        };
 
-        xhr.open("POST", "http://127.0.0.1:8000/auth/upload");
-        xhr.send(formData);
+        }
     };
 
-    const handleRightClick = (e) => {
-        e.preventDefault();
+    return (
 
-        setContextMenu({
-            x: e.pageX, y: e.pageY
-        });
-    };
+        <div className="min-h-screen bg-gray-100 p-8">
 
-    const closeContextMenu = () => {
-        setContextMenu(null);
-    };
-
-    return (<div
-        className="min-h-screen bg-gray-100 p-6"
-        onClick={closeContextMenu}
-        onContextMenu={handleRightClick}
-    >
-
-        <div className="flex justify-between mb-6">
-
-            <h1 className="text-3xl font-bold">
-                Dashboard
+            <h1 className="text-3xl font-bold mb-8">
+                DriveBot Dashboard
             </h1>
 
-            <button
-                onClick={() => setShowUpload(true)}
-                className="bg-indigo-600 text-white px-4 py-2 rounded-lg"
-            >
-                + New
-            </button>
+            {/* Upload Section */}
 
-        </div>
+            <div className="bg-white shadow rounded-xl p-6 mb-8">
 
-        <div className="bg-white rounded-xl shadow p-6 grid grid-cols-5 gap-4">
-
-            {files.map((file) => (<div
-                key={file.id}
-                className="p-4 border rounded-lg hover:bg-gray-100 cursor-pointer"
-            >
-                <p className="text-lg">📄</p>
-                <p className="text-sm truncate">{file.name}</p>
-            </div>))}
-
-        </div>
-
-        {contextMenu && (<div
-            className="absolute bg-white shadow rounded-lg p-2"
-            style={{
-                top: contextMenu.y, left: contextMenu.x
-            }}
-        >
-            <button
-                className="block px-4 py-2 hover:bg-gray-100 w-full text-left"
-                onClick={() => setShowUpload(true)}
-            >
-                Upload File
-            </button>
-        </div>)}
-
-        {showUpload && (<div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center">
-
-            <div className="bg-white p-6 rounded-xl w-96">
-
-                <h2 className="text-xl font-bold mb-4">
+                <h2 className="text-xl font-semibold mb-4">
                     Upload File
                 </h2>
 
@@ -149,49 +133,80 @@ export default function Dashboard() {
                     onChange={(e) => setDataCenter(e.target.value)}
                     className="border p-2 rounded mb-4 w-full"
                 >
-                    <option value="Discord">Discord</option>
-                    <option value="Telegram">Telegram</option>
+                    <option value="discord">Discord</option>
+                    <option value="telegram">Telegram</option>
                 </select>
 
-                <div className="flex justify-end gap-3">
+                <button
+                    onClick={handleUpload}
+                    disabled={uploading}
+                    className="bg-indigo-600 text-white px-4 py-2 rounded disabled:opacity-50"
+                >
+                    {uploading ? "Uploading..." : "Upload"}
+                </button>
 
-                    <button
-                        onClick={() => setShowUpload(false)}
-                        className="px-4 py-2 border rounded"
-                    >
-                        Cancel
-                    </button>
+                {uploading && (
 
-                    <button
-                        onClick={handleUpload}
-                        disabled={uploading}
-                        className="px-4 py-2 bg-indigo-600 text-white rounded disabled:opacity-50"
-                    >
-                        {uploading ? "Uploading..." : "Upload"}
-                    </button>
+                    <div className="mt-6">
 
-                </div>
+                        <div className="w-full bg-gray-200 h-3 rounded">
 
-                {uploading && (<div className="mt-4">
+                            <div
+                                className="bg-indigo-600 h-3 rounded transition-all"
+                                style={{ width: `${progress}%` }}
+                            />
 
-                    <div className="w-full bg-gray-200 rounded-full h-3">
+                        </div>
 
-                        <div
-                            className="bg-indigo-600 h-3 rounded-full transition-all duration-300"
-                            style={{width: `${progress}%`}}
-                        />
+                        <p className="text-sm text-gray-600 mt-2">
+                            Uploading to {dataCenter} : {progress.toFixed(1)}%
+                        </p>
 
                     </div>
 
-                    <p className="text-sm text-gray-500 mt-1">
-                        {progress.toFixed(0)}%
-                    </p>
-
-                </div>)}
+                )}
 
             </div>
 
-        </div>)}
+            {/* Files Section */}
 
-    </div>);
+            <div className="bg-white shadow rounded-xl p-6">
+
+                <h2 className="text-xl font-semibold mb-4">
+                    Uploaded Files
+                </h2>
+
+                {files.length === 0 ? (
+
+                    <p className="text-gray-500">
+                        No files uploaded yet
+                    </p>
+
+                ) : (
+
+                    <div className="grid grid-cols-5 gap-4">
+
+                        {files.map((file) => (
+
+                            <div
+                                key={file.id}
+                                className="p-4 border rounded hover:bg-gray-50"
+                            >
+                                <p className="text-lg">📄</p>
+                                <p className="text-sm truncate">
+                                    {file.name}
+                                </p>
+                            </div>
+
+                        ))}
+
+                    </div>
+
+                )}
+
+            </div>
+
+        </div>
+
+    );
 }
