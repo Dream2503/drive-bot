@@ -1,4 +1,5 @@
 from asyncio import run_coroutine_threadsafe
+from asyncio import run_coroutine_threadsafe, sleep as async_sleep
 from io import BytesIO
 from pathlib import Path
 from time import sleep
@@ -14,42 +15,50 @@ from core.utils import write_log
 
 
 async def upload(file: File) -> AsyncGenerator[float, None]:
+    print("UPLOAD FUNCTION STARTED")
     user: User | None = get_user(uid=file.uid)
-    data_center: type[DataCenter] = DataCenter(file.data_center)
+    data_center = file.data_center
     write_log("INFO", data_center, "UPLOAD", user.username, f"Got file: {file}")
 
+    yield 0.0
+
     if not user:
+        yield 0
         return
 
     try:
         if get_file(fname=file.fname, uid=file.uid):
             write_log("ERROR", data_center, "UPLOAD", user.username, f"File `{file.fname}` already exists.")
+            yield 0.0
             return
 
         file_path: Path = (TRANSFER_PATH / Path(file.fname).name).resolve()
 
         if not file_path.is_relative_to(TRANSFER_PATH.resolve()):
             write_log("ERROR", data_center, "UPLOAD", user.username, f"Illegal file path attempted: {file.fname}")
+            yield 0.0
             return
 
         if not file_path.exists():
             write_log("ERROR", data_center, "UPLOAD", user.username, f"Local file not found: {file_path}")
+            yield 0.0
             return
 
         write_log("INFO", data_center, "UPLOAD", user.username, f"Found local file: {file_path.name}")
 
-        match file.data_center:
-            case Discord.NAME:
-                max_size: int = Discord.MAX_SIZE
+        dc = file.data_center.strip().lower()
 
-            case Telegram.NAME:
-                max_size: int = Telegram.MAX_SIZE
+        if dc == "discord":
+            max_size = Discord.MAX_SIZE
 
-            case _:
-                raise ValueError("Unknown data center")
+        elif dc == "telegram":
+            max_size = Telegram.MAX_SIZE
+
+        else:
+            raise ValueError(f"Unknown data center: {file.data_center}")
 
         file_size: int = file_path.stat().st_size
-        total_parts: int = (file_size + max_size - 1) // max_size
+        total_parts: int = max(1, (file_size + max_size - 1) // max_size)
         write_log("INFO", data_center, "UPLOAD", user.username, f"Starting upload `{file_path.name}` ({total_parts} parts)", )
 
         with file_path.open("rb") as f:
@@ -63,23 +72,20 @@ async def upload(file: File) -> AsyncGenerator[float, None]:
 
                 while True:
                     try:
-                        match file.data_center:
-                            case Discord.NAME:
-                                msg_id: int = run_coroutine_threadsafe(
-                                        Discord.FILE_DUMP.send(file=discord.File(BytesIO(chunk), filename=filename)),
-                                        Discord.LOOP,
-                                ).result().id
+                        if dc == "discord":
+                            msg_id = run_coroutine_threadsafe(
+                                Discord.FILE_DUMP.send(file=discord.File(BytesIO(chunk), filename=filename)),
+                                Discord.LOOP,
+                            ).result().id
 
-                            case Telegram.NAME:
-                                msg_id = (await Telegram.FILE_DUMP.send_document(
-                                        chat_id=Telegram.FILE_DUMP_ID,
-                                        document=BytesIO(chunk),
-                                        filename=filename,
-                                        write_timeout=36_000,
-                                        read_timeout=36_000,
-                                        connect_timeout=60,
-                                        pool_timeout=36_000,
-                                )).id
+                        elif dc == "telegram":
+                            msg_id = (
+                                await Telegram.FILE_DUMP.send_document(
+                                    chat_id=Telegram.FILE_DUMP_ID,
+                                    document=BytesIO(chunk),
+                                    filename=filename,
+                                )
+                            ).id
 
                         break
 
@@ -87,13 +93,16 @@ async def upload(file: File) -> AsyncGenerator[float, None]:
                         write_log("ERROR", data_center, "UPLOAD", user.username, f"Network error part {i}/{total_parts}, retrying: {e}")
 
                 file.flinks.append(str(msg_id))
-                progress: float = (i / total_parts) * 100
+                progress: float = round((i / total_parts) * 100, 2)
                 write_log("INFO", data_center, "UPLOAD", user.username, f"Uploaded {i}/{total_parts} ({progress:.1f}%)")
                 yield progress
+                await async_sleep(0.1)
 
         add_file(file)
         write_log("INFO", data_center, "UPLOAD", user.username, f"Upload complete `{file_path.name}`")
         (TRANSFER_PATH / file.fname).unlink()
+
+        yield 100.0
 
     except Exception as e:
         write_log("ERROR", data_center, "UPLOAD", user.username if user else "", f"Unhandled exception: {e}\n{format_exc()}")

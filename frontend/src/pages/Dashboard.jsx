@@ -1,212 +1,117 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
-export default function Dashboard() {
-
+export default function DashboardPage() {
+    const navigate = useNavigate();
     const [files, setFiles] = useState([]);
-    const [file, setFile] = useState(null);
-    const [dataCenter, setDataCenter] = useState("discord");
-
-    const [uploading, setUploading] = useState(false);
-    const [progress, setProgress] = useState(0);
-
-    useEffect(() => {
-        fetchFiles();
-    }, []);
 
     const fetchFiles = async () => {
-
         try {
-
-            const token = localStorage.getItem("token");
-
             const res = await fetch("http://127.0.0.1:8000/auth/files", {
                 headers: {
-                    Authorization: `Bearer ${token}`
+                    Authorization: `Bearer ${localStorage.getItem("token")}`
                 }
             });
-
-            if (!res.ok) throw new Error("Failed to fetch files");
 
             const data = await res.json();
             setFiles(data);
 
         } catch (err) {
-            console.error(err);
+            console.error("Failed to fetch files", err);
         }
     };
 
-    const handleUpload = async () => {
+    useEffect(() => {
+        fetchFiles();
+    }, []);
 
-        if (!file) {
-            alert("Please select a file first");
-            return;
-        }
-
-        const token = localStorage.getItem("token");
-
-        const formData = new FormData();
-        formData.append("file", file);
-        formData.append("data_center", dataCenter);
-
-        setUploading(true);
-        setProgress(0);
-
-        try {
-
-            const response = await fetch(
-                "http://127.0.0.1:8000/auth/upload",
-                {
-                    method: "POST",
-                    headers: {
-                        Authorization: `Bearer ${token}`
-                    },
-                    body: formData
-                }
-            );
-
-            if (!response.body) throw new Error("No response body");
-
-            const reader = response.body.getReader();
-            const decoder = new TextDecoder();
-
-            while (true) {
-
-                const { done, value } = await reader.read();
-
-                if (done) break;
-
-                const text = decoder.decode(value);
-                const lines = text.split("\n");
-
-                for (const line of lines) {
-
-                    if (!line.trim()) continue;
-
-                    const data = JSON.parse(line);
-
-                    if (data.progress !== undefined) {
-                        setProgress(data.progress);
-                    }
-
-                }
+    const downloadFile = async (fid, fname) => {
+        const res = await fetch(`http://127.0.0.1:8000/auth/download/${fid}`, {
+            headers: {
+                Authorization: `Bearer ${localStorage.getItem("token")}`
             }
+        });
 
-            setUploading(false);
-            setProgress(100);
-            setFile(null);
+        const blob = await res.blob();
+        const url = window.URL.createObjectURL(blob);
 
-            fetchFiles();
-
-        } catch (err) {
-
-            console.error(err);
-            alert("Upload failed");
-            setUploading(false);
-
-        }
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = fname;
+        a.click();
+        window.URL.revokeObjectURL(url);
     };
 
     return (
+        <div className="h-screen flex bg-gradient-to-br from-[#0f172a] to-[#020617] text-white">
 
-        <div className="min-h-screen bg-gray-100 p-8">
-
-            <h1 className="text-3xl font-bold mb-8">
-                DriveBot Dashboard
-            </h1>
-
-            {/* Upload Section */}
-
-            <div className="bg-white shadow rounded-xl p-6 mb-8">
-
-                <h2 className="text-xl font-semibold mb-4">
-                    Upload File
+            <aside className="w-64 bg-[#020617]/80 backdrop-blur border-r border-gray-800 p-6">
+                <h2 className="text-xl font-semibold mb-8 tracking-wide">
+                    🚀 DriveBot
                 </h2>
 
-                <input
-                    type="file"
-                    onChange={(e) => setFile(e.target.files[0])}
-                    className="mb-4"
-                />
+                <div className="space-y-3 text-gray-400 text-sm">
+                    <p className="text-white">📁 Files</p>
 
-                <select
-                    value={dataCenter}
-                    onChange={(e) => setDataCenter(e.target.value)}
-                    className="border p-2 rounded mb-4 w-full"
-                >
-                    <option value="discord">Discord</option>
-                    <option value="telegram">Telegram</option>
-                </select>
-
-                <button
-                    onClick={handleUpload}
-                    disabled={uploading}
-                    className="bg-indigo-600 text-white px-4 py-2 rounded disabled:opacity-50"
-                >
-                    {uploading ? "Uploading..." : "Upload"}
-                </button>
-
-                {uploading && (
-
-                    <div className="mt-6">
-
-                        <div className="w-full bg-gray-200 h-3 rounded">
-
-                            <div
-                                className="bg-indigo-600 h-3 rounded transition-all"
-                                style={{ width: `${progress}%` }}
-                            />
-
-                        </div>
-
-                        <p className="text-sm text-gray-600 mt-2">
-                            Uploading to {dataCenter} : {progress.toFixed(1)}%
-                        </p>
-
-                    </div>
-
-                )}
-
-            </div>
-
-            {/* Files Section */}
-
-            <div className="bg-white shadow rounded-xl p-6">
-
-                <h2 className="text-xl font-semibold mb-4">
-                    Uploaded Files
-                </h2>
-
-                {files.length === 0 ? (
-
-                    <p className="text-gray-500">
-                        No files uploaded yet
+                    <p
+                        onClick={() => navigate("/upload")}
+                        className="hover:text-white cursor-pointer"
+                    >
+                        ⬆ Upload
                     </p>
 
+                    <p className="hover:text-white cursor-pointer">Settings</p>
+                </div>
+            </aside>
+
+            <main className="flex-1 p-10 overflow-y-auto">
+
+                <div className="flex justify-between items-center mb-8">
+                    <h1 className="text-3xl font-semibold tracking-tight">
+                        Your Files
+                    </h1>
+
+                    <button
+                        onClick={() => navigate("/upload")}
+                        className="bg-indigo-600 px-5 py-2 rounded-lg hover:bg-indigo-700"
+                    >
+                        Upload File
+                    </button>
+                </div>
+
+
+                {files.length === 0 ? (
+                    <p className="text-gray-400">No files uploaded</p>
                 ) : (
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
 
-                    <div className="grid grid-cols-5 gap-4">
-
-                        {files.map((file) => (
-
+                        {files.map(file => (
                             <div
-                                key={file.id}
-                                className="p-4 border rounded hover:bg-gray-50"
+                                key={file.fid}
+                                className="bg-[#020617] border border-gray-800 p-5 rounded-xl hover:border-indigo-500 transition"
                             >
-                                <p className="text-lg">📄</p>
-                                <p className="text-sm truncate">
-                                    {file.name}
-                                </p>
-                            </div>
+                                <div className="text-3xl mb-3">📄</div>
 
+                                <p className="truncate font-medium">
+                                    {file.fname}
+                                </p>
+
+                                <p className="text-xs text-gray-500 mb-3">
+                                    {file.data_center}
+                                </p>
+
+                                <button
+                                    onClick={() => downloadFile(file.fid, file.fname)}
+                                    className="text-indigo-400 text-sm hover:underline"
+                                >
+                                    Download
+                                </button>
+                            </div>
                         ))}
 
                     </div>
-
                 )}
-
-            </div>
-
+            </main>
         </div>
-
     );
 }

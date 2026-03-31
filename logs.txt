@@ -79,3 +79,336 @@ server closed the connection unexpectedly
 [2026-03-16 20:13:07] [Discord] [INFO] [INIT] [StoreLimitless#1152] Bot online and ready (id=1399287140885725245).
 [2026-03-16 20:13:17] [Database] [INFO] [GET USER] [] Select query executed for username=Anwesh17.
 [2026-03-16 20:13:17] [Database] [INFO] [GET USER] [Anwesh17] Successfully fetched user from database.
+[2026-03-31 23:32:24,766] [WARNING] [discord.client] PyNaCl is not installed, voice will NOT be supported
+[2026-03-31 23:32:24,766] [WARNING] [discord.client] davey is not installed, voice will NOT be supported
+[2026-03-31 23:32:24] [Discord] [INFO] [MAIN] [] Starting Store Limitless Bot...
+[2026-03-31 23:32:24] [Telegram] [INFO] [MAIN] [] Starting Store Limitless Bot...
+[2026-03-31 23:32:24,777] [INFO] [discord.client] logging in using static token
+[2026-03-31 23:32:27] [Telegram] [ERROR] [INIT] [@StoreLimitless_bot] Error fetching FILE_DUMP chat: 'ExtBot' object has no attribute 'title'
+[2026-03-31 23:32:27] [Telegram] [INFO] [INIT] [@StoreLimitless_bot] Bot is online. Logged in (id=8404712547)
+[2026-03-31 23:32:27,683] [INFO] [telegram.ext.Application] Application started
+[2026-03-31 23:32:27,685] [INFO] [discord.gateway] Shard ID None has connected to Gateway (Session ID: 8b2f6003f72fbaff1f90ffe1cb23f5c3).
+[2026-03-31 23:32:30] [Discord] [INFO] [INIT] [StoreLimitless#1152] FILE_DUMP channel initialized: files-dump (id=1399311590616203284).
+[2026-03-31 23:32:30] [Discord] [INFO] [INIT] [StoreLimitless#1152] Bot online and ready (id=1399287140885725245).
+[2026-03-31 23:33:49] [Database] [INFO] [GET USER] [] Select query executed for username=Anwesh17.
+[2026-03-31 23:33:49] [Database] [INFO] [GET USER] [Anwesh17] Successfully fetched user from database.
+[2026-03-31 23:34:02] [Database] [INFO] [GET USER] [] Select query executed for username=Anwesh17.
+[2026-03-31 23:34:03] [Database] [INFO] [GET USER] [Anwesh17] Successfully fetched user from database.
+[2026-03-31 23:35:21] [Database] [INFO] [GET USER] [] Select query executed for username=Anwesh17.
+[2026-03-31 23:35:21] [Database] [INFO] [GET USER] [Anwesh17] Successfully fetched user from database.
+[2026-03-31 23:38:09] [Database] [INFO] [GET USER] [] Select query executed for username=Anwesh18.
+[2026-03-31 23:38:09] [Database] [ERROR] [GET USER] [] User not found in the database
+[2026-03-31 23:38:10] [Database] [INFO] [SET USER] [Anwesh18] Insert query executed.
+[2026-03-31 23:38:10] [Database] [INFO] [SET USER] [Anwesh18] User successfully inserted into database.
+[2026-03-31 23:38:19] [Database] [INFO] [GET USER] [] Select query executed for username=Anwesh18.
+[2026-03-31 23:38:19] [Database] [INFO] [GET USER] [Anwesh18] Successfully fetched user from database.
+[2026-03-31 23:44:39,614] [WARNING] [discord.client] PyNaCl is not installed, voice will NOT be supported
+[2026-03-31 23:44:39,614] [WARNING] [discord.client] davey is not installed, voice will NOT be supported
+[2026-03-31 23:44:39] [Discord] [INFO] [MAIN] [] Starting Store Limitless Bot...
+[2026-03-31 23:44:39,630] [INFO] [discord.client] logging in using static token
+[2026-03-31 23:44:39] [Telegram] [INFO] [MAIN] [] Starting Store Limitless Bot...
+[2026-03-31 23:44:41] [Telegram] [ERROR] [INIT] [@StoreLimitless_bot] Error fetching FILE_DUMP chat: 'ExtBot' object has no attribute 'title'
+[2026-03-31 23:44:41] [Telegram] [INFO] [INIT] [@StoreLimitless_bot] Bot is online. Logged in (id=8404712547)
+[2026-03-31 23:44:41,758] [INFO] [telegram.ext.Application] Application started
+[2026-03-31 23:44:42,251] [INFO] [discord.gateway] Shard ID None has connected to Gateway (Session ID: 2c16e2539923e40472d0b293272974f9).
+[2026-03-31 23:44:44] [Discord] [INFO] [INIT] [StoreLimitless#1152] FILE_DUMP channel initialized: files-dump (id=1399311590616203284).
+[2026-03-31 23:44:44] [Discord] [INFO] [INIT] [StoreLimitless#1152] Bot online and ready (id=1399287140885725245).
+[2026-03-31 23:44:46] [Database] [INFO] [GET USER] [] Select query executed for username=Anwesh18.
+[2026-03-31 23:44:46] [Database] [ERROR] [GET USER] [] User not found in the database
+[2026-03-31 23:44:47] [Database] [INFO] [SET USER] [Anwesh18] Insert query executed.
+[2026-03-31 23:44:47] [Database] [INFO] [SET USER] [Anwesh18] User successfully inserted into database.
+[2026-03-31 23:44:56] [Database] [INFO] [GET USER] [] Select query executed for username=Anwesh18.
+[2026-03-31 23:44:56] [Database] [INFO] [GET USER] [Anwesh18] Successfully fetched user from database.
+[2026-03-31 23:57:47,979] [INFO] [discord.gateway] Shard ID None has successfully RESUMED session 2c16e2539923e40472d0b293272974f9.
+[2026-03-31 23:59:03,868] [WARNING] [discord.client] PyNaCl is not installed, voice will NOT be supported
+[2026-03-31 23:59:03,868] [WARNING] [discord.client] davey is not installed, voice will NOT be supported
+[2026-03-31 23:59:03] [Telegram] [INFO] [MAIN] [] Starting Store Limitless Bot...
+[2026-03-31 23:59:03] [Discord] [INFO] [MAIN] [] Starting Store Limitless Bot...
+[2026-03-31 23:59:03,934] [INFO] [discord.client] logging in using static token
+[2026-03-31 23:59:05] [Telegram] [ERROR] [INIT] [@StoreLimitless_bot] Error fetching FILE_DUMP chat: 'ExtBot' object has no attribute 'title'
+[2026-03-31 23:59:05] [Telegram] [INFO] [INIT] [@StoreLimitless_bot] Bot is online. Logged in (id=8404712547)
+[2026-03-31 23:59:05,796] [INFO] [telegram.ext.Application] Application started
+[2026-03-31 23:59:06,899] [INFO] [discord.gateway] Shard ID None has connected to Gateway (Session ID: 8866549cc45069b70a4812db7fa7d042).
+[2026-03-31 23:59:08] [Discord] [INFO] [INIT] [StoreLimitless#1152] FILE_DUMP channel initialized: files-dump (id=1399311590616203284).
+[2026-03-31 23:59:08] [Discord] [INFO] [INIT] [StoreLimitless#1152] Bot online and ready (id=1399287140885725245).
+[2026-03-31 23:59:25] [Database] [INFO] [GET USER] [] Select query executed for username=Anwesh18.
+[2026-03-31 23:59:25] [Database] [INFO] [GET USER] [Anwesh18] Successfully fetched user from database.
+[2026-03-31 23:59:32] [Database] [INFO] [GET USER] [] Select query executed for username=Anwesh18.
+[2026-03-31 23:59:32] [Database] [INFO] [GET USER] [Anwesh18] Successfully fetched user from database.
+[2026-03-31 23:59:46] [Database] [INFO] [GET USER] [] Select query executed for username=Anwesh18.
+[2026-03-31 23:59:46] [Database] [INFO] [GET USER] [Anwesh18] Successfully fetched user from database.
+[2026-03-31 23:59:47] [Database] [INFO] [GET USER] [] Select query executed for uid=5.
+[2026-03-31 23:59:47] [Database] [INFO] [GET USER] [Anwesh18] Successfully fetched user from database.
+[2026-03-31 23:59:47] [None] [INFO] [UPLOAD] [Anwesh18] Got file: fid=None fname='100MB.bin' flinks=[] data_center='discord' uid=5
+[2026-03-31 23:59:47] [Database] [INFO] [GET FILE] [] Select query executed for ('fname', 'uid')=('100MB.bin', 5).
+[2026-03-31 23:59:47] [Database] [ERROR] [GET FILE] [] No file found for ('fname', 'uid')=('100MB.bin', 5).
+[2026-03-31 23:59:47] [None] [INFO] [UPLOAD] [Anwesh18] Found local file: 100MB.bin
+[2026-03-31 23:59:47] [None] [ERROR] [UPLOAD] [Anwesh18] Unhandled exception: Unknown data center
+Traceback (most recent call last):
+  File "C:\Users\anwes\OneDrive\Desktop\My_Folder\DriveBot\core\transfer.py", line 49, in upload
+    raise ValueError("Unknown data center")
+ValueError: Unknown data center
+
+[2026-04-01 00:09:53,311] [WARNING] [discord.client] PyNaCl is not installed, voice will NOT be supported
+[2026-04-01 00:09:53,311] [WARNING] [discord.client] davey is not installed, voice will NOT be supported
+[2026-04-01 00:09:53] [Discord] [INFO] [MAIN] [] Starting Store Limitless Bot...
+[2026-04-01 00:09:53] [Telegram] [INFO] [MAIN] [] Starting Store Limitless Bot...
+[2026-04-01 00:09:53,326] [INFO] [discord.client] logging in using static token
+[2026-04-01 00:09:55] [Telegram] [ERROR] [INIT] [@StoreLimitless_bot] Error fetching FILE_DUMP chat: 'ExtBot' object has no attribute 'title'
+[2026-04-01 00:09:55] [Telegram] [INFO] [INIT] [@StoreLimitless_bot] Bot is online. Logged in (id=8404712547)
+[2026-04-01 00:09:55,379] [INFO] [telegram.ext.Application] Application started
+[2026-04-01 00:09:56,619] [INFO] [discord.gateway] Shard ID None has connected to Gateway (Session ID: 5bcae0a9f22ab26fa8a1a5bc03782907).
+[2026-04-01 00:09:58] [Discord] [INFO] [INIT] [StoreLimitless#1152] FILE_DUMP channel initialized: files-dump (id=1399311590616203284).
+[2026-04-01 00:09:58] [Discord] [INFO] [INIT] [StoreLimitless#1152] Bot online and ready (id=1399287140885725245).
+[2026-04-01 00:10:58] [Database] [INFO] [GET USER] [] Select query executed for username=Anwesh18.
+[2026-04-01 00:10:58] [Database] [INFO] [GET USER] [Anwesh18] Successfully fetched user from database.
+[2026-04-01 00:10:58] [Database] [INFO] [GET USER] [] Select query executed for uid=5.
+[2026-04-01 00:10:58] [Database] [INFO] [GET USER] [Anwesh18] Successfully fetched user from database.
+[2026-04-01 00:10:58] [None] [INFO] [UPLOAD] [Anwesh18] Got file: fid=None fname='100MB.bin' flinks=[] data_center='discord' uid=5
+[2026-04-01 00:10:58] [Database] [INFO] [GET FILE] [] Select query executed for ('fname', 'uid')=('100MB.bin', 5).
+[2026-04-01 00:10:58] [Database] [ERROR] [GET FILE] [] No file found for ('fname', 'uid')=('100MB.bin', 5).
+[2026-04-01 00:10:58] [None] [INFO] [UPLOAD] [Anwesh18] Found local file: 100MB.bin
+[2026-04-01 00:10:58] [None] [ERROR] [UPLOAD] [Anwesh18] Unhandled exception: Unknown data center
+Traceback (most recent call last):
+  File "C:\Users\anwes\OneDrive\Desktop\My_Folder\DriveBot\core\transfer.py", line 49, in upload
+    raise ValueError("Unknown data center")
+ValueError: Unknown data center
+
+[2026-04-01 01:23:20,195] [WARNING] [discord.client] PyNaCl is not installed, voice will NOT be supported
+[2026-04-01 01:23:20,195] [WARNING] [discord.client] davey is not installed, voice will NOT be supported
+[2026-04-01 01:23:20] [Discord] [INFO] [MAIN] [] Starting Store Limitless Bot...
+[2026-04-01 01:23:20,210] [INFO] [discord.client] logging in using static token
+[2026-04-01 01:23:20] [Telegram] [INFO] [MAIN] [] Starting Store Limitless Bot...
+[2026-04-01 01:23:22] [Telegram] [ERROR] [INIT] [@StoreLimitless_bot] Error fetching FILE_DUMP chat: 'ExtBot' object has no attribute 'title'
+[2026-04-01 01:23:22] [Telegram] [INFO] [INIT] [@StoreLimitless_bot] Bot is online. Logged in (id=8404712547)
+[2026-04-01 01:23:23,271] [INFO] [telegram.ext.Application] Application started
+[2026-04-01 01:23:25,163] [INFO] [discord.gateway] Shard ID None has connected to Gateway (Session ID: 13981c3307fb6019ca704f8f920c5bee).
+[2026-04-01 01:23:27] [Discord] [INFO] [INIT] [StoreLimitless#1152] FILE_DUMP channel initialized: files-dump (id=1399311590616203284).
+[2026-04-01 01:23:27] [Discord] [INFO] [INIT] [StoreLimitless#1152] Bot online and ready (id=1399287140885725245).
+[2026-04-01 01:27:04] [Database] [INFO] [GET USER] [] Select query executed for username=Anwesh18.
+[2026-04-01 01:27:04] [Database] [INFO] [GET USER] [Anwesh18] Successfully fetched user from database.
+[2026-04-01 01:27:09] [Database] [INFO] [GET USER] [] Select query executed for username=Anwesh18.
+[2026-04-01 01:27:09] [Database] [INFO] [GET USER] [Anwesh18] Successfully fetched user from database.
+[2026-04-01 01:27:17] [Database] [INFO] [GET USER] [] Select query executed for username=Anwesh18.
+[2026-04-01 01:27:17] [Database] [INFO] [GET USER] [Anwesh18] Successfully fetched user from database.
+[2026-04-01 01:27:18] [Database] [INFO] [GET USER] [] Select query executed for uid=5.
+[2026-04-01 01:27:18] [Database] [INFO] [GET USER] [Anwesh18] Successfully fetched user from database.
+[2026-04-01 01:27:18] [None] [INFO] [UPLOAD] [Anwesh18] Got file: fid=None fname='100MB.bin' flinks=[] data_center='discord' uid=5
+[2026-04-01 01:27:18] [Database] [INFO] [GET FILE] [] Select query executed for ('fname', 'uid')=('100MB.bin', 5).
+[2026-04-01 01:27:18] [Database] [ERROR] [GET FILE] [] No file found for ('fname', 'uid')=('100MB.bin', 5).
+[2026-04-01 01:27:18] [None] [INFO] [UPLOAD] [Anwesh18] Found local file: 100MB.bin
+[2026-04-01 01:27:18] [None] [ERROR] [UPLOAD] [Anwesh18] Unhandled exception: Unknown data center
+Traceback (most recent call last):
+  File "C:\Users\anwes\OneDrive\Desktop\My_Folder\DriveBot\core\transfer.py", line 56, in upload
+    raise ValueError("Unknown data center")
+ValueError: Unknown data center
+
+[2026-04-01 02:26:13,547] [WARNING] [discord.client] PyNaCl is not installed, voice will NOT be supported
+[2026-04-01 02:26:13,547] [WARNING] [discord.client] davey is not installed, voice will NOT be supported
+[2026-04-01 02:26:13] [Discord] [INFO] [MAIN] [] Starting Store Limitless Bot...
+[2026-04-01 02:26:13] [Telegram] [INFO] [MAIN] [] Starting Store Limitless Bot...
+[2026-04-01 02:26:13,660] [INFO] [discord.client] logging in using static token
+[2026-04-01 02:26:16,755] [INFO] [discord.gateway] Shard ID None has connected to Gateway (Session ID: 8cf7fd507cabdca5011debfa093833ba).
+[2026-04-01 02:26:18] [Discord] [INFO] [INIT] [StoreLimitless#1152] FILE_DUMP channel initialized: files-dump (id=1399311590616203284).
+[2026-04-01 02:26:18] [Discord] [INFO] [INIT] [StoreLimitless#1152] Bot online and ready (id=1399287140885725245).
+[2026-04-01 02:26:19] [Telegram] [ERROR] [INIT] [@StoreLimitless_bot] Error fetching FILE_DUMP chat: 'ExtBot' object has no attribute 'title'
+[2026-04-01 02:26:19] [Telegram] [INFO] [INIT] [@StoreLimitless_bot] Bot is online. Logged in (id=8404712547)
+[2026-04-01 02:26:19,862] [INFO] [telegram.ext.Application] Application started
+[2026-04-01 02:26:20] [Database] [INFO] [GET USER] [] Select query executed for username=Anwesh18.
+[2026-04-01 02:26:20] [Database] [INFO] [GET USER] [Anwesh18] Successfully fetched user from database.
+[2026-04-01 02:51:56,659] [WARNING] [discord.client] PyNaCl is not installed, voice will NOT be supported
+[2026-04-01 02:51:56,659] [WARNING] [discord.client] davey is not installed, voice will NOT be supported
+[2026-04-01 02:51:56] [Discord] [INFO] [MAIN] [] Starting Store Limitless Bot...
+[2026-04-01 02:51:56] [Telegram] [INFO] [MAIN] [] Starting Store Limitless Bot...
+[2026-04-01 02:51:56,675] [INFO] [discord.client] logging in using static token
+[2026-04-01 02:51:58] [Telegram] [ERROR] [INIT] [@StoreLimitless_bot] Error fetching FILE_DUMP chat: 'ExtBot' object has no attribute 'title'
+[2026-04-01 02:51:58] [Telegram] [INFO] [INIT] [@StoreLimitless_bot] Bot is online. Logged in (id=8404712547)
+[2026-04-01 02:51:58,601] [INFO] [telegram.ext.Application] Application started
+[2026-04-01 02:51:59,452] [INFO] [discord.gateway] Shard ID None has connected to Gateway (Session ID: 3e44cad6227455a3d24c6e2aaf8741b8).
+[2026-04-01 02:52:01] [Discord] [INFO] [INIT] [StoreLimitless#1152] FILE_DUMP channel initialized: files-dump (id=1399311590616203284).
+[2026-04-01 02:52:01] [Discord] [INFO] [INIT] [StoreLimitless#1152] Bot online and ready (id=1399287140885725245).
+[2026-04-01 02:53:31] [Database] [INFO] [GET USER] [] Select query executed for username=Anwesh18.
+[2026-04-01 02:53:31] [Database] [INFO] [GET USER] [Anwesh18] Successfully fetched user from database.
+[2026-04-01 02:55:33] [Database] [INFO] [GET USER] [] Select query executed for username=Anwesh18.
+[2026-04-01 02:55:33] [Database] [INFO] [GET USER] [Anwesh18] Successfully fetched user from database.
+[2026-04-01 02:55:34] [Database] [INFO] [GET USER] [] Select query executed for uid=5.
+[2026-04-01 02:55:34] [Database] [INFO] [GET USER] [Anwesh18] Successfully fetched user from database.
+[2026-04-01 02:55:34] [None] [INFO] [UPLOAD] [Anwesh18] Got file: fid=None fname='100MB.bin' flinks=[] data_center='discord' uid=5
+[2026-04-01 02:55:34] [Database] [INFO] [GET FILE] [] Select query executed for ('fname', 'uid')=('100MB.bin', 5).
+[2026-04-01 02:55:34] [Database] [ERROR] [GET FILE] [] No file found for ('fname', 'uid')=('100MB.bin', 5).
+[2026-04-01 02:55:34] [None] [INFO] [UPLOAD] [Anwesh18] Found local file: 100MB.bin
+[2026-04-01 02:55:34] [None] [ERROR] [UPLOAD] [Anwesh18] Unhandled exception: Unknown data center
+Traceback (most recent call last):
+  File "C:\Users\anwes\OneDrive\Desktop\My_Folder\DriveBot\core\transfer.py", line 56, in upload
+    raise ValueError("Unknown data center")
+ValueError: Unknown data center
+
+[2026-04-01 03:01:06] [Database] [INFO] [GET USER] [] Select query executed for username=Anwesh18.
+[2026-04-01 03:01:06] [Database] [INFO] [GET USER] [Anwesh18] Successfully fetched user from database.
+[2026-04-01 03:01:06] [Database] [INFO] [GET USER] [] Select query executed for uid=5.
+[2026-04-01 03:01:06] [Database] [INFO] [GET USER] [Anwesh18] Successfully fetched user from database.
+[2026-04-01 03:01:06] [None] [INFO] [UPLOAD] [Anwesh18] Got file: fid=None fname='100MB.bin' flinks=[] data_center='dc1' uid=5
+[2026-04-01 03:01:06] [Database] [INFO] [GET FILE] [] Select query executed for ('fname', 'uid')=('100MB.bin', 5).
+[2026-04-01 03:01:06] [Database] [ERROR] [GET FILE] [] No file found for ('fname', 'uid')=('100MB.bin', 5).
+[2026-04-01 03:01:06] [None] [INFO] [UPLOAD] [Anwesh18] Found local file: 100MB.bin
+[2026-04-01 03:01:06] [None] [ERROR] [UPLOAD] [Anwesh18] Unhandled exception: Unknown data center
+Traceback (most recent call last):
+  File "C:\Users\anwes\OneDrive\Desktop\My_Folder\DriveBot\core\transfer.py", line 56, in upload
+    raise ValueError("Unknown data center")
+ValueError: Unknown data center
+
+[2026-04-01 03:11:20,529] [WARNING] [discord.client] PyNaCl is not installed, voice will NOT be supported
+[2026-04-01 03:11:20,529] [WARNING] [discord.client] davey is not installed, voice will NOT be supported
+[2026-04-01 03:11:20] [Discord] [INFO] [MAIN] [] Starting Store Limitless Bot...
+[2026-04-01 03:11:20,544] [INFO] [discord.client] logging in using static token
+[2026-04-01 03:11:20] [Telegram] [INFO] [MAIN] [] Starting Store Limitless Bot...
+[2026-04-01 03:11:22] [Telegram] [ERROR] [INIT] [@StoreLimitless_bot] Error fetching FILE_DUMP chat: 'ExtBot' object has no attribute 'title'
+[2026-04-01 03:11:22] [Telegram] [INFO] [INIT] [@StoreLimitless_bot] Bot is online. Logged in (id=8404712547)
+[2026-04-01 03:11:22,389] [INFO] [telegram.ext.Application] Application started
+[2026-04-01 03:11:22,876] [INFO] [discord.gateway] Shard ID None has connected to Gateway (Session ID: afdfb210b0fd98ac02db6a37110f37fd).
+[2026-04-01 03:11:24] [Discord] [INFO] [INIT] [StoreLimitless#1152] FILE_DUMP channel initialized: files-dump (id=1399311590616203284).
+[2026-04-01 03:11:24] [Discord] [INFO] [INIT] [StoreLimitless#1152] Bot online and ready (id=1399287140885725245).
+[2026-04-01 03:11:35] [Database] [INFO] [GET USER] [] Select query executed for username=Anwesh18.
+[2026-04-01 03:11:35] [Database] [INFO] [GET USER] [Anwesh18] Successfully fetched user from database.
+[2026-04-01 03:11:46] [Database] [INFO] [GET USER] [] Select query executed for username=Anwesh18.
+[2026-04-01 03:11:46] [Database] [INFO] [GET USER] [Anwesh18] Successfully fetched user from database.
+[2026-04-01 03:11:47] [Database] [INFO] [GET USER] [] Select query executed for uid=5.
+[2026-04-01 03:11:47] [Database] [INFO] [GET USER] [Anwesh18] Successfully fetched user from database.
+[2026-04-01 03:11:47] [None] [INFO] [UPLOAD] [Anwesh18] Got file: fid=None fname='100MB.bin' flinks=[] data_center='discord' uid=5
+[2026-04-01 03:11:47] [Database] [INFO] [GET FILE] [] Select query executed for ('fname', 'uid')=('100MB.bin', 5).
+[2026-04-01 03:11:47] [Database] [ERROR] [GET FILE] [] No file found for ('fname', 'uid')=('100MB.bin', 5).
+[2026-04-01 03:11:47] [None] [INFO] [UPLOAD] [Anwesh18] Found local file: 100MB.bin
+[2026-04-01 03:11:47] [None] [ERROR] [UPLOAD] [Anwesh18] Unhandled exception: Unknown data center
+Traceback (most recent call last):
+  File "C:\Users\anwes\OneDrive\Desktop\My_Folder\DriveBot\core\transfer.py", line 56, in upload
+    raise ValueError("Unknown data center")
+ValueError: Unknown data center
+
+[2026-04-01 03:24:18,068] [WARNING] [discord.client] PyNaCl is not installed, voice will NOT be supported
+[2026-04-01 03:24:18,068] [WARNING] [discord.client] davey is not installed, voice will NOT be supported
+[2026-04-01 03:24:18] [Discord] [INFO] [MAIN] [] Starting Store Limitless Bot...
+[2026-04-01 03:24:18] [Telegram] [INFO] [MAIN] [] Starting Store Limitless Bot...
+[2026-04-01 03:24:18,084] [INFO] [discord.client] logging in using static token
+[2026-04-01 03:24:19] [Telegram] [ERROR] [INIT] [@StoreLimitless_bot] Error fetching FILE_DUMP chat: 'ExtBot' object has no attribute 'title'
+[2026-04-01 03:24:19] [Telegram] [INFO] [INIT] [@StoreLimitless_bot] Bot is online. Logged in (id=8404712547)
+[2026-04-01 03:24:19,817] [INFO] [telegram.ext.Application] Application started
+[2026-04-01 03:24:20,456] [INFO] [discord.gateway] Shard ID None has connected to Gateway (Session ID: 91d68cdc38843ef65828e0a2fcbd8ffa).
+[2026-04-01 03:24:22] [Discord] [INFO] [INIT] [StoreLimitless#1152] FILE_DUMP channel initialized: files-dump (id=1399311590616203284).
+[2026-04-01 03:24:22] [Discord] [INFO] [INIT] [StoreLimitless#1152] Bot online and ready (id=1399287140885725245).
+[2026-04-01 03:24:35] [Database] [INFO] [GET USER] [] Select query executed for username=Anwesh18.
+[2026-04-01 03:24:35] [Database] [INFO] [GET USER] [Anwesh18] Successfully fetched user from database.
+[2026-04-01 03:24:35] [Database] [INFO] [GET USER] [] Select query executed for uid=5.
+[2026-04-01 03:24:35] [Database] [INFO] [GET USER] [Anwesh18] Successfully fetched user from database.
+[2026-04-01 03:24:35] [None] [INFO] [UPLOAD] [Anwesh18] Got file: fid=None fname='100MB.bin' flinks=[] data_center='discord' uid=5
+[2026-04-01 03:24:35] [Database] [INFO] [GET FILE] [] Select query executed for ('fname', 'uid')=('100MB.bin', 5).
+[2026-04-01 03:24:35] [Database] [ERROR] [GET FILE] [] No file found for ('fname', 'uid')=('100MB.bin', 5).
+[2026-04-01 03:24:35] [None] [INFO] [UPLOAD] [Anwesh18] Found local file: 100MB.bin
+[2026-04-01 03:24:35] [None] [ERROR] [UPLOAD] [Anwesh18] Unhandled exception: Unknown data center
+Traceback (most recent call last):
+  File "C:\Users\anwes\OneDrive\Desktop\My_Folder\DriveBot\core\transfer.py", line 56, in upload
+    raise ValueError("Unknown data center")
+ValueError: Unknown data center
+
+[2026-04-01 03:28:54] [Database] [INFO] [GET USER] [] Select query executed for username=Anwesh18.
+[2026-04-01 03:28:54] [Database] [INFO] [GET USER] [Anwesh18] Successfully fetched user from database.
+[2026-04-01 03:28:55] [Database] [INFO] [GET USER] [] Select query executed for uid=5.
+[2026-04-01 03:28:55] [Database] [INFO] [GET USER] [Anwesh18] Successfully fetched user from database.
+[2026-04-01 03:28:55] [None] [INFO] [UPLOAD] [Anwesh18] Got file: fid=None fname='100MB.bin' flinks=[] data_center='discord' uid=5
+[2026-04-01 03:28:55] [Database] [INFO] [GET FILE] [] Select query executed for ('fname', 'uid')=('100MB.bin', 5).
+[2026-04-01 03:28:55] [Database] [ERROR] [GET FILE] [] No file found for ('fname', 'uid')=('100MB.bin', 5).
+[2026-04-01 03:28:55] [None] [INFO] [UPLOAD] [Anwesh18] Found local file: 100MB.bin
+[2026-04-01 03:28:55] [None] [ERROR] [UPLOAD] [Anwesh18] Unhandled exception: Unknown data center
+Traceback (most recent call last):
+  File "C:\Users\anwes\OneDrive\Desktop\My_Folder\DriveBot\core\transfer.py", line 56, in upload
+    raise ValueError("Unknown data center")
+ValueError: Unknown data center
+
+[2026-04-01 03:32:00] [Database] [INFO] [GET USER] [] Select query executed for username=Anwesh18.
+[2026-04-01 03:32:00] [Database] [INFO] [GET USER] [Anwesh18] Successfully fetched user from database.
+[2026-04-01 03:32:00] [Database] [INFO] [GET USER] [] Select query executed for uid=5.
+[2026-04-01 03:32:00] [Database] [INFO] [GET USER] [Anwesh18] Successfully fetched user from database.
+[2026-04-01 03:32:00] [None] [INFO] [UPLOAD] [Anwesh18] Got file: fid=None fname='100MB.bin' flinks=[] data_center='discord' uid=5
+[2026-04-01 03:32:00] [Database] [INFO] [GET FILE] [] Select query executed for ('fname', 'uid')=('100MB.bin', 5).
+[2026-04-01 03:32:00] [Database] [ERROR] [GET FILE] [] No file found for ('fname', 'uid')=('100MB.bin', 5).
+[2026-04-01 03:32:00] [None] [INFO] [UPLOAD] [Anwesh18] Found local file: 100MB.bin
+[2026-04-01 03:32:00] [None] [ERROR] [UPLOAD] [Anwesh18] Unhandled exception: Unknown data center
+Traceback (most recent call last):
+  File "C:\Users\anwes\OneDrive\Desktop\My_Folder\DriveBot\core\transfer.py", line 56, in upload
+    max_size: int = Telegram.MAX_SIZE
+ValueError: Unknown data center
+
+[2026-04-01 03:39:53,874] [WARNING] [discord.client] PyNaCl is not installed, voice will NOT be supported
+[2026-04-01 03:39:53,874] [WARNING] [discord.client] davey is not installed, voice will NOT be supported
+[2026-04-01 03:39:53] [Discord] [INFO] [MAIN] [] Starting Store Limitless Bot...
+[2026-04-01 03:39:53] [Telegram] [INFO] [MAIN] [] Starting Store Limitless Bot...
+[2026-04-01 03:39:53,895] [INFO] [discord.client] logging in using static token
+[2026-04-01 03:39:55] [Telegram] [ERROR] [INIT] [@StoreLimitless_bot] Error fetching FILE_DUMP chat: 'ExtBot' object has no attribute 'title'
+[2026-04-01 03:39:55] [Telegram] [INFO] [INIT] [@StoreLimitless_bot] Bot is online. Logged in (id=8404712547)
+[2026-04-01 03:39:55,961] [INFO] [telegram.ext.Application] Application started
+[2026-04-01 03:39:56,429] [INFO] [discord.gateway] Shard ID None has connected to Gateway (Session ID: 337e633119d9c684800ec494848f6086).
+[2026-04-01 03:39:58] [Discord] [INFO] [INIT] [StoreLimitless#1152] FILE_DUMP channel initialized: files-dump (id=1399311590616203284).
+[2026-04-01 03:39:58] [Discord] [INFO] [INIT] [StoreLimitless#1152] Bot online and ready (id=1399287140885725245).
+[2026-04-01 03:40:05] [Database] [INFO] [GET USER] [] Select query executed for username=Anwesh18.
+[2026-04-01 03:40:05] [Database] [INFO] [GET USER] [Anwesh18] Successfully fetched user from database.
+[2026-04-01 03:40:06] [Database] [INFO] [GET USER] [] Select query executed for uid=5.
+[2026-04-01 03:40:06] [Database] [INFO] [GET USER] [Anwesh18] Successfully fetched user from database.
+[2026-04-01 03:40:06] [discord] [INFO] [UPLOAD] [Anwesh18] Got file: fid=None fname='100MB.bin' flinks=[] data_center='discord' uid=5
+[2026-04-01 03:40:06] [Database] [INFO] [GET FILE] [] Select query executed for ('fname', 'uid')=('100MB.bin', 5).
+[2026-04-01 03:40:06] [Database] [ERROR] [GET FILE] [] No file found for ('fname', 'uid')=('100MB.bin', 5).
+[2026-04-01 03:40:06] [discord] [INFO] [UPLOAD] [Anwesh18] Found local file: 100MB.bin
+[2026-04-01 03:40:06] [discord] [INFO] [UPLOAD] [Anwesh18] Starting upload `100MB.bin` (11 parts)
+[2026-04-01 03:40:15] [discord] [INFO] [UPLOAD] [Anwesh18] Uploaded 1/11 (9.1%)
+[2026-04-01 03:40:24] [discord] [INFO] [UPLOAD] [Anwesh18] Uploaded 2/11 (18.2%)
+[2026-04-01 03:40:31] [discord] [INFO] [UPLOAD] [Anwesh18] Uploaded 3/11 (27.3%)
+[2026-04-01 03:40:38] [discord] [INFO] [UPLOAD] [Anwesh18] Uploaded 4/11 (36.4%)
+[2026-04-01 03:40:45] [discord] [INFO] [UPLOAD] [Anwesh18] Uploaded 5/11 (45.5%)
+[2026-04-01 03:40:54] [discord] [INFO] [UPLOAD] [Anwesh18] Uploaded 6/11 (54.5%)
+[2026-04-01 03:41:02] [discord] [INFO] [UPLOAD] [Anwesh18] Uploaded 7/11 (63.6%)
+[2026-04-01 03:41:10] [discord] [INFO] [UPLOAD] [Anwesh18] Uploaded 8/11 (72.7%)
+[2026-04-01 03:41:18] [discord] [INFO] [UPLOAD] [Anwesh18] Uploaded 9/11 (81.8%)
+[2026-04-01 03:41:26] [discord] [INFO] [UPLOAD] [Anwesh18] Uploaded 10/11 (90.9%)
+[2026-04-01 03:41:30] [discord] [INFO] [UPLOAD] [Anwesh18] Uploaded 11/11 (100.0%)
+[2026-04-01 03:41:31] [Database] [INFO] [GET USER] [] Select query executed for uid=5.
+[2026-04-01 03:41:31] [Database] [INFO] [GET USER] [Anwesh18] Successfully fetched user from database.
+[2026-04-01 03:41:31] [Database] [INFO] [INSERT FILES] [] Insert query executed.
+[2026-04-01 03:41:31] [Database] [INFO] [INSERT FILES] [Anwesh18] File `100MB.bin` saved to database with 11 part(s).
+[2026-04-01 03:41:31] [discord] [INFO] [UPLOAD] [Anwesh18] Upload complete `100MB.bin`
+[2026-04-01 03:55:14,343] [WARNING] [discord.client] PyNaCl is not installed, voice will NOT be supported
+[2026-04-01 03:55:14,343] [WARNING] [discord.client] davey is not installed, voice will NOT be supported
+[2026-04-01 03:55:14] [Telegram] [INFO] [MAIN] [] Starting Store Limitless Bot...
+[2026-04-01 03:55:14] [Discord] [INFO] [MAIN] [] Starting Store Limitless Bot...
+[2026-04-01 03:55:14,415] [INFO] [discord.client] logging in using static token
+[2026-04-01 03:55:16] [Telegram] [ERROR] [INIT] [@StoreLimitless_bot] Error fetching FILE_DUMP chat: 'ExtBot' object has no attribute 'title'
+[2026-04-01 03:55:16] [Telegram] [INFO] [INIT] [@StoreLimitless_bot] Bot is online. Logged in (id=8404712547)
+[2026-04-01 03:55:16,286] [INFO] [telegram.ext.Application] Application started
+[2026-04-01 03:55:17,209] [INFO] [discord.gateway] Shard ID None has connected to Gateway (Session ID: cc23076cdbc876422edb8be06f4d2fe9).
+[2026-04-01 03:55:19] [Discord] [INFO] [INIT] [StoreLimitless#1152] FILE_DUMP channel initialized: files-dump (id=1399311590616203284).
+[2026-04-01 03:55:19] [Discord] [INFO] [INIT] [StoreLimitless#1152] Bot online and ready (id=1399287140885725245).
+[2026-04-01 03:55:20] [Database] [INFO] [GET USER] [] Select query executed for username=Anwesh18.
+[2026-04-01 03:55:20] [Database] [INFO] [GET USER] [Anwesh18] Successfully fetched user from database.
+[2026-04-01 03:55:21] [Database] [INFO] [GET USER] [] Select query executed for uid=5.
+[2026-04-01 03:55:21] [Database] [INFO] [GET USER] [Anwesh18] Successfully fetched user from database.
+[2026-04-01 03:55:21] [discord] [INFO] [UPLOAD] [Anwesh18] Got file: fid=None fname='100MB.bin' flinks=[] data_center='discord' uid=5
+[2026-04-01 03:55:21] [Database] [INFO] [GET FILE] [] Select query executed for ('fname', 'uid')=('100MB.bin', 5).
+[2026-04-01 03:55:21] [Database] [INFO] [GET FILE] [100MB.bin] Successfully fetched file from database.
+[2026-04-01 03:55:21] [discord] [ERROR] [UPLOAD] [Anwesh18] File `100MB.bin` already exists.
+[2026-04-01 03:55:22] [Database] [INFO] [GET USER] [] Select query executed for username=Anwesh18.
+[2026-04-01 03:55:22] [Database] [INFO] [GET USER] [Anwesh18] Successfully fetched user from database.
+[2026-04-01 03:55:22] [Database] [INFO] [GET FILES] [] Select query executed for uid=5.
+[2026-04-01 03:55:22] [Database] [INFO] [GET FILES] [5] Successfully fetched 1 file(s) from database.
+[2026-04-01 03:55:23] [Database] [INFO] [GET USER] [] Select query executed for username=Anwesh18.
+[2026-04-01 03:55:23] [Database] [INFO] [GET USER] [Anwesh18] Successfully fetched user from database.
+[2026-04-01 03:55:23] [Database] [INFO] [GET FILES] [] Select query executed for uid=5.
+[2026-04-01 03:55:23] [Database] [INFO] [GET FILES] [5] Successfully fetched 1 file(s) from database.
+[2026-04-01 03:55:45] [Database] [INFO] [GET USER] [] Select query executed for username=Anwesh18.
+[2026-04-01 03:55:45] [Database] [INFO] [GET USER] [Anwesh18] Successfully fetched user from database.
+[2026-04-01 03:55:45] [Database] [INFO] [GET FILES] [] Select query executed for uid=5.
+[2026-04-01 03:55:45] [Database] [INFO] [GET FILES] [5] Successfully fetched 1 file(s) from database.
+[2026-04-01 03:56:06] [Database] [INFO] [GET USER] [] Select query executed for username=Anwesh18.
+[2026-04-01 03:56:06] [Database] [INFO] [GET USER] [Anwesh18] Successfully fetched user from database.
+[2026-04-01 03:56:06] [Database] [INFO] [GET FILES] [] Select query executed for uid=5.
+[2026-04-01 03:56:06] [Database] [INFO] [GET FILES] [5] Successfully fetched 1 file(s) from database.
+[2026-04-01 03:56:06] [Database] [INFO] [GET USER] [] Select query executed for username=Anwesh18.
+[2026-04-01 03:56:06] [Database] [INFO] [GET USER] [Anwesh18] Successfully fetched user from database.
+[2026-04-01 03:56:06] [Database] [INFO] [GET FILES] [] Select query executed for uid=5.
+[2026-04-01 03:56:06] [Database] [INFO] [GET FILES] [5] Successfully fetched 1 file(s) from database.

@@ -3,7 +3,7 @@ from os import listdir
 from pathlib import Path
 from typing import AsyncGenerator
 
-from fastapi import APIRouter, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Form, HTTPException, UploadFile,Depends
 from fastapi.responses import StreamingResponse
 
 from backend.database import add_user, File, get_user, LoginRequest, User
@@ -12,6 +12,8 @@ from backend.server.security import hash_password, verify_password
 from core.data_center import BackEnd
 from core.settings import TRANSFER_PATH
 from core.transfer import upload
+from backend.server.jwt_handler import get_current_user
+from backend.database import get_files
 
 router: APIRouter = APIRouter(prefix="/auth")
 
@@ -44,7 +46,10 @@ def login(credentials: LoginRequest) -> dict[str, str]:
 
 
 @router.post("/upload")
-async def upload_route(file: UploadFile, data_center: str = Form(...), uid: int = Form(...)) -> StreamingResponse:
+async def upload_route(file: UploadFile, data_center: str = Form(...),current_user: User = Depends(get_current_user)) -> StreamingResponse:
+    if current_user.uid is None:
+        raise HTTPException(status_code=400, detail="User ID missing")
+    uid = current_user.uid
     if not file.filename:
         raise ValueError("No file name provided in /upload")
 
@@ -64,5 +69,17 @@ async def upload_route(file: UploadFile, data_center: str = Form(...), uid: int 
 
 
 @router.get("/files")
-def get_files() -> list[dict[str, int | str]]:
-    return [{"id": i, "name": filename} for i, filename in enumerate(listdir(TRANSFER_PATH))]
+def get_files_route(current_user: User = Depends(get_current_user)):
+    files = get_files(uid=current_user.uid)
+
+    if not files:
+        return []
+
+    return [
+        {
+            "fid": f.fid,
+            "fname": f.fname,
+            "data_center": f.data_center,
+        }
+        for f in files
+    ]
