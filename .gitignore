@@ -5,3 +5,5 @@ core/transfer
 frontend/node_modules
 .env
 .venv
+/transfer
+*.pyc
