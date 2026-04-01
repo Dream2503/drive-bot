@@ -412,3 +412,744 @@ ValueError: Unknown data center
 [2026-04-01 03:56:06] [Database] [INFO] [GET USER] [Anwesh18] Successfully fetched user from database.
 [2026-04-01 03:56:06] [Database] [INFO] [GET FILES] [] Select query executed for uid=5.
 [2026-04-01 03:56:06] [Database] [INFO] [GET FILES] [5] Successfully fetched 1 file(s) from database.
+[2026-04-01 05:21:31,378] [WARNING] [discord.client] PyNaCl is not installed, voice will NOT be supported
+[2026-04-01 05:21:31,378] [WARNING] [discord.client] davey is not installed, voice will NOT be supported
+[2026-04-01 05:21:31] [Discord] [INFO] [MAIN] [] Starting Store Limitless Bot...
+[2026-04-01 05:21:31,386] [INFO] [discord.client] logging in using static token
+[2026-04-01 05:21:31] [Telegram] [INFO] [MAIN] [] Starting Store Limitless Bot...
+[2026-04-01 05:21:33] [Telegram] [ERROR] [INIT] [@StoreLimitless_bot] Error fetching FILE_DUMP chat: 'ExtBot' object has no attribute 'title'
+[2026-04-01 05:21:33] [Telegram] [INFO] [INIT] [@StoreLimitless_bot] Bot is online. Logged in (id=8404712547)
+[2026-04-01 05:21:33,482] [INFO] [telegram.ext.Application] Application started
+[2026-04-01 05:21:34,250] [INFO] [discord.gateway] Shard ID None has connected to Gateway (Session ID: 5a3bc5a61d945a1e3451c0c79d94992a).
+[2026-04-01 05:21:36] [Discord] [INFO] [INIT] [StoreLimitless#1152] FILE_DUMP channel initialized: files-dump (id=1399311590616203284).
+[2026-04-01 05:21:36] [Discord] [INFO] [INIT] [StoreLimitless#1152] Bot online and ready (id=1399287140885725245).
+[2026-04-01 05:22:08] [Database] [INFO] [GET USER] [] Select query executed for username=dream2503.
+[2026-04-01 05:22:08] [Database] [INFO] [GET USER] [dream2503] Successfully fetched user from database.
+[2026-04-01 05:22:08] [Database] [INFO] [GET USER] [] Select query executed for username=dream2503.
+[2026-04-01 05:22:08] [Database] [INFO] [GET USER] [dream2503] Successfully fetched user from database.
+[2026-04-01 05:22:09] [Database] [INFO] [GET FILES] [] Select query executed for uid=3.
+[2026-04-01 05:22:09] [Database] [ERROR] [GET FILES] [] No files found for uid=3.
+[2026-04-01 05:22:09] [Database] [INFO] [GET USER] [] Select query executed for username=dream2503.
+[2026-04-01 05:22:09] [Database] [INFO] [GET USER] [dream2503] Successfully fetched user from database.
+[2026-04-01 05:22:09] [Database] [INFO] [GET FILES] [] Select query executed for uid=3.
+[2026-04-01 05:22:09] [Database] [ERROR] [GET FILES] [] No files found for uid=3.
+[2026-04-01 05:22:26] [Database] [INFO] [GET USER] [] Select query executed for username=dream2503.
+[2026-04-01 05:22:26] [Database] [INFO] [GET USER] [dream2503] Successfully fetched user from database.
+[2026-04-01 05:22:27] [Database] [INFO] [GET USER] [] Select query executed for uid=3.
+[2026-04-01 05:22:27] [Database] [INFO] [GET USER] [dream2503] Successfully fetched user from database.
+[2026-04-01 05:22:27] [None] [INFO] [UPLOAD] [dream2503] Got file: fid=None fname='100MB.bin' flinks=[] data_center='telegram' uid=3
+[2026-04-01 05:22:27] [Database] [INFO] [GET FILE] [] Select query executed for ('fname', 'uid')=('100MB.bin', 3).
+[2026-04-01 05:22:27] [Database] [ERROR] [GET FILE] [] No file found for ('fname', 'uid')=('100MB.bin', 3).
+[2026-04-01 05:22:27] [None] [INFO] [UPLOAD] [dream2503] Found local file: 100MB.bin
+[2026-04-01 05:22:27] [None] [INFO] [UPLOAD] [dream2503] Starting upload `100MB.bin` (11 parts)
+[2026-04-01 05:22:48] [None] [ERROR] [UPLOAD] [dream2503] Unhandled exception: Timed out
+Traceback (most recent call last):
+  File "/home/dream/.virtualenvs/python/lib/python3.12/site-packages/httpx/_transports/default.py", line 101, in map_httpcore_exceptions
+    yield
+  File "/home/dream/.virtualenvs/python/lib/python3.12/site-packages/httpx/_transports/default.py", line 394, in handle_async_request
+    resp = await self._pool.handle_async_request(req)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/dream/.virtualenvs/python/lib/python3.12/site-packages/httpcore/_async/connection_pool.py", line 256, in handle_async_request
+    raise exc from None
+  File "/home/dream/.virtualenvs/python/lib/python3.12/site-packages/httpcore/_async/connection_pool.py", line 236, in handle_async_request
+    response = await connection.handle_async_request(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/dream/.virtualenvs/python/lib/python3.12/site-packages/httpcore/_async/connection.py", line 103, in handle_async_request
+    return await self._connection.handle_async_request(request)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/dream/.virtualenvs/python/lib/python3.12/site-packages/httpcore/_async/http11.py", line 136, in handle_async_request
+    raise exc
+  File "/home/dream/.virtualenvs/python/lib/python3.12/site-packages/httpcore/_async/http11.py", line 88, in handle_async_request
+    await self._send_request_body(**kwargs)
+  File "/home/dream/.virtualenvs/python/lib/python3.12/site-packages/httpcore/_async/http11.py", line 159, in _send_request_body
+    await self._send_event(event, timeout=timeout)
+  File "/home/dream/.virtualenvs/python/lib/python3.12/site-packages/httpcore/_async/http11.py", line 166, in _send_event
+    await self._network_stream.write(bytes_to_send, timeout=timeout)
+  File "/home/dream/.virtualenvs/python/lib/python3.12/site-packages/httpcore/_backends/anyio.py", line 48, in write
+    with map_exceptions(exc_map):
+  File "/usr/lib/python3.12/contextlib.py", line 158, in __exit__
+    self.gen.throw(value)
+  File "/home/dream/.virtualenvs/python/lib/python3.12/site-packages/httpcore/_exceptions.py", line 14, in map_exceptions
+    raise to_exc(exc) from exc
+httpcore.WriteTimeout
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/dream/.virtualenvs/python/lib/python3.12/site-packages/telegram/request/_httpxrequest.py", line 279, in do_request
+    res = await self._client.request(
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/dream/.virtualenvs/python/lib/python3.12/site-packages/httpx/_client.py", line 1540, in request
+    return await self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/dream/.virtualenvs/python/lib/python3.12/site-packages/httpx/_client.py", line 1629, in send
+    response = await self._send_handling_auth(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/dream/.virtualenvs/python/lib/python3.12/site-packages/httpx/_client.py", line 1657, in _send_handling_auth
+    response = await self._send_handling_redirects(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/dream/.virtualenvs/python/lib/python3.12/site-packages/httpx/_client.py", line 1694, in _send_handling_redirects
+    response = await self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/dream/.virtualenvs/python/lib/python3.12/site-packages/httpx/_client.py", line 1730, in _send_single_request
+    response = await transport.handle_async_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/dream/.virtualenvs/python/lib/python3.12/site-packages/httpx/_transports/default.py", line 393, in handle_async_request
+    with map_httpcore_exceptions():
+  File "/usr/lib/python3.12/contextlib.py", line 158, in __exit__
+    self.gen.throw(value)
+  File "/home/dream/.virtualenvs/python/lib/python3.12/site-packages/httpx/_transports/default.py", line 118, in map_httpcore_exceptions
+    raise mapped_exc(message) from exc
+httpx.WriteTimeout
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/dream/github/drive-bot/core/transfer.py", line 82, in upload
+    await Telegram.FILE_DUMP.send_document(
+  File "/home/dream/.virtualenvs/python/lib/python3.12/site-packages/telegram/ext/_extbot.py", line 2825, in send_document
+    return await super().send_document(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/dream/.virtualenvs/python/lib/python3.12/site-packages/telegram/_bot.py", line 1950, in send_document
+    return await self._send_message(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/dream/.virtualenvs/python/lib/python3.12/site-packages/telegram/ext/_extbot.py", line 629, in _send_message
+    result = await super()._send_message(
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/dream/.virtualenvs/python/lib/python3.12/site-packages/telegram/_bot.py", line 819, in _send_message
+    result = await self._post(
+             ^^^^^^^^^^^^^^^^^
+  File "/home/dream/.virtualenvs/python/lib/python3.12/site-packages/telegram/_bot.py", line 703, in _post
+    return await self._do_post(
+           ^^^^^^^^^^^^^^^^^^^^
+  File "/home/dream/.virtualenvs/python/lib/python3.12/site-packages/telegram/ext/_extbot.py", line 369, in _do_post
+    return await super()._do_post(
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/dream/.virtualenvs/python/lib/python3.12/site-packages/telegram/_bot.py", line 732, in _do_post
+    result = await request.post(
+             ^^^^^^^^^^^^^^^^^^^
+  File "/home/dream/.virtualenvs/python/lib/python3.12/site-packages/telegram/request/_baserequest.py", line 198, in post
+    result = await self._request_wrapper(
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/dream/.virtualenvs/python/lib/python3.12/site-packages/telegram/request/_baserequest.py", line 305, in _request_wrapper
+    code, payload = await self.do_request(
+                    ^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/dream/.virtualenvs/python/lib/python3.12/site-packages/telegram/request/_httpxrequest.py", line 296, in do_request
+    raise TimedOut from err
+telegram.error.TimedOut: Timed out
+
+[2026-04-01 05:22:54] [Database] [INFO] [GET USER] [] Select query executed for username=dream2503.
+[2026-04-01 05:22:54] [Database] [INFO] [GET USER] [dream2503] Successfully fetched user from database.
+[2026-04-01 05:22:54] [Database] [INFO] [GET FILES] [] Select query executed for uid=3.
+[2026-04-01 05:22:54] [Database] [ERROR] [GET FILES] [] No files found for uid=3.
+[2026-04-01 05:22:55] [Database] [INFO] [GET USER] [] Select query executed for username=dream2503.
+[2026-04-01 05:22:55] [Database] [INFO] [GET USER] [dream2503] Successfully fetched user from database.
+[2026-04-01 05:22:55] [Database] [INFO] [GET FILES] [] Select query executed for uid=3.
+[2026-04-01 05:22:55] [Database] [ERROR] [GET FILES] [] No files found for uid=3.
+[2026-04-01 05:24:59] [Database] [INFO] [GET USER] [] Select query executed for username=dream2503.
+[2026-04-01 05:24:59] [Database] [INFO] [GET USER] [dream2503] Successfully fetched user from database.
+[2026-04-01 05:24:59] [Database] [INFO] [GET USER] [] Select query executed for uid=3.
+[2026-04-01 05:24:59] [Database] [INFO] [GET USER] [dream2503] Successfully fetched user from database.
+[2026-04-01 05:24:59] [None] [INFO] [UPLOAD] [dream2503] Got file: fid=None fname='100MB.bin' flinks=[] data_center='telegram' uid=3
+[2026-04-01 05:25:00] [Database] [INFO] [GET FILE] [] Select query executed for ('fname', 'uid')=('100MB.bin', 3).
+[2026-04-01 05:25:00] [Database] [ERROR] [GET FILE] [] No file found for ('fname', 'uid')=('100MB.bin', 3).
+[2026-04-01 05:25:00] [None] [INFO] [UPLOAD] [dream2503] Found local file: 100MB.bin
+[2026-04-01 05:25:00] [None] [INFO] [UPLOAD] [dream2503] Starting upload `100MB.bin` (11 parts)
+[2026-04-01 05:25:20] [None] [ERROR] [UPLOAD] [dream2503] Unhandled exception: Timed out
+Traceback (most recent call last):
+  File "/home/dream/.virtualenvs/python/lib/python3.12/site-packages/httpx/_transports/default.py", line 101, in map_httpcore_exceptions
+    yield
+  File "/home/dream/.virtualenvs/python/lib/python3.12/site-packages/httpx/_transports/default.py", line 394, in handle_async_request
+    resp = await self._pool.handle_async_request(req)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/dream/.virtualenvs/python/lib/python3.12/site-packages/httpcore/_async/connection_pool.py", line 256, in handle_async_request
+    raise exc from None
+  File "/home/dream/.virtualenvs/python/lib/python3.12/site-packages/httpcore/_async/connection_pool.py", line 236, in handle_async_request
+    response = await connection.handle_async_request(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/dream/.virtualenvs/python/lib/python3.12/site-packages/httpcore/_async/connection.py", line 103, in handle_async_request
+    return await self._connection.handle_async_request(request)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/dream/.virtualenvs/python/lib/python3.12/site-packages/httpcore/_async/http11.py", line 136, in handle_async_request
+    raise exc
+  File "/home/dream/.virtualenvs/python/lib/python3.12/site-packages/httpcore/_async/http11.py", line 88, in handle_async_request
+    await self._send_request_body(**kwargs)
+  File "/home/dream/.virtualenvs/python/lib/python3.12/site-packages/httpcore/_async/http11.py", line 159, in _send_request_body
+    await self._send_event(event, timeout=timeout)
+  File "/home/dream/.virtualenvs/python/lib/python3.12/site-packages/httpcore/_async/http11.py", line 166, in _send_event
+    await self._network_stream.write(bytes_to_send, timeout=timeout)
+  File "/home/dream/.virtualenvs/python/lib/python3.12/site-packages/httpcore/_backends/anyio.py", line 48, in write
+    with map_exceptions(exc_map):
+  File "/usr/lib/python3.12/contextlib.py", line 158, in __exit__
+    self.gen.throw(value)
+  File "/home/dream/.virtualenvs/python/lib/python3.12/site-packages/httpcore/_exceptions.py", line 14, in map_exceptions
+    raise to_exc(exc) from exc
+httpcore.WriteTimeout
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/dream/.virtualenvs/python/lib/python3.12/site-packages/telegram/request/_httpxrequest.py", line 279, in do_request
+    res = await self._client.request(
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/dream/.virtualenvs/python/lib/python3.12/site-packages/httpx/_client.py", line 1540, in request
+    return await self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/dream/.virtualenvs/python/lib/python3.12/site-packages/httpx/_client.py", line 1629, in send
+    response = await self._send_handling_auth(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/dream/.virtualenvs/python/lib/python3.12/site-packages/httpx/_client.py", line 1657, in _send_handling_auth
+    response = await self._send_handling_redirects(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/dream/.virtualenvs/python/lib/python3.12/site-packages/httpx/_client.py", line 1694, in _send_handling_redirects
+    response = await self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/dream/.virtualenvs/python/lib/python3.12/site-packages/httpx/_client.py", line 1730, in _send_single_request
+    response = await transport.handle_async_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/dream/.virtualenvs/python/lib/python3.12/site-packages/httpx/_transports/default.py", line 393, in handle_async_request
+    with map_httpcore_exceptions():
+  File "/usr/lib/python3.12/contextlib.py", line 158, in __exit__
+    self.gen.throw(value)
+  File "/home/dream/.virtualenvs/python/lib/python3.12/site-packages/httpx/_transports/default.py", line 118, in map_httpcore_exceptions
+    raise mapped_exc(message) from exc
+httpx.WriteTimeout
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/dream/github/drive-bot/core/transfer.py", line 82, in upload
+    await Telegram.FILE_DUMP.send_document(
+  File "/home/dream/.virtualenvs/python/lib/python3.12/site-packages/telegram/ext/_extbot.py", line 2825, in send_document
+    return await super().send_document(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/dream/.virtualenvs/python/lib/python3.12/site-packages/telegram/_bot.py", line 1950, in send_document
+    return await self._send_message(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/dream/.virtualenvs/python/lib/python3.12/site-packages/telegram/ext/_extbot.py", line 629, in _send_message
+    result = await super()._send_message(
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/dream/.virtualenvs/python/lib/python3.12/site-packages/telegram/_bot.py", line 819, in _send_message
+    result = await self._post(
+             ^^^^^^^^^^^^^^^^^
+  File "/home/dream/.virtualenvs/python/lib/python3.12/site-packages/telegram/_bot.py", line 703, in _post
+    return await self._do_post(
+           ^^^^^^^^^^^^^^^^^^^^
+  File "/home/dream/.virtualenvs/python/lib/python3.12/site-packages/telegram/ext/_extbot.py", line 369, in _do_post
+    return await super()._do_post(
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/dream/.virtualenvs/python/lib/python3.12/site-packages/telegram/_bot.py", line 732, in _do_post
+    result = await request.post(
+             ^^^^^^^^^^^^^^^^^^^
+  File "/home/dream/.virtualenvs/python/lib/python3.12/site-packages/telegram/request/_baserequest.py", line 198, in post
+    result = await self._request_wrapper(
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/dream/.virtualenvs/python/lib/python3.12/site-packages/telegram/request/_baserequest.py", line 305, in _request_wrapper
+    code, payload = await self.do_request(
+                    ^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/dream/.virtualenvs/python/lib/python3.12/site-packages/telegram/request/_httpxrequest.py", line 296, in do_request
+    raise TimedOut from err
+telegram.error.TimedOut: Timed out
+
+[2026-04-01 05:25:27] [Database] [INFO] [GET USER] [] Select query executed for username=dream2503.
+[2026-04-01 05:25:27] [Database] [INFO] [GET USER] [dream2503] Successfully fetched user from database.
+[2026-04-01 05:25:27] [Database] [INFO] [GET FILES] [] Select query executed for uid=3.
+[2026-04-01 05:25:27] [Database] [ERROR] [GET FILES] [] No files found for uid=3.
+[2026-04-01 05:25:27] [Database] [INFO] [GET USER] [] Select query executed for username=dream2503.
+[2026-04-01 05:25:27] [Database] [INFO] [GET USER] [dream2503] Successfully fetched user from database.
+[2026-04-01 05:25:27] [Database] [INFO] [GET FILES] [] Select query executed for uid=3.
+[2026-04-01 05:25:27] [Database] [ERROR] [GET FILES] [] No files found for uid=3.
+[2026-04-01 05:32:08,888] [WARNING] [discord.client] PyNaCl is not installed, voice will NOT be supported
+[2026-04-01 05:32:08,889] [WARNING] [discord.client] davey is not installed, voice will NOT be supported
+[2026-04-01 05:32:08] [Telegram] [INFO] [MAIN] [] Starting Store Limitless Bot...
+[2026-04-01 05:32:08] [Discord] [INFO] [MAIN] [] Starting Store Limitless Bot...
+[2026-04-01 05:32:08,948] [INFO] [discord.client] logging in using static token
+[2026-04-01 05:32:10] [Telegram] [ERROR] [INIT] [@StoreLimitless_bot] Error fetching FILE_DUMP chat: 'ExtBot' object has no attribute 'title'
+[2026-04-01 05:32:10] [Telegram] [INFO] [INIT] [@StoreLimitless_bot] Bot is online. Logged in (id=8404712547)
+[2026-04-01 05:32:10,590] [INFO] [telegram.ext.Application] Application started
+[2026-04-01 05:32:11,779] [INFO] [discord.gateway] Shard ID None has connected to Gateway (Session ID: 1ad862747e33be116a1c3a0198813d33).
+[2026-04-01 05:32:13] [Discord] [INFO] [INIT] [StoreLimitless#1152] FILE_DUMP channel initialized: files-dump (id=1399311590616203284).
+[2026-04-01 05:32:13] [Discord] [INFO] [INIT] [StoreLimitless#1152] Bot online and ready (id=1399287140885725245).
+[2026-04-01 05:32:17] [Database] [INFO] [GET USER] [] Select query executed for username=dream2503.
+[2026-04-01 05:32:17] [Database] [INFO] [GET USER] [dream2503] Successfully fetched user from database.
+[2026-04-01 05:32:17] [Database] [INFO] [GET FILES] [] Select query executed for uid=3.
+[2026-04-01 05:32:17] [Database] [ERROR] [GET FILES] [] No files found for uid=3.
+[2026-04-01 05:32:17] [Database] [INFO] [GET USER] [] Select query executed for username=dream2503.
+[2026-04-01 05:32:17] [Database] [INFO] [GET USER] [dream2503] Successfully fetched user from database.
+[2026-04-01 05:32:17] [Database] [INFO] [GET FILES] [] Select query executed for uid=3.
+[2026-04-01 05:32:17] [Database] [ERROR] [GET FILES] [] No files found for uid=3.
+[2026-04-01 05:32:23] [Database] [INFO] [GET USER] [] Select query executed for username=dream2503.
+[2026-04-01 05:32:23] [Database] [INFO] [GET USER] [dream2503] Successfully fetched user from database.
+[2026-04-01 05:32:24] [Database] [INFO] [GET USER] [] Select query executed for username=dream2503.
+[2026-04-01 05:32:24] [Database] [INFO] [GET USER] [dream2503] Successfully fetched user from database.
+[2026-04-01 05:32:24] [Database] [INFO] [GET FILES] [] Select query executed for uid=3.
+[2026-04-01 05:32:24] [Database] [ERROR] [GET FILES] [] No files found for uid=3.
+[2026-04-01 05:32:24] [Database] [INFO] [GET USER] [] Select query executed for username=dream2503.
+[2026-04-01 05:32:24] [Database] [INFO] [GET USER] [dream2503] Successfully fetched user from database.
+[2026-04-01 05:32:24] [Database] [INFO] [GET FILES] [] Select query executed for uid=3.
+[2026-04-01 05:32:24] [Database] [ERROR] [GET FILES] [] No files found for uid=3.
+[2026-04-01 05:32:29] [Database] [INFO] [GET USER] [] Select query executed for username=dream2503.
+[2026-04-01 05:32:29] [Database] [INFO] [GET USER] [dream2503] Successfully fetched user from database.
+[2026-04-01 05:32:30] [Database] [INFO] [GET USER] [] Select query executed for uid=3.
+[2026-04-01 05:32:30] [Database] [INFO] [GET USER] [dream2503] Successfully fetched user from database.
+[2026-04-01 05:32:30] [None] [INFO] [UPLOAD] [dream2503] Got file: fid=None fname='100MB.bin' flinks=[] data_center='telegram' uid=3
+[2026-04-01 05:32:30] [Database] [INFO] [GET FILE] [] Select query executed for ('fname', 'uid')=('100MB.bin', 3).
+[2026-04-01 05:32:30] [Database] [ERROR] [GET FILE] [] No file found for ('fname', 'uid')=('100MB.bin', 3).
+[2026-04-01 05:32:30] [None] [INFO] [UPLOAD] [dream2503] Found local file: 100MB.bin
+[2026-04-01 05:32:30] [None] [ERROR] [UPLOAD] [dream2503] Unhandled exception: Unknown data center
+Traceback (most recent call last):
+  File "/home/dream/github/drive-bot/core/transfer.py", line 49, in upload
+    raise ValueError("Unknown data center")
+ValueError: Unknown data center
+
+[2026-04-01 05:32:32] [Database] [INFO] [GET USER] [] Select query executed for username=dream2503.
+[2026-04-01 05:32:32] [Database] [INFO] [GET USER] [dream2503] Successfully fetched user from database.
+[2026-04-01 05:32:32] [Database] [INFO] [GET FILES] [] Select query executed for uid=3.
+[2026-04-01 05:32:32] [Database] [ERROR] [GET FILES] [] No files found for uid=3.
+[2026-04-01 05:32:32] [Database] [INFO] [GET USER] [] Select query executed for username=dream2503.
+[2026-04-01 05:32:32] [Database] [INFO] [GET USER] [dream2503] Successfully fetched user from database.
+[2026-04-01 05:32:32] [Database] [INFO] [GET FILES] [] Select query executed for uid=3.
+[2026-04-01 05:32:32] [Database] [ERROR] [GET FILES] [] No files found for uid=3.
+[2026-04-01 05:34:51,524] [WARNING] [discord.client] PyNaCl is not installed, voice will NOT be supported
+[2026-04-01 05:34:51,525] [WARNING] [discord.client] davey is not installed, voice will NOT be supported
+[2026-04-01 05:34:51] [Discord] [INFO] [MAIN] [] Starting Store Limitless Bot...
+[2026-04-01 05:34:51] [Telegram] [INFO] [MAIN] [] Starting Store Limitless Bot...
+[2026-04-01 05:34:51,531] [INFO] [discord.client] logging in using static token
+[2026-04-01 05:34:53] [Telegram] [ERROR] [INIT] [@StoreLimitless_bot] Error fetching FILE_DUMP chat: 'ExtBot' object has no attribute 'title'
+[2026-04-01 05:34:53] [Telegram] [INFO] [INIT] [@StoreLimitless_bot] Bot is online. Logged in (id=8404712547)
+[2026-04-01 05:34:53,475] [INFO] [telegram.ext.Application] Application started
+[2026-04-01 05:34:54,122] [INFO] [discord.gateway] Shard ID None has connected to Gateway (Session ID: ca0624a5c0db0abab3fad3b39cde8d0c).
+[2026-04-01 05:34:56] [Discord] [INFO] [INIT] [StoreLimitless#1152] FILE_DUMP channel initialized: files-dump (id=1399311590616203284).
+[2026-04-01 05:34:56] [Discord] [INFO] [INIT] [StoreLimitless#1152] Bot online and ready (id=1399287140885725245).
+[2026-04-01 05:35:03] [Database] [INFO] [GET USER] [] Select query executed for username=dream2503.
+[2026-04-01 05:35:03] [Database] [INFO] [GET USER] [dream2503] Successfully fetched user from database.
+[2026-04-01 05:35:04] [Database] [INFO] [GET USER] [] Select query executed for username=dream2503.
+[2026-04-01 05:35:04] [Database] [INFO] [GET USER] [dream2503] Successfully fetched user from database.
+[2026-04-01 05:35:04] [Database] [INFO] [GET FILES] [] Select query executed for uid=3.
+[2026-04-01 05:35:04] [Database] [ERROR] [GET FILES] [] No files found for uid=3.
+[2026-04-01 05:35:04] [Database] [INFO] [GET USER] [] Select query executed for username=dream2503.
+[2026-04-01 05:35:04] [Database] [INFO] [GET USER] [dream2503] Successfully fetched user from database.
+[2026-04-01 05:35:04] [Database] [INFO] [GET FILES] [] Select query executed for uid=3.
+[2026-04-01 05:35:04] [Database] [ERROR] [GET FILES] [] No files found for uid=3.
+[2026-04-01 05:35:09] [Database] [INFO] [GET USER] [] Select query executed for username=dream2503.
+[2026-04-01 05:35:09] [Database] [INFO] [GET USER] [dream2503] Successfully fetched user from database.
+[2026-04-01 05:35:10] [Database] [INFO] [GET USER] [] Select query executed for uid=3.
+[2026-04-01 05:35:10] [Database] [INFO] [GET USER] [dream2503] Successfully fetched user from database.
+[2026-04-01 05:35:10] [None] [INFO] [UPLOAD] [dream2503] Got file: fid=None fname='100MB.bin' flinks=[] data_center='telegram' uid=3
+[2026-04-01 05:35:10] [Database] [INFO] [GET FILE] [] Select query executed for ('fname', 'uid')=('100MB.bin', 3).
+[2026-04-01 05:35:10] [Database] [ERROR] [GET FILE] [] No file found for ('fname', 'uid')=('100MB.bin', 3).
+[2026-04-01 05:35:10] [None] [INFO] [UPLOAD] [dream2503] Found local file: 100MB.bin
+[2026-04-01 05:35:10] [None] [ERROR] [UPLOAD] [dream2503] Unhandled exception: Unknown data center
+Traceback (most recent call last):
+  File "/home/dream/github/drive-bot/core/transfer.py", line 49, in upload
+    raise ValueError("Unknown data center")
+ValueError: Unknown data center
+
+[2026-04-01 05:35:11] [Database] [INFO] [GET USER] [] Select query executed for username=dream2503.
+[2026-04-01 05:35:11] [Database] [INFO] [GET USER] [dream2503] Successfully fetched user from database.
+[2026-04-01 05:35:11] [Database] [INFO] [GET FILES] [] Select query executed for uid=3.
+[2026-04-01 05:35:11] [Database] [ERROR] [GET FILES] [] No files found for uid=3.
+[2026-04-01 05:35:12] [Database] [INFO] [GET USER] [] Select query executed for username=dream2503.
+[2026-04-01 05:35:12] [Database] [INFO] [GET USER] [dream2503] Successfully fetched user from database.
+[2026-04-01 05:35:12] [Database] [INFO] [GET FILES] [] Select query executed for uid=3.
+[2026-04-01 05:35:12] [Database] [ERROR] [GET FILES] [] No files found for uid=3.
+[2026-04-01 11:25:50,321] [WARNING] [discord.client] PyNaCl is not installed, voice will NOT be supported
+[2026-04-01 11:25:50,322] [WARNING] [discord.client] davey is not installed, voice will NOT be supported
+[2026-04-01 11:25:50] [Discord] [INFO] [MAIN] [] Starting Store Limitless Bot...
+[2026-04-01 11:25:50,330] [INFO] [discord.client] logging in using static token
+[2026-04-01 11:25:50] [Telegram] [INFO] [MAIN] [] Starting Store Limitless Bot...
+[2026-04-01 11:25:51] [Telegram] [ERROR] [INIT] [@StoreLimitless_bot] Error fetching FILE_DUMP chat: 'ExtBot' object has no attribute 'title'
+[2026-04-01 11:25:51] [Telegram] [INFO] [INIT] [@StoreLimitless_bot] Bot is online. Logged in (id=8404712547)
+[2026-04-01 11:25:52,078] [INFO] [telegram.ext.Application] Application started
+[2026-04-01 11:25:53,147] [INFO] [discord.gateway] Shard ID None has connected to Gateway (Session ID: 209f43dff3d460ced2d71f5c742fb636).
+[2026-04-01 11:25:55] [Discord] [INFO] [INIT] [StoreLimitless#1152] FILE_DUMP channel initialized: files-dump (id=1399311590616203284).
+[2026-04-01 11:25:55] [Discord] [INFO] [INIT] [StoreLimitless#1152] Bot online and ready (id=1399287140885725245).
+[2026-04-01 11:26:00] [Database] [INFO] [GET USER] [] Select query executed for username=dream2503.
+[2026-04-01 11:26:00] [Database] [INFO] [GET USER] [dream2503] Successfully fetched user from database.
+[2026-04-01 11:26:01] [Database] [INFO] [GET USER] [] Select query executed for username=dream2503.
+[2026-04-01 11:26:01] [Database] [INFO] [GET USER] [dream2503] Successfully fetched user from database.
+[2026-04-01 11:26:01] [Database] [INFO] [GET FILES] [] Select query executed for uid=3.
+[2026-04-01 11:26:01] [Database] [ERROR] [GET FILES] [] No files found for uid=3.
+[2026-04-01 11:26:01] [Database] [INFO] [GET USER] [] Select query executed for username=dream2503.
+[2026-04-01 11:26:01] [Database] [INFO] [GET USER] [dream2503] Successfully fetched user from database.
+[2026-04-01 11:26:02] [Database] [INFO] [GET FILES] [] Select query executed for uid=3.
+[2026-04-01 11:26:02] [Database] [ERROR] [GET FILES] [] No files found for uid=3.
+[2026-04-01 11:26:02] [Database] [INFO] [GET USER] [] Select query executed for username=dream2503.
+[2026-04-01 11:26:02] [Database] [INFO] [GET USER] [dream2503] Successfully fetched user from database.
+[2026-04-01 11:26:03] [Database] [INFO] [GET FILES] [] Select query executed for uid=3.
+[2026-04-01 11:26:03] [Database] [ERROR] [GET FILES] [] No files found for uid=3.
+[2026-04-01 11:26:03] [Database] [INFO] [GET USER] [] Select query executed for username=dream2503.
+[2026-04-01 11:26:03] [Database] [INFO] [GET USER] [dream2503] Successfully fetched user from database.
+[2026-04-01 11:26:03] [Database] [INFO] [GET FILES] [] Select query executed for uid=3.
+[2026-04-01 11:26:03] [Database] [ERROR] [GET FILES] [] No files found for uid=3.
+[2026-04-01 11:26:09] [Database] [INFO] [GET USER] [] Select query executed for username=dream2503.
+[2026-04-01 11:26:09] [Database] [INFO] [GET USER] [dream2503] Successfully fetched user from database.
+[2026-04-01 11:26:10] [Database] [INFO] [GET USER] [] Select query executed for uid=3.
+[2026-04-01 11:26:10] [Database] [INFO] [GET USER] [dream2503] Successfully fetched user from database.
+[2026-04-01 11:26:10] [None] [INFO] [UPLOAD] [dream2503] Got file: fid=None fname='100MB.bin' flinks=[] data_center='telegram' uid=3
+[2026-04-01 11:26:10] [Database] [INFO] [GET FILE] [] Select query executed for ('fname', 'uid')=('100MB.bin', 3).
+[2026-04-01 11:26:10] [Database] [ERROR] [GET FILE] [] No file found for ('fname', 'uid')=('100MB.bin', 3).
+[2026-04-01 11:26:10] [None] [INFO] [UPLOAD] [dream2503] Found local file: 100MB.bin
+[2026-04-01 11:26:10] [None] [ERROR] [UPLOAD] [dream2503] Unhandled exception: Unknown data center
+Traceback (most recent call last):
+  File "/home/dream/github/drive-bot/core/transfer.py", line 51, in upload
+    raise ValueError("Unknown data center")
+ValueError: Unknown data center
+
+[2026-04-01 11:26:11] [Database] [INFO] [GET USER] [] Select query executed for username=dream2503.
+[2026-04-01 11:26:11] [Database] [INFO] [GET USER] [dream2503] Successfully fetched user from database.
+[2026-04-01 11:26:12] [Database] [INFO] [GET FILES] [] Select query executed for uid=3.
+[2026-04-01 11:26:12] [Database] [ERROR] [GET FILES] [] No files found for uid=3.
+[2026-04-01 11:26:12] [Database] [INFO] [GET USER] [] Select query executed for username=dream2503.
+[2026-04-01 11:26:12] [Database] [INFO] [GET USER] [dream2503] Successfully fetched user from database.
+[2026-04-01 11:26:12] [Database] [INFO] [GET FILES] [] Select query executed for uid=3.
+[2026-04-01 11:26:12] [Database] [ERROR] [GET FILES] [] No files found for uid=3.
+[2026-04-01 11:28:31,087] [WARNING] [discord.client] PyNaCl is not installed, voice will NOT be supported
+[2026-04-01 11:28:31,087] [WARNING] [discord.client] davey is not installed, voice will NOT be supported
+[2026-04-01 11:28:31] [Discord] [INFO] [MAIN] [] Starting Store Limitless Bot...
+[2026-04-01 11:28:31] [Telegram] [INFO] [MAIN] [] Starting Store Limitless Bot...
+[2026-04-01 11:28:31,094] [INFO] [discord.client] logging in using static token
+[2026-04-01 11:28:33] [Telegram] [ERROR] [INIT] [@StoreLimitless_bot] Error fetching FILE_DUMP chat: 'ExtBot' object has no attribute 'title'
+[2026-04-01 11:28:33] [Telegram] [INFO] [INIT] [@StoreLimitless_bot] Bot is online. Logged in (id=8404712547)
+[2026-04-01 11:28:33,346] [INFO] [telegram.ext.Application] Application started
+[2026-04-01 11:28:33,868] [INFO] [discord.gateway] Shard ID None has connected to Gateway (Session ID: 3b22d41adec58037ca84526a060a1025).
+[2026-04-01 11:28:35] [Discord] [INFO] [INIT] [StoreLimitless#1152] FILE_DUMP channel initialized: files-dump (id=1399311590616203284).
+[2026-04-01 11:28:35] [Discord] [INFO] [INIT] [StoreLimitless#1152] Bot online and ready (id=1399287140885725245).
+[2026-04-01 11:28:56] [Database] [INFO] [GET USER] [] Select query executed for username=dream2503.
+[2026-04-01 11:28:56] [Database] [INFO] [GET USER] [dream2503] Successfully fetched user from database.
+[2026-04-01 11:28:57] [Database] [INFO] [GET USER] [] Select query executed for username=dream2503.
+[2026-04-01 11:28:57] [Database] [INFO] [GET USER] [dream2503] Successfully fetched user from database.
+[2026-04-01 11:28:57] [Database] [INFO] [GET FILES] [] Select query executed for uid=3.
+[2026-04-01 11:28:57] [Database] [ERROR] [GET FILES] [] No files found for uid=3.
+[2026-04-01 11:28:58] [Database] [INFO] [GET USER] [] Select query executed for username=dream2503.
+[2026-04-01 11:28:58] [Database] [INFO] [GET USER] [dream2503] Successfully fetched user from database.
+[2026-04-01 11:28:58] [Database] [INFO] [GET FILES] [] Select query executed for uid=3.
+[2026-04-01 11:28:58] [Database] [ERROR] [GET FILES] [] No files found for uid=3.
+[2026-04-01 11:29:16] [Database] [INFO] [GET USER] [] Select query executed for username=dream2503.
+[2026-04-01 11:29:16] [Database] [INFO] [GET USER] [dream2503] Successfully fetched user from database.
+[2026-04-01 11:29:16] [Database] [INFO] [GET USER] [] Select query executed for uid=3.
+[2026-04-01 11:29:16] [Database] [INFO] [GET USER] [dream2503] Successfully fetched user from database.
+[2026-04-01 11:29:16] [Telegram] [INFO] [UPLOAD] [dream2503] Got file: fid=None fname='100MB.bin' flinks=[] data_center='Telegram' uid=3
+[2026-04-01 11:29:17] [Database] [INFO] [GET FILE] [] Select query executed for ('fname', 'uid')=('100MB.bin', 3).
+[2026-04-01 11:29:17] [Database] [ERROR] [GET FILE] [] No file found for ('fname', 'uid')=('100MB.bin', 3).
+[2026-04-01 11:29:17] [Telegram] [INFO] [UPLOAD] [dream2503] Found local file: 100MB.bin
+[2026-04-01 11:29:17] [Telegram] [INFO] [UPLOAD] [dream2503] Starting upload `100MB.bin` (11 parts)
+[2026-04-01 11:29:55] [Telegram] [INFO] [UPLOAD] [dream2503] Uploaded 1/11 (9.1%)
+[2026-04-01 11:30:30] [Telegram] [INFO] [UPLOAD] [dream2503] Uploaded 2/11 (18.2%)
+[2026-04-01 11:31:06] [Telegram] [INFO] [UPLOAD] [dream2503] Uploaded 3/11 (27.3%)
+[2026-04-01 11:31:41] [Telegram] [INFO] [UPLOAD] [dream2503] Uploaded 4/11 (36.4%)
+[2026-04-01 11:32:17] [Telegram] [INFO] [UPLOAD] [dream2503] Uploaded 5/11 (45.5%)
+[2026-04-01 11:32:52] [Telegram] [INFO] [UPLOAD] [dream2503] Uploaded 6/11 (54.5%)
+[2026-04-01 11:33:27] [Telegram] [INFO] [UPLOAD] [dream2503] Uploaded 7/11 (63.6%)
+[2026-04-01 11:34:04] [Telegram] [INFO] [UPLOAD] [dream2503] Uploaded 8/11 (72.7%)
+[2026-04-01 11:34:39] [Telegram] [INFO] [UPLOAD] [dream2503] Uploaded 9/11 (81.8%)
+[2026-04-01 11:35:14] [Telegram] [INFO] [UPLOAD] [dream2503] Uploaded 10/11 (90.9%)
+[2026-04-01 11:35:31] [Telegram] [INFO] [UPLOAD] [dream2503] Uploaded 11/11 (100.0%)
+[2026-04-01 11:35:32] [Database] [INFO] [GET USER] [] Select query executed for uid=3.
+[2026-04-01 11:35:32] [Database] [INFO] [GET USER] [dream2503] Successfully fetched user from database.
+[2026-04-01 11:35:32] [Database] [INFO] [INSERT FILES] [] Insert query executed.
+[2026-04-01 11:35:32] [Database] [INFO] [INSERT FILES] [dream2503] File `100MB.bin` saved to database with 11 part(s).
+[2026-04-01 11:35:32] [Telegram] [INFO] [UPLOAD] [dream2503] Upload complete `100MB.bin`
+[2026-04-01 11:35:34] [Database] [INFO] [GET USER] [] Select query executed for username=dream2503.
+[2026-04-01 11:35:34] [Database] [INFO] [GET USER] [dream2503] Successfully fetched user from database.
+[2026-04-01 11:35:34] [Database] [INFO] [GET FILES] [] Select query executed for uid=3.
+[2026-04-01 11:35:34] [Database] [INFO] [GET FILES] [3] Successfully fetched 1 file(s) from database.
+[2026-04-01 11:35:34] [Database] [INFO] [GET USER] [] Select query executed for username=dream2503.
+[2026-04-01 11:35:34] [Database] [INFO] [GET USER] [dream2503] Successfully fetched user from database.
+[2026-04-01 11:35:35] [Database] [INFO] [GET FILES] [] Select query executed for uid=3.
+[2026-04-01 11:35:35] [Database] [INFO] [GET FILES] [3] Successfully fetched 1 file(s) from database.
+[2026-04-01 11:40:31] [Telegram] [ERROR] [HANDLER] [] Exception: Unknown error in HTTP implementation: RuntimeError('cannot schedule new futures after shutdown')
+[2026-04-01 11:40:32] [Telegram] [ERROR] [HANDLER] [] Exception: Unknown error in HTTP implementation: RuntimeError('cannot schedule new futures after shutdown')
+[2026-04-01 11:40:34] [Telegram] [ERROR] [HANDLER] [] Exception: Unknown error in HTTP implementation: RuntimeError('cannot schedule new futures after shutdown')
+[2026-04-01 11:40:36] [Telegram] [ERROR] [HANDLER] [] Exception: Unknown error in HTTP implementation: RuntimeError('cannot schedule new futures after shutdown')
+[2026-04-01 11:44:53,978] [WARNING] [discord.client] PyNaCl is not installed, voice will NOT be supported
+[2026-04-01 11:44:53,979] [WARNING] [discord.client] davey is not installed, voice will NOT be supported
+[2026-04-01 11:44:53] [Discord] [INFO] [MAIN] [] Starting Store Limitless Bot...
+[2026-04-01 11:44:53,984] [INFO] [discord.client] logging in using static token
+[2026-04-01 11:44:54] [Telegram] [INFO] [MAIN] [] Starting Store Limitless Bot...
+[2026-04-01 11:44:55] [Telegram] [ERROR] [INIT] [@StoreLimitless_bot] Error fetching FILE_DUMP chat: 'ExtBot' object has no attribute 'title'
+[2026-04-01 11:44:55] [Telegram] [INFO] [INIT] [@StoreLimitless_bot] Bot is online. Logged in (id=8404712547)
+[2026-04-01 11:44:55,905] [INFO] [telegram.ext.Application] Application started
+[2026-04-01 11:44:56,697] [INFO] [discord.gateway] Shard ID None has connected to Gateway (Session ID: d0c678dcfc452018317da263c59b902c).
+[2026-04-01 11:44:58] [Discord] [INFO] [INIT] [StoreLimitless#1152] FILE_DUMP channel initialized: files-dump (id=1399311590616203284).
+[2026-04-01 11:44:58] [Discord] [INFO] [INIT] [StoreLimitless#1152] Bot online and ready (id=1399287140885725245).
+[2026-04-01 11:45:09] [Database] [INFO] [GET USER] [] Select query executed for username=dream2503.
+[2026-04-01 11:45:09] [Database] [INFO] [GET USER] [dream2503] Successfully fetched user from database.
+[2026-04-01 11:45:09] [Database] [INFO] [GET USER] [] Select query executed for username=dream2503.
+[2026-04-01 11:45:09] [Database] [INFO] [GET USER] [dream2503] Successfully fetched user from database.
+[2026-04-01 11:45:10] [Database] [INFO] [GET FILES] [] Select query executed for uid=3.
+[2026-04-01 11:45:10] [Database] [ERROR] [GET FILES] [] No files found for uid=3.
+[2026-04-01 11:45:10] [Database] [INFO] [GET USER] [] Select query executed for username=dream2503.
+[2026-04-01 11:45:10] [Database] [INFO] [GET USER] [dream2503] Successfully fetched user from database.
+[2026-04-01 11:45:10] [Database] [INFO] [GET FILES] [] Select query executed for uid=3.
+[2026-04-01 11:45:10] [Database] [ERROR] [GET FILES] [] No files found for uid=3.
+[2026-04-01 11:45:21] [Database] [INFO] [GET USER] [] Select query executed for username=dream2503.
+[2026-04-01 11:45:21] [Database] [INFO] [GET USER] [dream2503] Successfully fetched user from database.
+[2026-04-01 11:45:22] [Database] [INFO] [GET USER] [] Select query executed for uid=3.
+[2026-04-01 11:45:22] [Database] [INFO] [GET USER] [dream2503] Successfully fetched user from database.
+[2026-04-01 11:45:22] [Discord] [INFO] [UPLOAD] [dream2503] Got file: fid=None fname='100MB.bin' flinks=[] data_center='Discord' uid=3
+[2026-04-01 11:45:22] [Database] [INFO] [GET FILE] [] Select query executed for ('fname', 'uid')=('100MB.bin', 3).
+[2026-04-01 11:45:22] [Database] [ERROR] [GET FILE] [] No file found for ('fname', 'uid')=('100MB.bin', 3).
+[2026-04-01 11:45:22] [Discord] [INFO] [UPLOAD] [dream2503] Found local file: 100MB.bin
+[2026-04-01 11:45:22] [Discord] [INFO] [UPLOAD] [dream2503] Starting upload `100MB.bin` (11 parts)
+[2026-04-01 11:46:03] [Discord] [INFO] [UPLOAD] [dream2503] Uploaded 1/11 (9.1%)
+[2026-04-01 11:46:41] [Discord] [INFO] [UPLOAD] [dream2503] Uploaded 2/11 (18.2%)
+[2026-04-01 11:47:20] [Discord] [INFO] [UPLOAD] [dream2503] Uploaded 3/11 (27.3%)
+[2026-04-01 11:50:22] [Discord] [ERROR] [UPLOAD] [dream2503] Network error part 4/11, retrying: [Errno 104] Connection reset by peer
+[2026-04-01 11:50:58,730] [INFO] [discord.gateway] Shard ID None session has been invalidated.
+[2026-04-01 11:51:02] [Discord] [INFO] [UPLOAD] [dream2503] Uploaded 4/11 (36.4%)
+[2026-04-01 11:51:12,514] [INFO] [discord.gateway] Shard ID None has connected to Gateway (Session ID: 3c9970351eee5723723496a7c269422b).
+[2026-04-01 11:51:14] [Discord] [INFO] [INIT] [StoreLimitless#1152] FILE_DUMP channel initialized: files-dump (id=1399311590616203284).
+[2026-04-01 11:51:14] [Discord] [INFO] [INIT] [StoreLimitless#1152] Bot online and ready (id=1399287140885725245).
+[2026-04-01 11:51:42] [Discord] [INFO] [UPLOAD] [dream2503] Uploaded 5/11 (45.5%)
+[2026-04-01 11:52:21] [Discord] [INFO] [UPLOAD] [dream2503] Uploaded 6/11 (54.5%)
+[2026-04-01 11:53:00] [Discord] [INFO] [UPLOAD] [dream2503] Uploaded 7/11 (63.6%)
+[2026-04-01 11:53:40] [Discord] [INFO] [UPLOAD] [dream2503] Uploaded 8/11 (72.7%)
+[2026-04-01 11:54:19] [Discord] [INFO] [UPLOAD] [dream2503] Uploaded 9/11 (81.8%)
+[2026-04-01 11:54:57] [Discord] [INFO] [UPLOAD] [dream2503] Uploaded 10/11 (90.9%)
+[2026-04-01 11:55:17] [Discord] [INFO] [UPLOAD] [dream2503] Uploaded 11/11 (100.0%)
+[2026-04-01 12:06:15,873] [WARNING] [discord.client] PyNaCl is not installed, voice will NOT be supported
+[2026-04-01 12:06:15,873] [WARNING] [discord.client] davey is not installed, voice will NOT be supported
+[2026-04-01 12:06:15] [Discord] [INFO] [MAIN] [] Starting Store Limitless Bot...
+[2026-04-01 12:06:15,908] [INFO] [discord.client] logging in using static token
+[2026-04-01 12:06:15] [Telegram] [INFO] [MAIN] [] Starting Store Limitless Bot...
+[2026-04-01 12:06:17] [Telegram] [ERROR] [INIT] [@StoreLimitless_bot] Error fetching FILE_DUMP chat: 'ExtBot' object has no attribute 'title'
+[2026-04-01 12:06:17] [Telegram] [INFO] [INIT] [@StoreLimitless_bot] Bot is online. Logged in (id=8404712547)
+[2026-04-01 12:06:17,711] [INFO] [telegram.ext.Application] Application started
+[2026-04-01 12:06:18,785] [INFO] [discord.gateway] Shard ID None has connected to Gateway (Session ID: 7fdbc93f6aa06b997075be8da2fbd76c).
+[2026-04-01 12:06:20] [Discord] [INFO] [INIT] [StoreLimitless#1152] FILE_DUMP channel initialized: files-dump (id=1399311590616203284).
+[2026-04-01 12:06:20] [Discord] [INFO] [INIT] [StoreLimitless#1152] Bot online and ready (id=1399287140885725245).
+[2026-04-01 12:06:22] [Database] [INFO] [GET USER] [] Select query executed for username=dream2503.
+[2026-04-01 12:06:22] [Database] [INFO] [GET USER] [dream2503] Successfully fetched user from database.
+[2026-04-01 12:06:23] [Database] [INFO] [GET USER] [] Select query executed for username=dream2503.
+[2026-04-01 12:06:23] [Database] [INFO] [GET USER] [dream2503] Successfully fetched user from database.
+[2026-04-01 12:06:23] [Database] [INFO] [GET FILES] [] Select query executed for uid=3.
+[2026-04-01 12:06:23] [Database] [ERROR] [GET FILES] [] No files found for uid=3.
+[2026-04-01 12:06:24] [Database] [INFO] [GET USER] [] Select query executed for username=dream2503.
+[2026-04-01 12:06:24] [Database] [INFO] [GET USER] [dream2503] Successfully fetched user from database.
+[2026-04-01 12:06:24] [Database] [INFO] [GET FILES] [] Select query executed for uid=3.
+[2026-04-01 12:06:24] [Database] [ERROR] [GET FILES] [] No files found for uid=3.
+[2026-04-01 12:06:30] [Database] [INFO] [GET USER] [] Select query executed for username=dream2503.
+[2026-04-01 12:06:30] [Database] [INFO] [GET USER] [dream2503] Successfully fetched user from database.
+[2026-04-01 12:06:31] [Database] [INFO] [GET USER] [] Select query executed for uid=3.
+[2026-04-01 12:06:31] [Database] [INFO] [GET USER] [dream2503] Successfully fetched user from database.
+[2026-04-01 12:06:31] [Discord] [INFO] [UPLOAD] [dream2503] Got file: fid=None fname='100MB.bin' flinks=[] data_center='Discord' uid=3
+[2026-04-01 12:06:31] [Database] [INFO] [GET FILE] [] Select query executed for ('fname', 'uid')=('100MB.bin', 3).
+[2026-04-01 12:06:31] [Database] [ERROR] [GET FILE] [] No file found for ('fname', 'uid')=('100MB.bin', 3).
+[2026-04-01 12:06:31] [Discord] [INFO] [UPLOAD] [dream2503] Found local file: 100MB.bin
+[2026-04-01 12:06:31] [Discord] [INFO] [UPLOAD] [dream2503] Starting upload `100MB.bin` (11 parts)
+[2026-04-01 12:07:10] [Discord] [INFO] [UPLOAD] [dream2503] Uploaded 1/11 (9.1%)
+[2026-04-01 12:07:50] [Discord] [INFO] [UPLOAD] [dream2503] Uploaded 2/11 (18.2%)
+[2026-04-01 12:08:30] [Discord] [INFO] [UPLOAD] [dream2503] Uploaded 3/11 (27.3%)
+[2026-04-01 12:09:08] [Discord] [INFO] [UPLOAD] [dream2503] Uploaded 4/11 (36.4%)
+[2026-04-01 12:09:47] [Discord] [INFO] [UPLOAD] [dream2503] Uploaded 5/11 (45.5%)
+[2026-04-01 12:10:26] [Discord] [INFO] [UPLOAD] [dream2503] Uploaded 6/11 (54.5%)
+[2026-04-01 12:11:06] [Discord] [INFO] [UPLOAD] [dream2503] Uploaded 7/11 (63.6%)
+[2026-04-01 12:11:45] [Discord] [INFO] [UPLOAD] [dream2503] Uploaded 8/11 (72.7%)
+[2026-04-01 12:12:24] [Discord] [INFO] [UPLOAD] [dream2503] Uploaded 9/11 (81.8%)
+[2026-04-01 12:13:03] [Discord] [INFO] [UPLOAD] [dream2503] Uploaded 10/11 (90.9%)
+[2026-04-01 12:13:23] [Discord] [INFO] [UPLOAD] [dream2503] Uploaded 11/11 (100.0%)
+[2026-04-01 12:13:23] [Database] [INFO] [GET USER] [] Select query executed for uid=3.
+[2026-04-01 12:13:23] [Database] [INFO] [GET USER] [dream2503] Successfully fetched user from database.
+[2026-04-01 12:13:24] [Database] [INFO] [INSERT FILES] [dream2503] Insert query executed.
+[2026-04-01 12:13:24] [Database] [INFO] [INSERT FILES] [dream2503] File `100MB.bin` saved to database with 11 part(s).
+[2026-04-01 12:13:24] [Discord] [INFO] [UPLOAD] [dream2503] Upload complete `100MB.bin`
+[2026-04-01 12:13:26] [Database] [INFO] [GET USER] [] Select query executed for username=dream2503.
+[2026-04-01 12:13:26] [Database] [INFO] [GET USER] [dream2503] Successfully fetched user from database.
+[2026-04-01 12:13:26] [Database] [INFO] [GET FILES] [] Select query executed for uid=3.
+[2026-04-01 12:13:26] [Database] [INFO] [GET FILES] [3] Successfully fetched 1 file(s) from database.
+[2026-04-01 12:13:27] [Database] [INFO] [GET USER] [] Select query executed for username=dream2503.
+[2026-04-01 12:13:27] [Database] [INFO] [GET USER] [dream2503] Successfully fetched user from database.
+[2026-04-01 12:13:27] [Database] [INFO] [GET FILES] [] Select query executed for uid=3.
+[2026-04-01 12:13:27] [Database] [INFO] [GET FILES] [3] Successfully fetched 1 file(s) from database.
+[2026-04-01 12:13:52] [Database] [INFO] [GET USER] [] Select query executed for username=dream2503.
+[2026-04-01 12:13:52] [Database] [INFO] [GET USER] [dream2503] Successfully fetched user from database.
+[2026-04-01 12:13:52] [Database] [INFO] [GET FILES] [] Select query executed for uid=3.
+[2026-04-01 12:13:52] [Database] [INFO] [GET FILES] [3] Successfully fetched 1 file(s) from database.
+[2026-04-01 12:13:52] [Database] [INFO] [GET USER] [] Select query executed for username=dream2503.
+[2026-04-01 12:13:52] [Database] [INFO] [GET USER] [dream2503] Successfully fetched user from database.
+[2026-04-01 12:13:53] [Database] [INFO] [GET FILES] [] Select query executed for uid=3.
+[2026-04-01 12:13:53] [Database] [INFO] [GET FILES] [3] Successfully fetched 1 file(s) from database.
+[2026-04-01 12:13:54] [Database] [INFO] [GET USER] [] Select query executed for username=dream2503.
+[2026-04-01 12:13:54] [Database] [INFO] [GET USER] [dream2503] Successfully fetched user from database.
+[2026-04-01 12:13:54] [Database] [INFO] [GET FILES] [] Select query executed for uid=3.
+[2026-04-01 12:13:54] [Database] [INFO] [GET FILES] [3] Successfully fetched 1 file(s) from database.
+[2026-04-01 12:13:55] [Database] [INFO] [GET USER] [] Select query executed for username=dream2503.
+[2026-04-01 12:13:55] [Database] [INFO] [GET USER] [dream2503] Successfully fetched user from database.
+[2026-04-01 12:13:55] [Database] [INFO] [GET FILES] [] Select query executed for uid=3.
+[2026-04-01 12:13:55] [Database] [INFO] [GET FILES] [3] Successfully fetched 1 file(s) from database.
+[2026-04-01 12:14:02] [Database] [INFO] [GET USER] [] Select query executed for username=dream2503.
+[2026-04-01 12:14:02] [Database] [INFO] [GET USER] [dream2503] Successfully fetched user from database.
+[2026-04-01 12:14:03] [Database] [INFO] [GET USER] [] Select query executed for uid=3.
+[2026-04-01 12:14:03] [Database] [INFO] [GET USER] [dream2503] Successfully fetched user from database.
+[2026-04-01 12:14:03] [Telegram] [INFO] [UPLOAD] [dream2503] Got file: fid=None fname='Project_Log_Improved.pdf' flinks=[] data_center='Telegram' uid=3
+[2026-04-01 12:14:03] [Database] [INFO] [GET FILE] [] Select query executed for ('fname', 'uid')=('Project_Log_Improved.pdf', 3).
+[2026-04-01 12:14:03] [Database] [ERROR] [GET FILE] [] No file found for ('fname', 'uid')=('Project_Log_Improved.pdf', 3).
+[2026-04-01 12:14:03] [Telegram] [INFO] [UPLOAD] [dream2503] Found local file: Project_Log_Improved.pdf
+[2026-04-01 12:14:03] [Telegram] [INFO] [UPLOAD] [dream2503] Starting upload `Project_Log_Improved.pdf` (1 parts)
+[2026-04-01 12:14:07] [Telegram] [INFO] [UPLOAD] [dream2503] Uploaded 1/1 (100.0%)
+[2026-04-01 12:14:07] [Database] [INFO] [GET USER] [] Select query executed for uid=3.
+[2026-04-01 12:14:07] [Database] [INFO] [GET USER] [dream2503] Successfully fetched user from database.
+[2026-04-01 12:14:07] [Database] [INFO] [INSERT FILES] [dream2503] Insert query executed.
+[2026-04-01 12:14:07] [Database] [INFO] [INSERT FILES] [dream2503] File `Project_Log_Improved.pdf` saved to database with 1 part(s).
+[2026-04-01 12:14:07] [Telegram] [INFO] [UPLOAD] [dream2503] Upload complete `Project_Log_Improved.pdf`
+[2026-04-01 12:14:09] [Database] [INFO] [GET USER] [] Select query executed for username=dream2503.
+[2026-04-01 12:14:09] [Database] [INFO] [GET USER] [dream2503] Successfully fetched user from database.
+[2026-04-01 12:14:09] [Database] [INFO] [GET FILES] [] Select query executed for uid=3.
+[2026-04-01 12:14:09] [Database] [INFO] [GET FILES] [3] Successfully fetched 2 file(s) from database.
+[2026-04-01 12:14:10] [Database] [INFO] [GET USER] [] Select query executed for username=dream2503.
+[2026-04-01 12:14:10] [Database] [INFO] [GET USER] [dream2503] Successfully fetched user from database.
+[2026-04-01 12:14:10] [Database] [INFO] [GET FILES] [] Select query executed for uid=3.
+[2026-04-01 12:14:10] [Database] [INFO] [GET FILES] [3] Successfully fetched 2 file(s) from database.
+[2026-04-01 12:15:07] [Database] [INFO] [GET USER] [] Select query executed for username=dream2503.
+[2026-04-01 12:15:07] [Database] [INFO] [GET USER] [dream2503] Successfully fetched user from database.
+[2026-04-01 12:15:08] [Database] [INFO] [GET FILES] [] Select query executed for uid=3.
+[2026-04-01 12:15:08] [Database] [INFO] [GET FILES] [3] Successfully fetched 1 file(s) from database.
+[2026-04-01 12:15:08] [Database] [INFO] [GET USER] [] Select query executed for username=dream2503.
+[2026-04-01 12:15:08] [Database] [INFO] [GET USER] [dream2503] Successfully fetched user from database.
+[2026-04-01 12:15:08] [Database] [INFO] [GET FILES] [] Select query executed for uid=3.
+[2026-04-01 12:15:08] [Database] [INFO] [GET FILES] [3] Successfully fetched 1 file(s) from database.
+[2026-04-01 12:15:28] [Database] [INFO] [GET USER] [] Select query executed for username=dream2503.
+[2026-04-01 12:15:28] [Database] [INFO] [GET USER] [dream2503] Successfully fetched user from database.
+[2026-04-01 12:15:28] [Database] [INFO] [GET USER] [] Select query executed for uid=3.
+[2026-04-01 12:15:28] [Database] [INFO] [GET USER] [dream2503] Successfully fetched user from database.
+[2026-04-01 12:15:28] [Telegram] [INFO] [UPLOAD] [dream2503] Got file: fid=None fname='100MB.bin' flinks=[] data_center='Telegram' uid=3
+[2026-04-01 12:15:29] [Database] [INFO] [GET FILE] [] Select query executed for ('fname', 'uid')=('100MB.bin', 3).
+[2026-04-01 12:15:29] [Database] [ERROR] [GET FILE] [] No file found for ('fname', 'uid')=('100MB.bin', 3).
+[2026-04-01 12:15:29] [Telegram] [INFO] [UPLOAD] [dream2503] Found local file: 100MB.bin
+[2026-04-01 12:15:29] [Telegram] [INFO] [UPLOAD] [dream2503] Starting upload `100MB.bin` (11 parts)
+[2026-04-01 12:16:06] [Telegram] [INFO] [UPLOAD] [dream2503] Uploaded 1/11 (9.1%)
+[2026-04-01 12:16:42] [Telegram] [INFO] [UPLOAD] [dream2503] Uploaded 2/11 (18.2%)
+[2026-04-01 12:17:17] [Telegram] [INFO] [UPLOAD] [dream2503] Uploaded 3/11 (27.3%)
+[2026-04-01 12:17:53] [Telegram] [INFO] [UPLOAD] [dream2503] Uploaded 4/11 (36.4%)
+[2026-04-01 12:18:28] [Telegram] [INFO] [UPLOAD] [dream2503] Uploaded 5/11 (45.5%)
+[2026-04-01 12:19:03] [Telegram] [INFO] [UPLOAD] [dream2503] Uploaded 6/11 (54.5%)
+[2026-04-01 12:19:38] [Telegram] [INFO] [UPLOAD] [dream2503] Uploaded 7/11 (63.6%)
+[2026-04-01 12:20:14] [Telegram] [INFO] [UPLOAD] [dream2503] Uploaded 8/11 (72.7%)
+[2026-04-01 12:20:50] [Telegram] [INFO] [UPLOAD] [dream2503] Uploaded 9/11 (81.8%)
+[2026-04-01 12:21:26] [Telegram] [INFO] [UPLOAD] [dream2503] Uploaded 10/11 (90.9%)
+[2026-04-01 12:21:43] [Telegram] [INFO] [UPLOAD] [dream2503] Uploaded 11/11 (100.0%)
+[2026-04-01 12:21:43] [Database] [INFO] [GET USER] [] Select query executed for uid=3.
+[2026-04-01 12:21:43] [Database] [INFO] [GET USER] [dream2503] Successfully fetched user from database.
+[2026-04-01 12:21:44] [Database] [INFO] [INSERT FILES] [dream2503] Insert query executed.
+[2026-04-01 12:21:44] [Database] [INFO] [INSERT FILES] [dream2503] File `100MB.bin` saved to database with 11 part(s).
+[2026-04-01 12:21:44] [Telegram] [INFO] [UPLOAD] [dream2503] Upload complete `100MB.bin`
+[2026-04-01 12:21:46] [Database] [INFO] [GET USER] [] Select query executed for username=dream2503.
+[2026-04-01 12:21:46] [Database] [INFO] [GET USER] [dream2503] Successfully fetched user from database.
+[2026-04-01 12:21:46] [Database] [INFO] [GET FILES] [] Select query executed for uid=3.
+[2026-04-01 12:21:46] [Database] [INFO] [GET FILES] [3] Successfully fetched 2 file(s) from database.
+[2026-04-01 12:21:46] [Database] [INFO] [GET USER] [] Select query executed for username=dream2503.
+[2026-04-01 12:21:46] [Database] [INFO] [GET USER] [dream2503] Successfully fetched user from database.
+[2026-04-01 12:21:46] [Database] [INFO] [GET FILES] [] Select query executed for uid=3.
+[2026-04-01 12:21:46] [Database] [INFO] [GET FILES] [3] Successfully fetched 2 file(s) from database.
+[2026-04-01 12:22:35] [Database] [INFO] [GET USER] [] Select query executed for username=dream2503.
+[2026-04-01 12:22:35] [Database] [INFO] [GET USER] [dream2503] Successfully fetched user from database.
+[2026-04-01 12:22:35] [Database] [INFO] [GET USER] [] Select query executed for uid=3.
+[2026-04-01 12:22:35] [Database] [INFO] [GET USER] [dream2503] Successfully fetched user from database.
+[2026-04-01 12:22:35] [Discord] [INFO] [UPLOAD] [dream2503] Got file: fid=None fname='100MB.bin' flinks=[] data_center='Discord' uid=3
+[2026-04-01 12:22:35] [Database] [INFO] [GET FILE] [] Select query executed for ('fname', 'uid')=('100MB.bin', 3).
+[2026-04-01 12:22:35] [Database] [INFO] [GET FILE] [100MB.bin] Successfully fetched file from database.
+[2026-04-01 12:22:35] [Discord] [ERROR] [UPLOAD] [dream2503] File `100MB.bin` already exists.
+[2026-04-01 12:22:36] [Database] [INFO] [GET USER] [] Select query executed for username=dream2503.
+[2026-04-01 12:22:36] [Database] [INFO] [GET USER] [dream2503] Successfully fetched user from database.
+[2026-04-01 12:22:37] [Database] [INFO] [GET FILES] [] Select query executed for uid=3.
+[2026-04-01 12:22:37] [Database] [INFO] [GET FILES] [3] Successfully fetched 2 file(s) from database.
+[2026-04-01 12:22:37] [Database] [INFO] [GET USER] [] Select query executed for username=dream2503.
+[2026-04-01 12:22:37] [Database] [INFO] [GET USER] [dream2503] Successfully fetched user from database.
+[2026-04-01 12:22:37] [Database] [INFO] [GET FILES] [] Select query executed for uid=3.
+[2026-04-01 12:22:37] [Database] [INFO] [GET FILES] [3] Successfully fetched 2 file(s) from database.
+[2026-04-01 12:22:42] [Database] [INFO] [GET USER] [] Select query executed for username=dream2503.
+[2026-04-01 12:22:42] [Database] [INFO] [GET USER] [dream2503] Successfully fetched user from database.
+[2026-04-01 12:22:42] [Database] [INFO] [GET FILES] [] Select query executed for uid=3.
+[2026-04-01 12:22:42] [Database] [INFO] [GET FILES] [3] Successfully fetched 2 file(s) from database.
+[2026-04-01 12:22:43] [Database] [INFO] [GET USER] [] Select query executed for username=dream2503.
+[2026-04-01 12:22:43] [Database] [INFO] [GET USER] [dream2503] Successfully fetched user from database.
+[2026-04-01 12:22:43] [Database] [INFO] [GET FILES] [] Select query executed for uid=3.
+[2026-04-01 12:22:43] [Database] [INFO] [GET FILES] [3] Successfully fetched 2 file(s) from database.
+[2026-04-01 12:23:17] [Database] [INFO] [GET USER] [] Select query executed for username=dream2503.
+[2026-04-01 12:23:17] [Database] [INFO] [GET USER] [dream2503] Successfully fetched user from database.
+[2026-04-01 12:23:17] [Database] [INFO] [GET USER] [] Select query executed for uid=3.
+[2026-04-01 12:23:17] [Database] [INFO] [GET USER] [dream2503] Successfully fetched user from database.
+[2026-04-01 12:23:17] [Discord] [INFO] [UPLOAD] [dream2503] Got file: fid=None fname='100MB.bin' flinks=[] data_center='Discord' uid=3
+[2026-04-01 12:23:17] [Database] [INFO] [GET FILE] [] Select query executed for ('fname', 'uid')=('100MB.bin', 3).
+[2026-04-01 12:23:17] [Database] [ERROR] [GET FILE] [] No file found for ('fname', 'uid')=('100MB.bin', 3).
+[2026-04-01 12:23:17] [Discord] [INFO] [UPLOAD] [dream2503] Found local file: 100MB.bin
+[2026-04-01 12:23:17] [Discord] [INFO] [UPLOAD] [dream2503] Starting upload `100MB.bin` (11 parts)
+[2026-04-01 12:23:59] [Discord] [INFO] [UPLOAD] [dream2503] Uploaded 1/11 (9.1%)
+[2026-04-01 12:24:41] [Discord] [INFO] [UPLOAD] [dream2503] Uploaded 2/11 (18.2%)
+[2026-04-01 12:25:20] [Discord] [INFO] [UPLOAD] [dream2503] Uploaded 3/11 (27.3%)
+[2026-04-01 12:25:59] [Discord] [INFO] [UPLOAD] [dream2503] Uploaded 4/11 (36.4%)
+[2026-04-01 12:26:37] [Discord] [INFO] [UPLOAD] [dream2503] Uploaded 5/11 (45.5%)
+[2026-04-01 12:27:16] [Discord] [INFO] [UPLOAD] [dream2503] Uploaded 6/11 (54.5%)
+[2026-04-01 12:27:56] [Discord] [INFO] [UPLOAD] [dream2503] Uploaded 7/11 (63.6%)
+[2026-04-01 12:28:35] [Discord] [INFO] [UPLOAD] [dream2503] Uploaded 8/11 (72.7%)
+[2026-04-01 12:29:33,106] [WARNING] [discord.client] PyNaCl is not installed, voice will NOT be supported
+[2026-04-01 12:29:33,106] [WARNING] [discord.client] davey is not installed, voice will NOT be supported
+[2026-04-01 12:29:33] [Telegram] [INFO] [MAIN] [] Starting Store Limitless Bot...
+[2026-04-01 12:29:33] [Discord] [INFO] [MAIN] [] Starting Store Limitless Bot...
+[2026-04-01 12:29:33,163] [INFO] [discord.client] logging in using static token
+[2026-04-01 12:29:34] [Telegram] [ERROR] [INIT] [@StoreLimitless_bot] Error fetching FILE_DUMP chat: 'ExtBot' object has no attribute 'title'
+[2026-04-01 12:29:34] [Telegram] [INFO] [INIT] [@StoreLimitless_bot] Bot is online. Logged in (id=8404712547)
+[2026-04-01 12:29:35,297] [INFO] [telegram.ext.Application] Application started
+[2026-04-01 12:29:37] [Database] [INFO] [GET USER] [] Select query executed for username=dream2503.
+[2026-04-01 12:29:37] [Database] [INFO] [GET USER] [dream2503] Successfully fetched user from database.
+[2026-04-01 12:29:37,869] [INFO] [discord.gateway] Shard ID None has connected to Gateway (Session ID: a33a9cc53a4b1ab73060bd8f744820df).
+[2026-04-01 12:29:38] [Database] [INFO] [GET FILES] [] Select query executed for uid=3.
+[2026-04-01 12:29:38] [Database] [INFO] [GET FILES] [3] Successfully fetched 1 file(s) from database.
+[2026-04-01 12:29:38] [Database] [INFO] [GET USER] [] Select query executed for username=dream2503.
+[2026-04-01 12:29:38] [Database] [INFO] [GET USER] [dream2503] Successfully fetched user from database.
+[2026-04-01 12:29:38] [Database] [INFO] [GET FILES] [] Select query executed for uid=3.
+[2026-04-01 12:29:38] [Database] [INFO] [GET FILES] [3] Successfully fetched 1 file(s) from database.
+[2026-04-01 12:29:38] [Database] [INFO] [GET USER] [] Select query executed for username=dream2503.
+[2026-04-01 12:29:38] [Database] [INFO] [GET USER] [dream2503] Successfully fetched user from database.
+[2026-04-01 12:29:38] [Database] [INFO] [GET FILES] [] Select query executed for uid=3.
+[2026-04-01 12:29:38] [Database] [INFO] [GET FILES] [3] Successfully fetched 1 file(s) from database.
+[2026-04-01 12:29:38] [Database] [INFO] [GET USER] [] Select query executed for username=dream2503.
+[2026-04-01 12:29:38] [Database] [INFO] [GET USER] [dream2503] Successfully fetched user from database.
+[2026-04-01 12:29:39] [Database] [INFO] [GET FILES] [] Select query executed for uid=3.
+[2026-04-01 12:29:39] [Database] [INFO] [GET FILES] [3] Successfully fetched 1 file(s) from database.
+[2026-04-01 12:29:39] [Database] [INFO] [GET USER] [] Select query executed for username=dream2503.
+[2026-04-01 12:29:39] [Database] [INFO] [GET USER] [dream2503] Successfully fetched user from database.
+[2026-04-01 12:29:39] [Database] [INFO] [GET FILES] [] Select query executed for uid=3.
+[2026-04-01 12:29:39] [Database] [INFO] [GET FILES] [3] Successfully fetched 1 file(s) from database.
+[2026-04-01 12:29:39] [Database] [INFO] [GET USER] [] Select query executed for username=dream2503.
+[2026-04-01 12:29:39] [Database] [INFO] [GET USER] [dream2503] Successfully fetched user from database.
+[2026-04-01 12:29:39] [Database] [INFO] [GET FILES] [] Select query executed for uid=3.
+[2026-04-01 12:29:39] [Database] [INFO] [GET FILES] [3] Successfully fetched 1 file(s) from database.
+[2026-04-01 12:29:39] [Database] [INFO] [GET USER] [] Select query executed for username=dream2503.
+[2026-04-01 12:29:39] [Database] [INFO] [GET USER] [dream2503] Successfully fetched user from database.
+[2026-04-01 12:29:39] [Discord] [INFO] [INIT] [StoreLimitless#1152] FILE_DUMP channel initialized: files-dump (id=1399311590616203284).
+[2026-04-01 12:29:39] [Discord] [INFO] [INIT] [StoreLimitless#1152] Bot online and ready (id=1399287140885725245).
+[2026-04-01 12:29:40] [Database] [INFO] [GET FILES] [] Select query executed for uid=3.
+[2026-04-01 12:29:40] [Database] [INFO] [GET FILES] [3] Successfully fetched 1 file(s) from database.
+[2026-04-01 12:29:40] [Database] [INFO] [GET USER] [] Select query executed for username=dream2503.
+[2026-04-01 12:29:40] [Database] [INFO] [GET USER] [dream2503] Successfully fetched user from database.
+[2026-04-01 12:29:40] [Database] [INFO] [GET FILES] [] Select query executed for uid=3.
+[2026-04-01 12:29:40] [Database] [INFO] [GET FILES] [3] Successfully fetched 1 file(s) from database.
+[2026-04-01 12:29:40] [Database] [INFO] [GET USER] [] Select query executed for username=dream2503.
+[2026-04-01 12:29:40] [Database] [INFO] [GET USER] [] Select query executed for username=dream2503.
+[2026-04-01 12:29:40] [Database] [INFO] [GET USER] [dream2503] Successfully fetched user from database.
+[2026-04-01 12:29:40] [Database] [INFO] [GET FILES] [] Select query executed for uid=3.
+[2026-04-01 12:29:40] [Database] [INFO] [GET FILES] [3] Successfully fetched 1 file(s) from database.
+[2026-04-01 12:29:41] [Database] [INFO] [GET USER] [] Select query executed for username=dream2503.
+[2026-04-01 12:29:41] [Database] [INFO] [GET USER] [dream2503] Successfully fetched user from database.
+[2026-04-01 12:29:41] [Database] [INFO] [GET FILES] [] Select query executed for uid=3.
+[2026-04-01 12:29:41] [Database] [INFO] [GET FILES] [3] Successfully fetched 1 file(s) from database.
+[2026-04-01 12:29:55] [Database] [INFO] [GET USER] [] Select query executed for username=dream2503.
+[2026-04-01 12:29:55] [Database] [INFO] [GET USER] [dream2503] Successfully fetched user from database.
+[2026-04-01 12:29:55] [Database] [INFO] [GET USER] [] Select query executed for username=dream2503.
+[2026-04-01 12:29:55] [Database] [INFO] [GET USER] [dream2503] Successfully fetched user from database.
+[2026-04-01 12:29:55] [Database] [INFO] [GET FILES] [] Select query executed for uid=3.
+[2026-04-01 12:29:55] [Database] [INFO] [GET FILES] [3] Successfully fetched 1 file(s) from database.
+[2026-04-01 12:29:55] [Database] [INFO] [GET USER] [] Select query executed for username=dream2503.
+[2026-04-01 12:29:55] [Database] [INFO] [GET USER] [dream2503] Successfully fetched user from database.
+[2026-04-01 12:29:56] [Database] [INFO] [GET FILES] [] Select query executed for uid=3.
+[2026-04-01 12:29:56] [Database] [INFO] [GET FILES] [3] Successfully fetched 1 file(s) from database.
+[2026-04-01 12:29:58] [Database] [INFO] [GET USER] [] Select query executed for username=dream2503.
+[2026-04-01 12:29:58] [Database] [INFO] [GET USER] [dream2503] Successfully fetched user from database.
+[2026-04-01 12:29:59] [Database] [INFO] [GET FILES] [] Select query executed for uid=3.
+[2026-04-01 12:29:59] [Database] [INFO] [GET FILES] [3] Successfully fetched 1 file(s) from database.
+[2026-04-01 12:29:59] [Database] [INFO] [GET USER] [] Select query executed for username=dream2503.
+[2026-04-01 12:29:59] [Database] [INFO] [GET USER] [dream2503] Successfully fetched user from database.
+[2026-04-01 12:29:59] [Database] [INFO] [GET FILES] [] Select query executed for uid=3.
+[2026-04-01 12:29:59] [Database] [INFO] [GET FILES] [3] Successfully fetched 1 file(s) from database.

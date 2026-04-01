@@ -82,7 +82,7 @@ def add_file(file: File) -> None:
                 VALUES (%s, %s, %s, %s);
                 """, (file.fname, file.flinks, file.data_center, file.uid),
         )
-        write_log("INFO", Database, "INSERT FILES", "", f"Insert query executed.")
+        write_log("INFO", Database, "INSERT FILES", user.username, f"Insert query executed.")
         CURSOR.connection.commit()
         write_log("INFO", Database, "INSERT FILES", user.username, f"File `{file.fname}` saved to database with {len(file.flinks)} part(s).")
 

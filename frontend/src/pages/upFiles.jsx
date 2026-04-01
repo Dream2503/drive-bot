@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import {useState} from "react";
+import {useNavigate} from "react-router-dom";
 
 export default function UploadPage() {
     const navigate = useNavigate();
@@ -41,7 +41,7 @@ export default function UploadPage() {
             const decoder = new TextDecoder();
 
             while (true) {
-                const { done, value } = await reader.read();
+                const {done, value} = await reader.read();
                 if (done) break;
 
                 const chunk = decoder.decode(value);
@@ -85,7 +85,7 @@ export default function UploadPage() {
                     </p>
 
                     <div className="flex gap-3">
-                        {["discord", "telegram"].map(dc => (
+                        {["Discord", "Telegram"].map(dc => (
                             <button
                                 key={dc}
                                 onClick={() => setDataCenter(dc)}
@@ -137,7 +137,7 @@ export default function UploadPage() {
                         <div className="w-full bg-gray-800 h-2 rounded-full">
                             <div
                                 className="bg-indigo-500 h-2 rounded-full transition-all"
-                                style={{ width: `${progress}%` }}
+                                style={{width: `${progress}%`}}
                             />
                         </div>
 

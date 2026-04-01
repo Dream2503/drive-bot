@@ -9,7 +9,7 @@ function App() {
             <Routes>
                 <Route path="/" element={<AuthPage/>}/>
                 <Route path="/dashboard" element={<DashboardPage/>}/>
-                <Route path="/upload" element={<UploadPage />} />
+                <Route path="/upload" element={<UploadPage/>}/>
             </Routes>
         </BrowserRouter>
     );
