@@ -1153,3 +1153,163 @@ ValueError: Unknown data center
 [2026-04-01 12:29:59] [Database] [INFO] [GET USER] [dream2503] Successfully fetched user from database.
 [2026-04-01 12:29:59] [Database] [INFO] [GET FILES] [] Select query executed for uid=3.
 [2026-04-01 12:29:59] [Database] [INFO] [GET FILES] [3] Successfully fetched 1 file(s) from database.
+[2026-08-13 22:12:19,193] [WARNING] [discord.client] PyNaCl is not installed, voice will NOT be supported
+[2026-08-13 22:12:19,193] [WARNING] [discord.client] davey is not installed, voice will NOT be supported
+[2026-08-13 22:12:19] [Discord] [INFO] [MAIN] [] Starting Store Limitless Bot...
+[2026-08-13 22:12:19,199] [INFO] [discord.client] logging in using static token
+[2026-08-13 22:12:19] [Telegram] [INFO] [MAIN] [] Starting Store Limitless Bot...
+[2026-08-13 22:12:21] [Telegram] [ERROR] [INIT] [@StoreLimitless_bot] Error fetching FILE_DUMP chat: 'ExtBot' object has no attribute 'title'
+[2026-08-13 22:12:21] [Telegram] [INFO] [INIT] [@StoreLimitless_bot] Bot is online. Logged in (id=8404712547)
+[2026-08-13 22:12:22,825] [INFO] [telegram.ext.Application] Application started
+[2026-08-13 22:12:23,118] [INFO] [discord.gateway] Shard ID None has connected to Gateway (Session ID: 748ee8103a604702d20a7ebcc4c7e62f).
+[2026-08-13 22:12:25] [Discord] [INFO] [INIT] [StoreLimitless#1152] FILE_DUMP channel initialized: files-dump (id=1399311590616203284).
+[2026-08-13 22:12:25] [Discord] [INFO] [INIT] [StoreLimitless#1152] Bot online and ready (id=1399287140885725245).
+[2026-08-13 22:13:46] [Database] [INFO] [GET USER] [] Select query executed for username=iloveloki.
+[2026-08-13 22:13:46] [Database] [ERROR] [GET USER] [] User not found in the database
+[2026-08-13 22:13:47] [Database] [INFO] [SET USER] [iloveloki] Insert query executed.
+[2026-08-13 22:13:47] [Database] [INFO] [SET USER] [iloveloki] User successfully inserted into database.
+[2026-08-13 22:13:52] [Database] [INFO] [GET USER] [] Select query executed for username=iloveloki.
+[2026-08-13 22:13:52] [Database] [INFO] [GET USER] [iloveloki] Successfully fetched user from database.
+[2026-08-13 22:13:52] [Database] [INFO] [GET USER] [] Select query executed for username=iloveloki.
+[2026-08-13 22:13:52] [Database] [INFO] [GET USER] [iloveloki] Successfully fetched user from database.
+[2026-08-13 22:13:52] [Database] [INFO] [GET FILES] [] Select query executed for uid=6.
+[2026-08-13 22:13:52] [Database] [ERROR] [GET FILES] [] No files found for uid=6.
+[2026-08-13 22:13:53] [Database] [INFO] [GET USER] [] Select query executed for username=iloveloki.
+[2026-08-13 22:13:53] [Database] [INFO] [GET USER] [iloveloki] Successfully fetched user from database.
+[2026-08-13 22:13:53] [Database] [INFO] [GET FILES] [] Select query executed for uid=6.
+[2026-08-13 22:13:53] [Database] [ERROR] [GET FILES] [] No files found for uid=6.
+[2026-08-13 22:14:46] [Database] [INFO] [GET USER] [] Select query executed for username=iloveloki.
+[2026-08-13 22:14:46] [Database] [INFO] [GET USER] [iloveloki] Successfully fetched user from database.
+[2026-08-13 22:14:47] [Database] [INFO] [GET USER] [] Select query executed for uid=6.
+[2026-08-13 22:14:47] [Database] [INFO] [GET USER] [iloveloki] Successfully fetched user from database.
+[2026-08-13 22:14:47] [Telegram] [INFO] [UPLOAD] [iloveloki] Got file: fid=None fname='100MB.bin' flinks=[] data_center='Telegram' uid=6
+[2026-08-13 22:14:47] [Database] [INFO] [GET FILE] [] Select query executed for ('fname', 'uid')=('100MB.bin', 6).
+[2026-08-13 22:14:47] [Database] [ERROR] [GET FILE] [] No file found for ('fname', 'uid')=('100MB.bin', 6).
+[2026-08-13 22:14:47] [Telegram] [INFO] [UPLOAD] [iloveloki] Found local file: 100MB.bin
+[2026-08-13 22:14:47] [Telegram] [INFO] [UPLOAD] [iloveloki] Starting upload `100MB.bin` (11 parts)
+[2026-08-13 22:14:58] [Telegram] [INFO] [UPLOAD] [iloveloki] Uploaded 1/11 (9.1%)
+[2026-08-13 22:15:07] [Telegram] [INFO] [UPLOAD] [iloveloki] Uploaded 2/11 (18.2%)
+[2026-08-13 22:15:14] [Telegram] [INFO] [UPLOAD] [iloveloki] Uploaded 3/11 (27.3%)
+[2026-08-13 22:15:22] [Telegram] [INFO] [UPLOAD] [iloveloki] Uploaded 4/11 (36.4%)
+[2026-08-13 22:15:30] [Telegram] [INFO] [UPLOAD] [iloveloki] Uploaded 5/11 (45.5%)
+[2026-08-13 22:15:38] [Telegram] [INFO] [UPLOAD] [iloveloki] Uploaded 6/11 (54.5%)
+[2026-08-13 22:15:45] [Telegram] [INFO] [UPLOAD] [iloveloki] Uploaded 7/11 (63.6%)
+[2026-08-13 22:15:52] [Telegram] [INFO] [UPLOAD] [iloveloki] Uploaded 8/11 (72.7%)
+[2026-08-13 22:16:00] [Telegram] [INFO] [UPLOAD] [iloveloki] Uploaded 9/11 (81.8%)
+[2026-08-13 22:16:08] [Telegram] [INFO] [UPLOAD] [iloveloki] Uploaded 10/11 (90.9%)
+[2026-08-13 22:16:13] [Telegram] [INFO] [UPLOAD] [iloveloki] Uploaded 11/11 (100.0%)
+[2026-08-13 22:16:13] [Database] [INFO] [GET USER] [] Select query executed for uid=6.
+[2026-08-13 22:16:13] [Database] [INFO] [GET USER] [iloveloki] Successfully fetched user from database.
+[2026-08-13 22:16:13] [Database] [INFO] [INSERT FILES] [iloveloki] Insert query executed.
+[2026-08-13 22:16:13] [Database] [INFO] [INSERT FILES] [iloveloki] File `100MB.bin` saved to database with 11 part(s).
+[2026-08-13 22:16:13] [Telegram] [INFO] [UPLOAD] [iloveloki] Upload complete `100MB.bin`
+                                                                                                                                                                                                                                                                        [2026-08-13 22:20:44,137] [WARNING] [discord.client] PyNaCl is not installed, voice will NOT be supported
+[2026-08-13 22:20:44,137] [WARNING] [discord.client] davey is not installed, voice will NOT be supported
+[2026-08-13 22:20:44] [Discord] [INFO] [MAIN] [] Starting Store Limitless Bot...
+[2026-08-13 22:20:44,143] [INFO] [discord.client] logging in using static token
+[2026-08-13 22:20:44] [Telegram] [INFO] [MAIN] [] Starting Store Limitless Bot...
+[2026-08-13 22:20:45] [Telegram] [ERROR] [INIT] [@StoreLimitless_bot] Error fetching FILE_DUMP chat: 'ExtBot' object has no attribute 'title'
+[2026-08-13 22:20:45] [Telegram] [INFO] [INIT] [@StoreLimitless_bot] Bot is online. Logged in (id=8404712547)
+[2026-08-13 22:20:45,985] [INFO] [telegram.ext.Application] Application started
+[2026-08-13 22:20:47,210] [INFO] [discord.gateway] Shard ID None has connected to Gateway (Session ID: 8a4f22d62a703be9711f8d45dd4a81e2).
+[2026-08-13 22:20:49] [Discord] [INFO] [INIT] [StoreLimitless#1152] FILE_DUMP channel initialized: files-dump (id=1399311590616203284).
+[2026-08-13 22:20:49] [Discord] [INFO] [INIT] [StoreLimitless#1152] Bot online and ready (id=1399287140885725245).
+[2026-08-13 22:20:53] [Database] [INFO] [GET USER] [] Select query executed for username=iloveloki.
+[2026-08-13 22:20:53] [Database] [INFO] [GET USER] [iloveloki] Successfully fetched user from database.
+[2026-08-13 22:20:54] [Database] [INFO] [GET USER] [] Select query executed for username=iloveloki.
+[2026-08-13 22:20:54] [Database] [INFO] [GET USER] [iloveloki] Successfully fetched user from database.
+[2026-08-13 22:20:54] [Database] [INFO] [GET FILES] [] Select query executed for uid=6.
+[2026-08-13 22:20:54] [Database] [INFO] [GET FILES] [6] Successfully fetched 1 file(s) from database.
+[2026-08-13 22:20:54] [Database] [INFO] [GET USER] [] Select query executed for username=iloveloki.
+[2026-08-13 22:20:54] [Database] [INFO] [GET USER] [iloveloki] Successfully fetched user from database.
+[2026-08-13 22:20:54] [Database] [INFO] [GET FILES] [] Select query executed for uid=6.
+[2026-08-13 22:20:54] [Database] [INFO] [GET FILES] [6] Successfully fetched 1 file(s) from database.
+[2026-08-13 22:21:24] [Database] [INFO] [GET USER] [] Select query executed for username=iloveloki.
+[2026-08-13 22:21:24] [Database] [INFO] [GET USER] [iloveloki] Successfully fetched user from database.
+[2026-08-13 22:21:25] [Database] [INFO] [GET FILES] [] Select query executed for uid=6.
+[2026-08-13 22:21:25] [Database] [INFO] [GET FILES] [6] Successfully fetched 1 file(s) from database.
+[2026-08-13 22:21:25] [Database] [INFO] [GET USER] [] Select query executed for username=iloveloki.
+[2026-08-13 22:21:25] [Database] [INFO] [GET USER] [iloveloki] Successfully fetched user from database.
+[2026-08-13 22:21:25] [Database] [INFO] [GET FILES] [] Select query executed for uid=6.
+[2026-08-13 22:21:25] [Database] [INFO] [GET FILES] [6] Successfully fetched 1 file(s) from database.
+[2026-08-13 22:28:39,244] [WARNING] [discord.client] PyNaCl is not installed, voice will NOT be supported
+[2026-08-13 22:28:39,244] [WARNING] [discord.client] davey is not installed, voice will NOT be supported
+[2026-08-13 22:28:39] [Telegram] [INFO] [MAIN] [] Starting Store Limitless Bot...
+[2026-08-13 22:28:39] [Discord] [INFO] [MAIN] [] Starting Store Limitless Bot...
+[2026-08-13 22:28:39,302] [INFO] [discord.client] logging in using static token
+[2026-08-13 22:28:41] [Telegram] [ERROR] [INIT] [@StoreLimitless_bot] Error fetching FILE_DUMP chat: 'ExtBot' object has no attribute 'title'
+[2026-08-13 22:28:41] [Telegram] [INFO] [INIT] [@StoreLimitless_bot] Bot is online. Logged in (id=8404712547)
+[2026-08-13 22:28:41,560] [INFO] [telegram.ext.Application] Application started
+[2026-08-13 22:28:42,105] [INFO] [discord.gateway] Shard ID None has connected to Gateway (Session ID: 8653ffee909e46717aa908e87e71a5ac).
+[2026-08-13 22:28:44] [Discord] [INFO] [INIT] [StoreLimitless#1152] FILE_DUMP channel initialized: files-dump (id=1399311590616203284).
+[2026-08-13 22:28:44] [Discord] [INFO] [INIT] [StoreLimitless#1152] Bot online and ready (id=1399287140885725245).
+[2026-08-13 22:29:13] [Database] [INFO] [GET USER] [] Select query executed for username=iloveloki.
+[2026-08-13 22:29:13] [Database] [INFO] [GET USER] [iloveloki] Successfully fetched user from database.
+[2026-08-13 22:29:13] [Database] [INFO] [GET USER] [] Select query executed for username=iloveloki.
+[2026-08-13 22:29:13] [Database] [INFO] [GET USER] [iloveloki] Successfully fetched user from database.
+[2026-08-13 22:29:14] [Database] [INFO] [GET FILES] [] Select query executed for uid=6.
+[2026-08-13 22:29:14] [Database] [INFO] [GET FILES] [6] Successfully fetched 1 file(s) from database.
+[2026-08-13 22:29:14] [Database] [INFO] [GET USER] [] Select query executed for username=iloveloki.
+[2026-08-13 22:29:14] [Database] [INFO] [GET USER] [iloveloki] Successfully fetched user from database.
+[2026-08-13 22:29:14] [Database] [INFO] [GET FILES] [] Select query executed for uid=6.
+[2026-08-13 22:29:14] [Database] [INFO] [GET FILES] [6] Successfully fetched 1 file(s) from database.
+[2026-08-13 22:31:11,377] [WARNING] [discord.client] PyNaCl is not installed, voice will NOT be supported
+[2026-08-13 22:31:11,378] [WARNING] [discord.client] davey is not installed, voice will NOT be supported
+[2026-08-13 22:31:11] [Discord] [INFO] [MAIN] [] Starting Store Limitless Bot...
+[2026-08-13 22:31:11,382] [INFO] [discord.client] logging in using static token
+[2026-08-13 22:31:11] [Telegram] [INFO] [MAIN] [] Starting Store Limitless Bot...
+[2026-08-13 22:31:14] [Telegram] [ERROR] [INIT] [@StoreLimitless_bot] Error fetching FILE_DUMP chat: 'ExtBot' object has no attribute 'title'
+[2026-08-13 22:31:14] [Telegram] [INFO] [INIT] [@StoreLimitless_bot] Bot is online. Logged in (id=8404712547)
+[2026-08-13 22:31:14,310] [INFO] [telegram.ext.Application] Application started
+[2026-08-13 22:31:14,475] [INFO] [discord.gateway] Shard ID None has connected to Gateway (Session ID: f5d112069f35c5fd229bb34242d9e056).
+[2026-08-13 22:31:16] [Discord] [INFO] [INIT] [StoreLimitless#1152] FILE_DUMP channel initialized: files-dump (id=1399311590616203284).
+[2026-08-13 22:31:16] [Discord] [INFO] [INIT] [StoreLimitless#1152] Bot online and ready (id=1399287140885725245).
+[2026-08-13 22:31:38] [Database] [INFO] [GET USER] [] Select query executed for username=iloveloki.
+[2026-08-13 22:31:38] [Database] [INFO] [GET USER] [iloveloki] Successfully fetched user from database.
+[2026-08-13 22:31:39] [Database] [INFO] [GET USER] [] Select query executed for uid=6.
+[2026-08-13 22:31:39] [Database] [INFO] [GET USER] [iloveloki] Successfully fetched user from database.
+[2026-08-13 22:31:39] [Discord] [INFO] [UPLOAD] [iloveloki] Got file: fid=None fname='100MB.bin' flinks=[] data_center='Discord' uid=6
+[2026-08-13 22:31:39] [Database] [INFO] [GET FILE] [] Select query executed for ('fname', 'uid')=('100MB.bin', 6).
+[2026-08-13 22:31:39] [Database] [INFO] [GET FILE] [100MB.bin] Successfully fetched file from database.
+[2026-08-13 22:31:39] [Discord] [ERROR] [UPLOAD] [iloveloki] File `100MB.bin` already exists.
+[2026-08-13 22:31:41] [Database] [INFO] [GET USER] [] Select query executed for username=iloveloki.
+[2026-08-13 22:31:41] [Database] [INFO] [GET USER] [iloveloki] Successfully fetched user from database.
+[2026-08-13 22:31:41] [Database] [INFO] [GET FILES] [] Select query executed for uid=6.
+[2026-08-13 22:31:41] [Database] [INFO] [GET FILES] [6] Successfully fetched 1 file(s) from database.
+[2026-08-13 22:31:41] [Database] [INFO] [GET USER] [] Select query executed for username=iloveloki.
+[2026-08-13 22:31:41] [Database] [INFO] [GET USER] [iloveloki] Successfully fetched user from database.
+[2026-08-13 22:31:41] [Database] [INFO] [GET FILES] [] Select query executed for uid=6.
+[2026-08-13 22:31:41] [Database] [INFO] [GET FILES] [6] Successfully fetched 1 file(s) from database.
+[2026-08-13 22:32:13] [Database] [INFO] [GET USER] [] Select query executed for username=iloveloki.
+[2026-08-13 22:32:13] [Database] [INFO] [GET USER] [iloveloki] Successfully fetched user from database.
+[2026-08-13 22:32:13] [Database] [INFO] [GET USER] [] Select query executed for uid=6.
+[2026-08-13 22:32:13] [Database] [INFO] [GET USER] [iloveloki] Successfully fetched user from database.
+[2026-08-13 22:32:13] [Discord] [INFO] [UPLOAD] [iloveloki] Got file: fid=None fname='10MB.bin' flinks=[] data_center='Discord' uid=6
+[2026-08-13 22:32:13] [Database] [INFO] [GET FILE] [] Select query executed for ('fname', 'uid')=('10MB.bin', 6).
+[2026-08-13 22:32:13] [Database] [ERROR] [GET FILE] [] No file found for ('fname', 'uid')=('10MB.bin', 6).
+[2026-08-13 22:32:13] [Discord] [INFO] [UPLOAD] [iloveloki] Found local file: 10MB.bin
+[2026-08-13 22:32:13] [Discord] [INFO] [UPLOAD] [iloveloki] Starting upload `10MB.bin` (11 parts)
+[2026-08-13 22:32:24] [Discord] [INFO] [UPLOAD] [iloveloki] Uploaded 1/11 (9.1%)
+[2026-08-13 22:32:36] [Discord] [INFO] [UPLOAD] [iloveloki] Uploaded 2/11 (18.2%)
+[2026-08-13 22:32:49] [Discord] [INFO] [UPLOAD] [iloveloki] Uploaded 3/11 (27.3%)
+[2026-08-13 22:33:00] [Discord] [INFO] [UPLOAD] [iloveloki] Uploaded 4/11 (36.4%)
+[2026-08-13 22:33:12] [Discord] [INFO] [UPLOAD] [iloveloki] Uploaded 5/11 (45.5%)
+[2026-08-13 22:33:24] [Discord] [INFO] [UPLOAD] [iloveloki] Uploaded 6/11 (54.5%)
+[2026-08-13 22:33:34] [Discord] [INFO] [UPLOAD] [iloveloki] Uploaded 7/11 (63.6%)
+[2026-08-13 22:33:45] [Discord] [INFO] [UPLOAD] [iloveloki] Uploaded 8/11 (72.7%)
+[2026-08-13 22:33:54] [Discord] [INFO] [UPLOAD] [iloveloki] Uploaded 9/11 (81.8%)
+[2026-08-13 22:34:07] [Discord] [INFO] [UPLOAD] [iloveloki] Uploaded 10/11 (90.9%)
+[2026-08-13 22:34:15] [Discord] [INFO] [UPLOAD] [iloveloki] Uploaded 11/11 (100.0%)
+[2026-08-13 22:34:15] [Database] [INFO] [GET USER] [] Select query executed for uid=6.
+[2026-08-13 22:34:15] [Database] [INFO] [GET USER] [iloveloki] Successfully fetched user from database.
+[2026-08-13 22:34:16] [Database] [INFO] [INSERT FILES] [iloveloki] Insert query executed.
+[2026-08-13 22:34:16] [Database] [INFO] [INSERT FILES] [iloveloki] File `10MB.bin` saved to database with 11 part(s).
+[2026-08-13 22:34:16] [Discord] [INFO] [UPLOAD] [iloveloki] Upload complete `10MB.bin`
+[2026-08-13 22:34:18] [Database] [INFO] [GET USER] [] Select query executed for username=iloveloki.
+[2026-08-13 22:34:18] [Database] [INFO] [GET USER] [iloveloki] Successfully fetched user from database.
+[2026-08-13 22:34:18] [Database] [INFO] [GET FILES] [] Select query executed for uid=6.
+[2026-08-13 22:34:18] [Database] [INFO] [GET FILES] [6] Successfully fetched 2 file(s) from database.
+[2026-08-13 22:34:19] [Database] [INFO] [GET USER] [] Select query executed for username=iloveloki.
+[2026-08-13 22:34:19] [Database] [INFO] [GET USER] [iloveloki] Successfully fetched user from database.
+[2026-08-13 22:34:19] [Database] [INFO] [GET FILES] [] Select query executed for uid=6.
+[2026-08-13 22:34:19] [Database] [INFO] [GET FILES] [6] Successfully fetched 2 file(s) from database.

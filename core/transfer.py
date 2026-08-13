@@ -1,9 +1,8 @@
-from asyncio import run_coroutine_threadsafe
+from asyncio import run_coroutine_threadsafe, sleep
 from io import BytesIO
 from pathlib import Path
-from time import sleep
 from traceback import format_exc
-from typing import Any, AsyncGenerator, Generator
+from typing import AsyncGenerator
 
 import discord
 
@@ -13,7 +12,7 @@ from core.settings import TRANSFER_PATH
 from core.utils import write_log
 
 
-async def upload(file: File) -> AsyncGenerator[float, None]:
+async def upload(file: File) -> AsyncGenerator[float | int, None]:
     user: User | None = get_user(uid=file.uid)
     data_center: type[DataCenter] = DataCenter(file.data_center)
 
@@ -88,7 +87,7 @@ async def upload(file: File) -> AsyncGenerator[float, None]:
                         write_log("ERROR", data_center, "UPLOAD", user.username, f"Network error part {i}/{total_parts}, retrying: {e}")
 
                 file.flinks.append(str(msg_id))
-                progress: float = round((i / total_parts) * 100, 2)
+                progress: float | int = round((i / total_parts) * 100, 2)
                 write_log("INFO", data_center, "UPLOAD", user.username, f"Uploaded {i}/{total_parts} ({progress:.1f}%)")
                 yield progress
 
@@ -100,7 +99,7 @@ async def upload(file: File) -> AsyncGenerator[float, None]:
         write_log("ERROR", data_center, "UPLOAD", user.username if user else "", f"Unhandled exception: {e}\n{format_exc()}")
 
 
-def download(file: File) -> Generator[float, Any, None]:
+async def download(file: File) -> AsyncGenerator[float | int, None]:
     write_log("INFO", DataCenter(file.data_center), "DOWNLOAD", str(file.uid), f"Got file: {file}")
 
     match file.data_center:
@@ -111,5 +110,5 @@ def download(file: File) -> Generator[float, Any, None]:
             pass
 
     for i in range(10):
-        sleep(0.5)
+        await sleep(0.5)
         yield float(i)
