@@ -24,11 +24,9 @@ export default function UploadPage() {
 
         try {
             const res = await fetch("http://127.0.0.1:8000/auth/upload", {
-                method: "POST",
-                headers: {
+                method: "POST", headers: {
                     Authorization: `Bearer ${localStorage.getItem("token")}`
-                },
-                body: formData
+                }, body: formData
             });
 
             // ❗ Important checks
@@ -69,98 +67,86 @@ export default function UploadPage() {
         }
     };
 
-    return (
-        <div className="min-h-screen bg-[#020617] text-white flex items-center justify-center px-6">
+    return (<div className="min-h-screen bg-[#020617] text-white flex items-center justify-center px-6">
 
-            <div className="w-full max-w-xl bg-[#020617] border border-gray-800 rounded-xl p-8 shadow-lg">
+        <div className="w-full max-w-xl bg-[#020617] border border-gray-800 rounded-xl p-8 shadow-lg">
 
-                <h1 className="text-2xl font-semibold mb-6">
-                    Upload File
-                </h1>
+            <h1 className="text-2xl font-semibold mb-6">
+                Upload File
+            </h1>
 
-                {/* Data Center */}
-                <div className="mb-6">
-                    <p className="text-sm text-gray-400 mb-2">
-                        Select Data Center
-                    </p>
+            {/* Data Center */}
+            <div className="mb-6">
+                <p className="text-sm text-gray-400 mb-2">
+                    Select Data Center
+                </p>
 
-                    <div className="flex gap-3">
-                        {["Discord", "Telegram"].map(dc => (
-                            <button
-                                key={dc}
-                                onClick={() => setDataCenter(dc)}
-                                className={`px-4 py-2 rounded-lg border transition ${
-                                    dataCenter === dc
-                                        ? "bg-indigo-600 border-indigo-600"
-                                        : "border-gray-700 hover:border-indigo-500"
-                                }`}
-                            >
-                                {dc.toUpperCase()}
-                            </button>
-                        ))}
-                    </div>
+                <div className="flex gap-3">
+                    {["Discord", "Telegram"].map(dc => (<button
+                        key={dc}
+                        onClick={() => setDataCenter(dc)}
+                        className={`px-4 py-2 rounded-lg border transition ${dataCenter === dc ? "bg-indigo-600 border-indigo-600" : "border-gray-700 hover:border-indigo-500"}`}
+                    >
+                        {dc.toUpperCase()}
+                    </button>))}
                 </div>
-
-                {/* File Input */}
-                <div className="mb-6">
-                    <p className="text-sm text-gray-400 mb-2">
-                        Select File
-                    </p>
-
-                    <input
-                        type="file"
-                        onChange={(e) => setFile(e.target.files[0])}
-                        disabled={status === "uploading"}
-                        className="block w-full text-sm text-gray-300 file:bg-indigo-600 file:border-0 file:px-4 file:py-2 file:rounded-lg file:text-white"
-                    />
-
-                    {file && (
-                        <p className="text-sm mt-2 text-gray-400">
-                            {file.name}
-                        </p>
-                    )}
-                </div>
-
-                {/* Upload Button */}
-                <button
-                    onClick={handleUpload}
-                    disabled={!file || !dataCenter || status === "uploading"}
-                    className="w-full bg-indigo-600 py-2 rounded-lg hover:bg-indigo-700 disabled:bg-gray-600"
-                >
-                    {status === "uploading" ? "Uploading..." : "Upload File"}
-                </button>
-
-                {/* Progress */}
-                {status !== "idle" && (
-                    <div className="mt-6">
-
-                        <div className="w-full bg-gray-800 h-2 rounded-full">
-                            <div
-                                className="bg-indigo-500 h-2 rounded-full transition-all"
-                                style={{width: `${progress}%`}}
-                            />
-                        </div>
-
-                        <div className="flex justify-between mt-2 text-sm text-gray-400">
-                            <span>{progress}%</span>
-                            <span>
-                                {status === "uploading" && "Uploading"}
-                                {status === "done" && "Completed"}
-                                {status === "error" && "Failed"}
-                            </span>
-                        </div>
-
-                    </div>
-                )}
-
-                <button
-                    onClick={() => navigate("/dashboard")}
-                    className="mt-6 text-sm text-gray-400 hover:text-white"
-                >
-                    ← Back to Dashboard
-                </button>
-
             </div>
+
+            {/* File Input */}
+            <div className="mb-6">
+                <p className="text-sm text-gray-400 mb-2">
+                    Select File
+                </p>
+
+                <input
+                    type="file"
+                    onChange={(e) => setFile(e.target.files[0])}
+                    disabled={status === "uploading"}
+                    className="block w-full text-sm text-gray-300 file:bg-indigo-600 file:border-0 file:px-4 file:py-2 file:rounded-lg file:text-white"
+                />
+
+                {file && (<p className="text-sm mt-2 text-gray-400">
+                    {file.name}
+                </p>)}
+            </div>
+
+            {/* Upload Button */}
+            <button
+                onClick={handleUpload}
+                disabled={!file || !dataCenter || status === "uploading"}
+                className="w-full bg-indigo-600 py-2 rounded-lg hover:bg-indigo-700 disabled:bg-gray-600"
+            >
+                {status === "uploading" ? "Uploading..." : "Upload File"}
+            </button>
+
+            {/* Progress */}
+            {status !== "idle" && (<div className="mt-6">
+
+                <div className="w-full bg-gray-800 h-2 rounded-full">
+                    <div
+                        className="bg-indigo-500 h-2 rounded-full transition-all"
+                        style={{width: `${progress}%`}}
+                    />
+                </div>
+
+                <div className="flex justify-between mt-2 text-sm text-gray-400">
+                    <span>{progress}%</span>
+                    <span>
+                                {status === "uploading" && "Uploading"}
+                        {status === "done" && "Completed"}
+                        {status === "error" && "Failed"}
+                            </span>
+                </div>
+
+            </div>)}
+
+            <button
+                onClick={() => navigate("/dashboard")}
+                className="mt-6 text-sm text-gray-400 hover:text-white"
+            >
+                ← Back to Dashboard
+            </button>
+
         </div>
-    );
+    </div>);
 }

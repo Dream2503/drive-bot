@@ -1,5 +1,4 @@
 from core.data_center import Database
-
 from core.utils import write_log
 from .connection import CURSOR
 from .schema import File, User
@@ -170,3 +169,60 @@ def get_files(*, fname: str | None = None, data_center: str | None = None, uid: 
 
     write_log("ERROR", Database, "GET FILES", "", f"No files found for {attribute}={value}.")
     return None
+
+
+def github_cursor_get_repo_id() -> int:
+    CURSOR.execute(
+            """
+            SELECT repo_id
+            FROM github_cursor;
+            """,
+    )
+
+    data: dict[str, int] | None = CURSOR.fetchone()
+
+    if data:
+        return data["repo_id"]
+
+    write_log("ERROR", Database, "GET GITHUB CURSOR", "", "No GitHub cursor found in database.")
+    raise OSError("GitHub cursor not found in database.")
+
+
+def github_cursor_increment_repo_id() -> None:
+    CURSOR.execute(
+            """
+            UPDATE github_cursor
+            SET repo_id = repo_id + 1;
+            """,
+    )
+    CURSOR.connection.commit()
+    write_log("INFO", Database, "UPDATE GITHUB CURSOR", "", "GitHub repository ID incremented.")
+
+
+def github_cursor_get_used() -> int:
+    CURSOR.execute(
+            """
+            SELECT used
+            FROM github_cursor;
+            """,
+    )
+    data: dict[str, int] | None = CURSOR.fetchone()
+
+    if data:
+        return data["used"]
+
+    write_log("ERROR", Database, "GET GITHUB CURSOR", "", "No GitHub cursor found in database.")
+    raise OSError("GitHub cursor not found in database.")
+
+
+def github_cursor_set_used(value: int) -> None:
+    CURSOR.execute(
+            """
+            UPDATE github_cursor
+            SET used = %s;
+            """,
+            (value,),
+    )
+
+    CURSOR.connection.commit()
+    write_log("INFO", Database, "UPDATE GITHUB CURSOR", "", f"GitHub storage usage increased by {value} bytes.")
