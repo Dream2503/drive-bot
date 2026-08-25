@@ -1,63 +1,61 @@
 /** @type {import('tailwindcss').Config} */
 export default {
-    content: ["./index.html", "./src/**/*.{js,ts,jsx,tsx}"],
-    darkMode: "class",
-    theme: {
-        extend: {
-            colors: {
-                "on-error-container": "#ffdad6",
-                "on-primary-fixed": "#07006c",
-                "on-surface-variant": "#c7c4d7",
-                "tertiary-container": "#d97721",
-                "outline": "#908fa0",
-                "surface-dim": "#081425",
-                "surface-bright": "#2f3a4c",
-                "primary": "#c0c1ff",
-                "on-tertiary-fixed-variant": "#703700",
-                "error": "#ffb4ab",
-                "on-secondary-container": "#432100",
-                "on-primary-fixed-variant": "#2f2ebe",
-                "on-primary-container": "#0d0096",
-                "inverse-on-surface": "#263143",
-                "surface": "#081425",
-                "on-tertiary-container": "#452000",
-                "on-tertiary": "#4f2500",
-                "on-background": "#d8e3fb",
-                "primary-fixed-dim": "#c0c1ff",
-                "primary-container": "#8083ff",
-                "on-primary": "#1000a9",
-                "on-surface": "#d8e3fb",
-                "surface-variant": "#2a3548",
-                "on-tertiary-fixed": "#301400",
-                "tertiary": "#ffb783",
-                "background": "#081425",
-                "surface-container-highest": "#2a3548",
-                "surface-tint": "#c0c1ff",
-                "outline-variant": "#464554",
-                "surface-container": "#152031",
-                "secondary-fixed": "#ffdcc3",
-                "secondary-fixed-dim": "#ffb77d",
-                "surface-container-lowest": "#040e1f",
-                "error-container": "#93000a",
-                "surface-container-low": "#111c2d",
-                "on-secondary": "#4d2600",
-                "on-error": "#690005",
-                "inverse-surface": "#d8e3fb",
-                "on-secondary-fixed-variant": "#6e3900",
-                "secondary": "#ffb77d",
-                "tertiary-fixed": "#ffdcc5",
-                "tertiary-fixed-dim": "#ffb783",
-                "inverse-primary": "#494bd6",
-                "surface-container-high": "#1f2a3c",
-                "on-secondary-fixed": "#2f1500",
-                "secondary-container": "#d97707",
-                "primary-fixed": "#e1e0ff",
-            },
-            fontFamily: {
-                inter: ["Inter", "sans-serif"],
-                geist: ["Geist", "monospace"],
-            },
-        },
+  content: ["./index.html", "./src/**/*.{js,ts,jsx,tsx}"],
+  theme: {
+    extend: {
+      colors: {
+        /* Supabase backgrounds — depth via surface color, not shadow */
+        "sb-base":      "#0f0f0f",
+        "sb-canvas":    "#121212",
+        "sb-surface":   "#171717",
+        "sb-elevated":  "#242424",
+        "sb-overlay":   "#2e2e2e",
+
+        /* Borders — the depth system */
+        "sb-border":    "#2e2e2e",
+        "sb-border-hi": "#393939",
+
+        /* Text */
+        "sb-text":      "#fafafa",
+        "sb-text-2":    "#b4b4b4",
+        "sb-text-3":    "#898989",
+
+        /* Brand green — use sparingly */
+        "sb-green":     "#3ecf8e",
+        "sb-green-dk":  "#00c573",
+        "sb-green-dim": "rgba(62,207,142,0.08)",
+
+        /* Semantic */
+        "sb-red":       "#f66061",
+        "sb-red-dim":   "rgba(246,96,97,0.08)",
+        "sb-amber":     "#e8912d",
+        "sb-amber-dim": "rgba(232,145,45,0.08)",
+      },
+      fontFamily: {
+        sans:  ["Inter", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "sans-serif"],
+        mono:  ["Source Code Pro", "Menlo", "Monaco", "Consolas", "monospace"],
+      },
+      fontSize: {
+        "11": ["11px", { lineHeight: "16px" }],
+        "12": ["12px", { lineHeight: "16px" }],
+        "13": ["13px", { lineHeight: "20px" }],
+        "14": ["14px", { lineHeight: "20px" }],
+        "20": ["20px", { lineHeight: "28px" }],
+        "24": ["24px", { lineHeight: "32px" }],
+      },
+      borderRadius: {
+        "sm": "4px",
+        "DEFAULT": "6px",
+        "md": "8px",
+        "lg": "12px",
+        "full": "9999px",
+      },
+      boxShadow: {
+        /* Supabase uses almost zero shadow — only functional focus shadows */
+        "focus": "0 0 0 2px rgba(62,207,142,0.3)",
+        "none": "none",
+      },
     },
-    plugins: [],
+  },
+  plugins: [],
 };
