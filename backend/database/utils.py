@@ -77,9 +77,9 @@ def add_file(file: File) -> None:
     if user:
         CURSOR.execute(
             """
-            INSERT INTO files (fname, directory, flinks, data_center, uid)
-            VALUES (%s, %s, %s, %s, %s);
-            """, (file.fname, file.directory, file.flinks, file.data_center, file.uid),
+            INSERT INTO files (fname, directory, file_size, flinks, data_center, uid)
+            VALUES (%s, %s, %s, %s, %s, %s);
+            """, (file.fname, file.directory, file.file_size, file.flinks, file.data_center, file.uid),
         )
         write_log("INFO", Database, "INSERT FILES", user.username, f"Insert query executed.")
         CURSOR.connection.commit()
@@ -90,7 +90,7 @@ def get_file(*, fid: int | None = None, fname: str | None = None, uid: int | Non
     if fid is not None:
         CURSOR.execute(
             """
-            SELECT fid, fname, directory, flinks, data_center, uid
+            SELECT fid, fname, directory, file_size, flinks, data_center, uid
             FROM files
             WHERE fid = %s;
             """, (fid,),
@@ -100,7 +100,7 @@ def get_file(*, fid: int | None = None, fname: str | None = None, uid: int | Non
     elif fname is not None and uid is not None:
         CURSOR.execute(
             """
-            SELECT fid, fname, directory, flinks, data_center, uid
+            SELECT fid, fname, directory, file_size, flinks, data_center, uid
             FROM files
             WHERE fname = %s
               AND uid = %s;
@@ -128,7 +128,7 @@ def get_files(*, directory: str | None = None, data_center: str | None = None, u
     if directory is not None:
         CURSOR.execute(
             """
-            SELECT fid, fname, directory, flinks, data_center, uid
+            SELECT fid, fname, directory, file_size, flinks, data_center, uid
             FROM files
             WHERE directory = %s;
             """, (directory,),
@@ -138,7 +138,7 @@ def get_files(*, directory: str | None = None, data_center: str | None = None, u
     elif data_center is not None:
         CURSOR.execute(
             """
-            SELECT fid, fname, directory, flinks, data_center, uid
+            SELECT fid, fname, directory, file_size, flinks, data_center, uid
             FROM files
             WHERE data_center = %s;
             """, (data_center,),
@@ -148,7 +148,7 @@ def get_files(*, directory: str | None = None, data_center: str | None = None, u
     elif uid is not None:
         CURSOR.execute(
             """
-            SELECT fid, fname, directory, flinks, data_center, uid
+            SELECT fid, fname, directory, file_size, flinks, data_center, uid
             FROM files
             WHERE uid = %s;
             """, (uid,),

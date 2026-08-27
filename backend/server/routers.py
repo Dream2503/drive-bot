@@ -2,14 +2,15 @@ from json import dumps
 from pathlib import Path
 from typing import AsyncGenerator
 
-from fastapi import APIRouter, Depends, Form, HTTPException, UploadFile
-from fastapi.responses import StreamingResponse
+from fastapi import APIRouter, Depends, Form, HTTPException, Request, UploadFile
+from fastapi.responses import Response, StreamingResponse
 
-from backend.database import add_user, File, get_files, get_user, LoginRequest, User
+from backend.database import add_user, File, get_files, get_user, LoginRequest, User, get_file
 from backend.server.jwt_handler import create_access_token, get_current_user
 from backend.server.security import hash_password, verify_password
-from core.data_center import BackEnd
+from core.data_center import BackEnd, DataCenter
 from core.settings import TRANSFER_PATH
+from core.telegram_utils.stream import get_parts, parse_range, stream_range
 from core.transfer import upload
 
 router: APIRouter = APIRouter(prefix="/auth")
@@ -56,7 +57,7 @@ async def upload_route(file: UploadFile, data_center: str = Form(...), current_u
         while chunk := await file.read(BackEnd.MAX_SIZE):
             buffer.write(chunk)
 
-    file_job: File = File(fname=file.filename, flinks=[], data_center=data_center, uid=uid)
+    file_job: File = File(fname=file.filename, directory="", file_size=file_path.stat().st_size, flinks=[], data_center=data_center, uid=uid)
 
     async def progress_stream() -> AsyncGenerator[str, None]:
         async for progress in upload(file_job):
@@ -80,3 +81,47 @@ def get_files_route(current_user: User = Depends(get_current_user)):
         }
         for f in files
     ]
+
+
+@router.get("/stream/{fid}")
+async def stream_route(fid: int, request: Request, current_user: User = Depends(get_current_user)):
+    file: File | None = get_file(fid=fid)
+
+    if file is None:
+        raise HTTPException(status_code=404, detail="File not found")
+
+    if file.uid != current_user.uid:
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    if file.data_center != "Telegram":
+        raise HTTPException(status_code=400, detail="File is not stored on Telegram")
+
+    try:
+        data_center: type[DataCenter] = DataCenter(file.data_center)
+        parts = get_parts(file.flinks, file.file_size, data_center.MAX_SIZE)
+
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Telegram metadata failure: {e}") from e
+
+    if not parts:
+        raise HTTPException(status_code=404, detail="File has no Telegram parts")
+
+    size: int = parts[-1].end + 1
+
+    try:
+        byte_range = parse_range(request.headers.get("range"), size)
+
+    except (ValueError, IndexError):
+        return Response(status_code=416, headers={"Content-Range": f"bytes */{size}", "Accept-Ranges": "bytes"})
+
+    length: int = byte_range.end - byte_range.start + 1
+    headers: dict[str, str] = {"Accept-Ranges": "bytes", "Content-Length": str(length), "Content-Disposition": f'inline; filename="{file.fname}"'}
+
+    if request.headers.get("range") is not None:
+        headers["Content-Range"] = f"bytes {byte_range.start}-{byte_range.end}/{size}"
+        status_code: int = 206
+
+    else:
+        status_code = 200
+
+    return StreamingResponse(stream_range(parts, byte_range), status_code=status_code, headers=headers, media_type="application/octet-stream")

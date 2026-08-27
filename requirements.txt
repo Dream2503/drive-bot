@@ -10,5 +10,8 @@ pydantic
 python-dotenv
 python-jose
 python-telegram-bot
+pyrogram
+pyrofork
+tgcrypto
 requests
 uvicorn
