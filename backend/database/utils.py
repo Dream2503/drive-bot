@@ -7,10 +7,10 @@ from .schema import File, User
 def add_user(user: User) -> None:
     try:
         CURSOR.execute(
-                """
-                INSERT INTO users (first_name, last_name, username, password)
-                VALUES (%s, %s, %s, %s);
-                """, (user.first_name, user.last_name, user.username, user.password),
+            """
+            INSERT INTO users (first_name, last_name, username, password)
+            VALUES (%s, %s, %s, %s);
+            """, (user.first_name, user.last_name, user.username, user.password),
         )
         write_log("INFO", Database, "SET USER", user.username, "Insert query executed.")
         CURSOR.connection.commit()
@@ -23,35 +23,35 @@ def add_user(user: User) -> None:
 def get_user(*, uid: int | None = None, username: str | None = None, fid: int | None = None) -> User | None:
     if uid is not None:
         CURSOR.execute(
-                """
-                SELECT uid, first_name, last_name, username, password
-                FROM users
-                WHERE uid = %s;
-                """,
-                (uid,),
+            """
+            SELECT uid, first_name, last_name, username, password
+            FROM users
+            WHERE uid = %s;
+            """,
+            (uid,),
         )
         attribute, value = "uid", uid
 
     elif username is not None:
         CURSOR.execute(
-                """
-                SELECT uid, first_name, last_name, username, password
-                FROM users
-                WHERE username = %s;
-                """,
-                (username,),
+            """
+            SELECT uid, first_name, last_name, username, password
+            FROM users
+            WHERE username = %s;
+            """,
+            (username,),
         )
         attribute, value = "username", username
 
     elif fid is not None:
         CURSOR.execute(
-                """
-                SELECT uid, first_name, last_name, username, password
-                FROM users u
-                         JOIN files f ON f.uid = u.uid
-                WHERE f.fid = %s;
-                """,
-                (fid,),
+            """
+            SELECT uid, first_name, last_name, username, password
+            FROM users u
+                     JOIN files f ON f.uid = u.uid
+            WHERE f.fid = %s;
+            """,
+            (fid,),
         )
         attribute, value = "fid", fid
 
@@ -76,10 +76,10 @@ def add_file(file: File) -> None:
 
     if user:
         CURSOR.execute(
-                """
-                INSERT INTO files (fname, flinks, data_center, uid)
-                VALUES (%s, %s, %s, %s);
-                """, (file.fname, file.flinks, file.data_center, file.uid),
+            """
+            INSERT INTO files (fname, directory, flinks, data_center, uid)
+            VALUES (%s, %s, %s, %s, %s);
+            """, (file.fname, file.directory, file.flinks, file.data_center, file.uid),
         )
         write_log("INFO", Database, "INSERT FILES", user.username, f"Insert query executed.")
         CURSOR.connection.commit()
@@ -89,22 +89,22 @@ def add_file(file: File) -> None:
 def get_file(*, fid: int | None = None, fname: str | None = None, uid: int | None = None) -> File | None:
     if fid is not None:
         CURSOR.execute(
-                """
-                SELECT fid, fname, flinks, data_center, uid
-                FROM files
-                WHERE fid = %s;
-                """, (fid,),
+            """
+            SELECT fid, fname, directory, flinks, data_center, uid
+            FROM files
+            WHERE fid = %s;
+            """, (fid,),
         )
         attribute, value = "fid", fid
 
     elif fname is not None and uid is not None:
         CURSOR.execute(
-                """
-                SELECT fid, fname, flinks, data_center, uid
-                FROM files
-                WHERE fname = %s
-                  AND uid = %s;
-                """, (fname, uid),
+            """
+            SELECT fid, fname, directory, flinks, data_center, uid
+            FROM files
+            WHERE fname = %s
+              AND uid = %s;
+            """, (fname, uid),
         )
         attribute, value = ("fname", "uid"), (fname, uid)
 
@@ -124,34 +124,34 @@ def get_file(*, fid: int | None = None, fname: str | None = None, uid: int | Non
     return None
 
 
-def get_files(*, fname: str | None = None, data_center: str | None = None, uid: int | None = None) -> list[File] | None:
-    if fname is not None:
+def get_files(*, directory: str | None = None, data_center: str | None = None, uid: int | None = None) -> list[File] | None:
+    if directory is not None:
         CURSOR.execute(
-                """
-                SELECT fid, fname, flinks, data_center, uid
-                FROM files
-                WHERE fname = %s;
-                """, (fname,),
+            """
+            SELECT fid, fname, directory, flinks, data_center, uid
+            FROM files
+            WHERE directory = %s;
+            """, (directory,),
         )
-        attribute, value = "fname", fname
+        attribute, value = "directory", directory
 
     elif data_center is not None:
         CURSOR.execute(
-                """
-                SELECT fid, fname, flinks, data_center, uid
-                FROM files
-                WHERE data_center = %s;
-                """, (data_center,),
+            """
+            SELECT fid, fname, directory, flinks, data_center, uid
+            FROM files
+            WHERE data_center = %s;
+            """, (data_center,),
         )
         attribute, value = "data_center", data_center
 
     elif uid is not None:
         CURSOR.execute(
-                """
-                SELECT fid, fname, flinks, data_center, uid
-                FROM files
-                WHERE uid = %s;
-                """, (uid,),
+            """
+            SELECT fid, fname, directory, flinks, data_center, uid
+            FROM files
+            WHERE uid = %s;
+            """, (uid,),
         )
         attribute, value = "uid", uid
 
@@ -173,10 +173,10 @@ def get_files(*, fname: str | None = None, data_center: str | None = None, uid: 
 
 def github_cursor_get_repo_id() -> int:
     CURSOR.execute(
-            """
-            SELECT repo_id
-            FROM github_cursor;
-            """,
+        """
+        SELECT repo_id
+        FROM github_cursor;
+        """,
     )
 
     data: dict[str, int] | None = CURSOR.fetchone()
@@ -190,10 +190,10 @@ def github_cursor_get_repo_id() -> int:
 
 def github_cursor_increment_repo_id() -> None:
     CURSOR.execute(
-            """
-            UPDATE github_cursor
-            SET repo_id = repo_id + 1;
-            """,
+        """
+        UPDATE github_cursor
+        SET repo_id = repo_id + 1;
+        """,
     )
     CURSOR.connection.commit()
     write_log("INFO", Database, "UPDATE GITHUB CURSOR", "", "GitHub repository ID incremented.")
@@ -201,10 +201,10 @@ def github_cursor_increment_repo_id() -> None:
 
 def github_cursor_get_used() -> int:
     CURSOR.execute(
-            """
-            SELECT used
-            FROM github_cursor;
-            """,
+        """
+        SELECT used
+        FROM github_cursor;
+        """,
     )
     data: dict[str, int] | None = CURSOR.fetchone()
 
@@ -217,11 +217,11 @@ def github_cursor_get_used() -> int:
 
 def github_cursor_set_used(value: int) -> None:
     CURSOR.execute(
-            """
-            UPDATE github_cursor
-            SET used = %s;
-            """,
-            (value,),
+        """
+        UPDATE github_cursor
+        SET used = %s;
+        """,
+        (value,),
     )
 
     CURSOR.connection.commit()

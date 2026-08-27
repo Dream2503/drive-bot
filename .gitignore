@@ -7,5 +7,6 @@ core/plugin/DriveBot.iml
 frontend/node_modules
 .env
 .venv
+.python-version
 /transfer
 *.pyc

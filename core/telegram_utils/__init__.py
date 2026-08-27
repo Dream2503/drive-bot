@@ -20,13 +20,13 @@ class Telegram(DataCenter, metaclass=ConfigMeta):
     @staticmethod
     async def upload(chunk: bytes, filename: str) -> str:
         message = await Telegram.FILE_DUMP.send_document(
-                chat_id=Telegram.FILE_DUMP_ID,
-                document=BytesIO(chunk),
-                filename=filename,
-                write_timeout=36_000,
-                read_timeout=36_000,
-                connect_timeout=60,
-                pool_timeout=36_000,
+            chat_id=Telegram.FILE_DUMP_ID,
+            document=BytesIO(chunk),
+            filename=filename,
+            write_timeout=36_000,
+            read_timeout=36_000,
+            connect_timeout=60,
+            pool_timeout=36_000,
         )
 
         if message.document is None:

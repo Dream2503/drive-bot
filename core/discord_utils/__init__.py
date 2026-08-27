@@ -29,12 +29,12 @@ class Discord(DataCenter, metaclass=ConfigMeta):
     @staticmethod
     async def upload(chunk: bytes, filename: str) -> str:
         return str(
-                (await wrap_future(
-                        run_coroutine_threadsafe(
-                                Discord.FILE_DUMP.send(file=discord.File(BytesIO(chunk), filename=filename)),
-                                Discord.LOOP,
-                        ),
-                )).id,
+            (await wrap_future(
+                run_coroutine_threadsafe(
+                    Discord.FILE_DUMP.send(file=discord.File(BytesIO(chunk), filename=filename)),
+                    Discord.LOOP,
+                ),
+            )).id,
         )
 
     @staticmethod
@@ -55,12 +55,12 @@ class Discord(DataCenter, metaclass=ConfigMeta):
 
             if Discord.FILE_DUMP:
                 write_log(
-                        "INFO", Discord, "INIT", str(Discord.app.user),
-                        f"FILE_DUMP channel initialized: {Discord.FILE_DUMP.name} (id={Discord.FILE_DUMP.id}).", )
+                    "INFO", Discord, "INIT", str(Discord.app.user),
+                    f"FILE_DUMP channel initialized: {Discord.FILE_DUMP.name} (id={Discord.FILE_DUMP.id}).", )
             else:
                 write_log(
-                        "ERROR", Discord, "INIT", "",
-                        f"Failed to fetch FILE_DUMP channel with ID {Discord.FILE_DUMP_ID}. Check bot permissions.", )
+                    "ERROR", Discord, "INIT", "",
+                    f"Failed to fetch FILE_DUMP channel with ID {Discord.FILE_DUMP_ID}. Check bot permissions.", )
 
             write_log("INFO", Discord, "INIT", str(Discord.app.user), f"Bot online and ready (id={Discord.app.user.id}).", )
 

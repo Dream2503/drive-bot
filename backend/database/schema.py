@@ -22,6 +22,7 @@ class File(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     fid: int | None = None
     fname: str
+    directory: str
     flinks: list[str]
     data_center: str
     uid: int
@@ -30,6 +31,7 @@ class File(BaseModel):
         return (
             f"File(fid={self.fid}, "
             f"fname={self.fname!r}, "
+            f"directory={self.fname!r}, "
             f"flinks={self.flinks!r}, "
             f"data_center={self.data_center!r}, "
             f"uid={self.uid})"
