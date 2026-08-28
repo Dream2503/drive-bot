@@ -7,7 +7,7 @@ from fastapi.responses import Response, StreamingResponse
 
 from backend.database import add_user, File, get_files, get_user, LoginRequest, User, get_file
 from backend.server.jwt_handler import create_access_token, get_current_user
-from backend.server.security import hash_password, verify_password
+from backend.server.security import hash_password, verify_password, create_public_stream_token, verify_public_stream_token
 from core.data_center import BackEnd, DataCenter
 from core.settings import TRANSFER_PATH
 from core.telegram_utils.stream import get_parts, parse_range, stream_range
@@ -93,6 +93,46 @@ async def stream_route(fid: int, request: Request, current_user: User = Depends(
     if file.uid != current_user.uid:
         raise HTTPException(status_code=403, detail="Access denied")
 
+    return await stream_file(file, request)
+
+
+@router.post("/files/{fid}/public-link")
+def create_public_stream_link(fid: int, current_user: User = Depends(get_current_user)) -> dict[str, str]:
+    file: File | None = get_file(fid=fid)
+
+    if file is None:
+        raise HTTPException(status_code=404, detail="File not found")
+
+    if file.uid != current_user.uid:
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    if file.fid is None or file.uid is None:
+        raise HTTPException(status_code=400, detail="Invalid file metadata")
+
+    token = create_public_stream_token(fid=file.fid, uid=file.uid)
+    return {"url": f"/auth/public-stream/{token}"}
+
+
+@router.get("/public-stream/{token}")
+async def public_stream_route(token: str, request: Request):
+    try:
+        payload = verify_public_stream_token(token)
+
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Invalid public stream link")
+
+    file: File | None = get_file(fid=payload["fid"])
+
+    if file is None:
+        raise HTTPException(status_code=404, detail="File not found")
+
+    if file.uid != payload["uid"]:
+        raise HTTPException(status_code=404, detail="File not found")
+
+    return await stream_file(file, request)
+
+
+async def stream_file(file: File, request: Request):
     if file.data_center != "Telegram":
         raise HTTPException(status_code=400, detail="File is not stored on Telegram")
 

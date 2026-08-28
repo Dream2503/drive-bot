@@ -27,7 +27,6 @@ async def main() -> None:
     finally:
         server_task.cancel()
         await asyncio.gather(server_task, return_exceptions=True)
-        await discord_utils.Discord.shutdown()
         await telegram_utils.Telegram.shutdown()
         discord_thread.join(timeout=5)
 
