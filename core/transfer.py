@@ -1,10 +1,11 @@
+import asyncio
 from pathlib import Path
 from traceback import format_exc
 from typing import AsyncGenerator
 
 from backend.database import add_file, File, get_file, get_user, User
+from core.config import TRANSFER_PATH
 from core.data_center import DataCenter
-from core.settings import TRANSFER_PATH
 from core.utils import write_log
 
 
@@ -33,11 +34,15 @@ async def upload(file: File) -> AsyncGenerator[float | int, None]:
             return
 
         write_log("INFO", data_center, "UPLOAD", user.username, f"Found local file: {file_path.name}")
+
         file_size: int = file_path.stat().st_size
         total_parts: int = (file_size + data_center.MAX_SIZE - 1) // data_center.MAX_SIZE
-        write_log("INFO", data_center, "UPLOAD", user.username, f"Starting upload `{file_path.name}` ({total_parts} parts)", )
+
+        write_log("INFO", data_center, "UPLOAD", user.username, f"Starting upload `{file_path.name}` ({total_parts} parts)")
 
         with file_path.open("rb") as f:
+            chunks: list[tuple[int, bytes, str]] = []
+
             for i in range(1, total_parts + 1):
                 chunk: bytes = f.read(data_center.MAX_SIZE)
 
@@ -45,26 +50,43 @@ async def upload(file: File) -> AsyncGenerator[float | int, None]:
                     break
 
                 filename: str = f"{file_path.name}{'' if total_parts == 1 else f'.part{i:03d}'}"
+                chunks.append((i, chunk, filename))
 
-                while True:
-                    try:
-                        msg_id: str = await data_center.upload(chunk, filename)
-                        break
+            semaphore = asyncio.Semaphore(8)
 
-                    except OSError as e:
-                        write_log("ERROR", data_center, "UPLOAD", user.username, f"Network error part {i}/{total_parts}, retrying: {e}")
+            async def upload_part(i: int, chunk: bytes, filename: str) -> tuple[int, str]:
+                async with semaphore:
+                    while True:
+                        try:
+                            msg_id: str = await data_center.upload(chunk, filename)
+                            return i, msg_id
 
-                file.flinks.append(msg_id)
-                progress: float | int = round((i / total_parts) * 100, 2)
-                write_log("INFO", data_center, "UPLOAD", user.username, f"Uploaded {i}/{total_parts} ({progress:.1f}%)")
+                        except OSError as e:
+                            write_log("ERROR", data_center, "UPLOAD", user.username, f"Network error part {i}/{total_parts}, retrying: {e}")
+
+            tasks = [
+                asyncio.create_task(upload_part(i, chunk, filename))
+                for i, chunk, filename in chunks
+            ]
+
+            results: dict[int, str] = {}
+
+            for task in asyncio.as_completed(tasks):
+                i, msg_id = await task
+                results[i] = msg_id
+
+                progress: float | int = round((len(results) / total_parts) * 100, 2)
+                write_log("INFO", data_center, "UPLOAD", user.username, f"Uploaded {len(results)}/{total_parts} ({progress:.1f}%)")
                 yield progress
+
+            file.flinks = [results[i] for i in range(1, total_parts + 1)]
 
         add_file(file)
         write_log("INFO", data_center, "UPLOAD", user.username, f"Upload complete `{file_path.name}`")
-        (TRANSFER_PATH / file.fname).unlink()
+        file_path.unlink()
 
     except Exception as e:
-        write_log("ERROR", data_center, "UPLOAD", user.username if user else "", f"Unhandled exception: {e}\n{format_exc()}")
+        write_log("ERROR", data_center, "UPLOAD", user.username, f"Unhandled exception: {e}\n{format_exc()}")
 
 
 async def download(file: File) -> AsyncGenerator[float | int, None]:
@@ -87,19 +109,25 @@ async def download(file: File) -> AsyncGenerator[float | int, None]:
         write_log("INFO", data_center, "DOWNLOAD", str(file.uid), f"Starting download `{file.fname}` ({total_parts} parts)")
 
         with file_path.open("wb") as output:
-            for i, flink in enumerate(file.flinks, 1):
+            for i, flink in enumerate(file.flinks):
+                part = await DataCenter.get_cached_part(str(file.uid), i)
 
-                while True:
-                    try:
-                        chunk: bytes = await data_center.download(flink)
-                        break
+                if part is None:
+                    while True:
+                        try:
+                            chunk: bytes = await data_center.download(flink)
+                            break
 
-                    except OSError as e:
-                        write_log("ERROR", data_center, "DOWNLOAD", str(file.uid), f"Network error part {i}/{total_parts}, retrying: {e}")
+                        except OSError as e:
+                            write_log("ERROR", data_center, "DOWNLOAD", str(file.uid), f"Network error part {i + 1}/{total_parts}, retrying: {e}")
 
-                output.write(chunk)
-                progress: float | int = round((i / total_parts) * 100, 2)
-                write_log("INFO", data_center, "DOWNLOAD", str(file.uid), f"Downloaded {i}/{total_parts} ({progress:.1f}%)")
+                    await DataCenter.cache_part(str(file.uid), i, chunk)
+                    part = chunk
+
+                output.write(part)
+
+                progress: float | int = round(((i + 1) / total_parts) * 100, 2)
+                write_log("INFO", data_center, "DOWNLOAD", str(file.uid), f"Downloaded {i + 1}/{total_parts} ({progress:.1f}%)")
                 yield progress
 
         write_log("INFO", data_center, "DOWNLOAD", str(file.uid), f"Download complete `{file_path.name}`")
