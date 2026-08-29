@@ -2,7 +2,6 @@
 __pycache__
 core/.env
 core/transfer
-core/storelimitless.session
 core/logs.txt.lock
 frontend/node_modules
 .env

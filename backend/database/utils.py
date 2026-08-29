@@ -12,7 +12,6 @@ def add_user(user: User) -> None:
             VALUES (%s, %s, %s, %s);
             """, (user.first_name, user.last_name, user.username, user.password),
         )
-        write_log("INFO", Database, "SET USER", user.username, "Insert query executed.")
         CURSOR.connection.commit()
         write_log("INFO", Database, "SET USER", user.username, "User successfully inserted into database.")
 
@@ -64,7 +63,6 @@ def get_user(*, uid: int | None = None, username: str | None = None, fid: int | 
 
     if data:
         user: User = User(**data)
-        write_log("INFO", Database, "GET USER", user.username, "Successfully fetched user from database.")
         return user
 
     write_log("ERROR", Database, "GET USER", "", "User not found in the database")
@@ -77,11 +75,10 @@ def add_file(file: File) -> None:
     if user:
         CURSOR.execute(
             """
-            INSERT INTO files (fname, directory, file_size, flinks, data_center, uid)
-            VALUES (%s, %s, %s, %s, %s, %s);
-            """, (file.fname, file.directory, file.file_size, file.flinks, file.data_center, file.uid),
+            INSERT INTO files (fname, directory, file_size, file_type, flinks, data_center, uid)
+            VALUES (%s, %s, %s, %s, %s, %s, %s);
+            """, (file.fname, file.directory, file.file_size, file.file_type, file.flinks, file.data_center, file.uid),
         )
-        write_log("INFO", Database, "INSERT FILES", user.username, f"Insert query executed.")
         CURSOR.connection.commit()
         write_log("INFO", Database, "INSERT FILES", user.username, f"File `{file.fname}` saved to database with {len(file.flinks)} part(s).")
 
@@ -90,7 +87,14 @@ def get_file(*, fid: int | None = None, fname: str | None = None, uid: int | Non
     if fid is not None:
         CURSOR.execute(
             """
-            SELECT fid, fname, directory, file_size, flinks, data_center, uid
+            SELECT fid,
+                   fname,
+                   directory,
+                   file_size,
+                   file_type,
+                   flinks,
+                   data_center,
+                   uid
             FROM files
             WHERE fid = %s;
             """, (fid,),
@@ -100,7 +104,14 @@ def get_file(*, fid: int | None = None, fname: str | None = None, uid: int | Non
     elif fname is not None and uid is not None:
         CURSOR.execute(
             """
-            SELECT fid, fname, directory, file_size, flinks, data_center, uid
+            SELECT fid,
+                   fname,
+                   directory,
+                   file_size,
+                   file_type,
+                   flinks,
+                   data_center,
+                   uid
             FROM files
             WHERE fname = %s
               AND uid = %s;
@@ -117,7 +128,6 @@ def get_file(*, fid: int | None = None, fname: str | None = None, uid: int | Non
 
     if data:
         file: File = File(**data)
-        write_log("INFO", Database, "GET FILE", file.fname, "Successfully fetched file from database.")
         return file
 
     write_log("ERROR", Database, "GET FILE", "", f"No file found for {attribute}={value}.")
@@ -138,7 +148,14 @@ def get_files(*, directory: str | None = None, data_center: str | None = None, u
     elif data_center is not None:
         CURSOR.execute(
             """
-            SELECT fid, fname, directory, file_size, flinks, data_center, uid
+            SELECT fid,
+                   fname,
+                   directory,
+                   file_size,
+                   file_type,
+                   flinks,
+                   data_center,
+                   uid
             FROM files
             WHERE data_center = %s;
             """, (data_center,),
@@ -148,7 +165,14 @@ def get_files(*, directory: str | None = None, data_center: str | None = None, u
     elif uid is not None:
         CURSOR.execute(
             """
-            SELECT fid, fname, directory, file_size, flinks, data_center, uid
+            SELECT fid,
+                   fname,
+                   directory,
+                   file_size,
+                   file_type,
+                   flinks,
+                   data_center,
+                   uid
             FROM files
             WHERE uid = %s;
             """, (uid,),
