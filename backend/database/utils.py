@@ -1,3 +1,6 @@
+from datetime import datetime
+from json import loads, dumps
+
 from core.data_center import Database
 from core.utils import write_log
 from .connection import CURSOR
@@ -8,9 +11,9 @@ def add_user(user: User) -> None:
     try:
         CURSOR.execute(
             """
-            INSERT INTO users (first_name, last_name, username, password)
-            VALUES (%s, %s, %s, %s);
-            """, (user.first_name, user.last_name, user.username, user.password),
+            INSERT INTO users (username, password, first_name, last_name, created_at)
+            VALUES (?, ?, ?, ?. ?);
+            """, (user.username, user.password, user.first_name, user.last_name, user.created_at.isoformat()),
         )
         CURSOR.connection.commit()
         write_log("INFO", Database, "SET USER", user.username, "User successfully inserted into database.")
@@ -19,165 +22,106 @@ def add_user(user: User) -> None:
         write_log("ERROR", Database, "SET USER", user.username, f"Failed to insert user: {e}")
 
 
-def get_user(*, uid: int | None = None, username: str | None = None, fid: int | None = None) -> User | None:
-    if uid is not None:
-        CURSOR.execute(
-            """
-            SELECT uid, first_name, last_name, username, password
-            FROM users
-            WHERE uid = %s;
-            """,
-            (uid,),
-        )
-        attribute, value = "uid", uid
+def get_user(username: str) -> User | None:
+    CURSOR.execute(
+        """
+        SELECT username, password, first_name, last_name, created_at
+        FROM users
+        WHERE username = ?;
+        """,
+        (username,),
+    )
+    write_log("INFO", Database, "GET USER", username, f"Select query executed for {username}.")
+    user: dict[str, int | str] | None = CURSOR.fetchone()
 
-    elif username is not None:
-        CURSOR.execute(
-            """
-            SELECT uid, first_name, last_name, username, password
-            FROM users
-            WHERE username = %s;
-            """,
-            (username,),
-        )
-        attribute, value = "username", username
-
-    elif fid is not None:
-        CURSOR.execute(
-            """
-            SELECT uid, first_name, last_name, username, password
-            FROM users u
-                     JOIN files f ON f.uid = u.uid
-            WHERE f.fid = %s;
-            """,
-            (fid,),
-        )
-        attribute, value = "fid", fid
-
-    else:
-        write_log("ERROR", Database, "GET USER", "", "No search parameter provided.")
-        return None
-
-    write_log("INFO", Database, "GET USER", "", f"Select query executed for {attribute}={value}.")
-    data: dict[str, int | str] | None = CURSOR.fetchone()
-
-    if data:
-        user: User = User(**data)
-        return user
+    if user:
+        user["created_at"] = datetime.fromisoformat(user["created_at"])
+        return User(**user)
 
     write_log("ERROR", Database, "GET USER", "", "User not found in the database")
     return None
 
 
 def add_file(file: File) -> None:
-    user: User | None = get_user(uid=file.uid)
+    user: User | None = get_user(username=file.username)
 
     if user:
         CURSOR.execute(
             """
-            INSERT INTO files (fname, directory, file_size, file_type, flinks, data_center, uid)
-            VALUES (%s, %s, %s, %s, %s, %s, %s);
-            """, (file.fname, file.directory, file.file_size, file.file_type, file.flinks, file.data_center, file.uid),
+            INSERT INTO files (directory, name, type, size, modified_at, data_center, links, username)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+            """,
+            (file.directory, file.name, file.type, file.size, file.modified_at.isoformat(), file.data_center, dumps(file.links), file.username),
         )
         CURSOR.connection.commit()
-        write_log("INFO", Database, "INSERT FILES", user.username, f"File `{file.fname}` saved to database with {len(file.flinks)} part(s).")
+        write_log("INFO", Database, "INSERT FILES", user.username, f"File `{file.name}` saved to database with {len(file.links)} part(s).")
 
 
-def get_file(*, fid: int | None = None, fname: str | None = None, uid: int | None = None) -> File | None:
-    if fid is not None:
-        CURSOR.execute(
-            """
-            SELECT fid,
-                   fname,
-                   directory,
-                   file_size,
-                   file_type,
-                   flinks,
-                   data_center,
-                   uid
-            FROM files
-            WHERE fid = %s;
-            """, (fid,),
-        )
-        attribute, value = "fid", fid
+def get_file(file_id: int) -> File | None:
+    CURSOR.execute(
+        """
+        SELECT id,
+               directory,
+               name,
+               type,
+               "size",
+               modified_at,
+               data_center,
+               links,
+               username
+        FROM files
+        WHERE id = ?;
+        """, (file_id,),
+    )
 
-    elif fname is not None and uid is not None:
-        CURSOR.execute(
-            """
-            SELECT fid,
-                   fname,
-                   directory,
-                   file_size,
-                   file_type,
-                   flinks,
-                   data_center,
-                   uid
-            FROM files
-            WHERE fname = %s
-              AND uid = %s;
-            """, (fname, uid),
-        )
-        attribute, value = ("fname", "uid"), (fname, uid)
+    write_log("INFO", Database, "GET FILE", "", f"Select query executed for id={file_id}.")
+    file: dict[str, int | str | list[str]] | None = CURSOR.fetchone()
 
-    else:
-        write_log("ERROR", Database, "GET FILE", "", "Invalid search parameters provided by caller.")
-        return None
+    if file:
+        file["links"] = loads(file["links"])
+        file["modified_at"] = datetime.fromisoformat(file["modified_at"])
+        return File(**file)
 
-    write_log("INFO", Database, "GET FILE", "", f"Select query executed for {attribute}={value}.")
-    data: dict[str, int | str | list[str]] | None = CURSOR.fetchone()
-
-    if data:
-        file: File = File(**data)
-        return file
-
-    write_log("ERROR", Database, "GET FILE", "", f"No file found for {attribute}={value}.")
+    write_log("ERROR", Database, "GET FILE", "", f"No file found for id={file_id}.")
     return None
 
 
-def get_files(*, directory: str | None = None, data_center: str | None = None, uid: int | None = None) -> list[File] | None:
+def get_files(*, directory: str | None = None, username: str | None = None) -> list[File] | None:
     if directory is not None:
         CURSOR.execute(
             """
-            SELECT fid, fname, directory, file_size, flinks, data_center, uid
+            SELECT id,
+                   directory,
+                   name,
+                   type,
+                   "size",
+                   modified_at,
+                   data_center,
+                   links,
+                   username
             FROM files
-            WHERE directory = %s;
+            WHERE directory = ?;
             """, (directory,),
         )
         attribute, value = "directory", directory
 
-    elif data_center is not None:
+    elif username is not None:
         CURSOR.execute(
             """
-            SELECT fid,
-                   fname,
+            SELECT id,
                    directory,
-                   file_size,
-                   file_type,
-                   flinks,
+                   name,
+                   type,
+                   "size",
+                   modified_at,
                    data_center,
-                   uid
+                   links,
+                   username
             FROM files
-            WHERE data_center = %s;
-            """, (data_center,),
+            WHERE username = ?;
+            """, (username,),
         )
-        attribute, value = "data_center", data_center
-
-    elif uid is not None:
-        CURSOR.execute(
-            """
-            SELECT fid,
-                   fname,
-                   directory,
-                   file_size,
-                   file_type,
-                   flinks,
-                   data_center,
-                   uid
-            FROM files
-            WHERE uid = %s;
-            """, (uid,),
-        )
-        attribute, value = "uid", uid
+        attribute, value = "username", username
 
     else:
         write_log("ERROR", Database, "GET FILES", "", "No valid search parameter provided.")
@@ -187,7 +131,13 @@ def get_files(*, directory: str | None = None, data_center: str | None = None, u
     data: list[dict[str, int | str | list[str]]] = CURSOR.fetchall()
 
     if data:
-        files: list[File] = [File(**file) for file in data]
+        files: list[File] = []
+
+        for file in data:
+            file["links"] = loads(file["links"])
+            file["modified_at"] = datetime.fromisoformat(file["modified_at"])
+            files.append(File(**file))
+
         write_log("INFO", Database, "GET FILES", str(value), f"Successfully fetched {len(files)} file(s) from database.")
         return files
 
@@ -202,7 +152,6 @@ def github_cursor_get_repo_id() -> int:
         FROM github_cursor;
         """,
     )
-
     data: dict[str, int] | None = CURSOR.fetchone()
 
     if data:
@@ -243,10 +192,9 @@ def github_cursor_set_used(value: int) -> None:
     CURSOR.execute(
         """
         UPDATE github_cursor
-        SET used = %s;
+        SET used = ?;
         """,
         (value,),
     )
-
     CURSOR.connection.commit()
     write_log("INFO", Database, "UPDATE GITHUB CURSOR", "", f"GitHub storage usage increased by {value} bytes.")
