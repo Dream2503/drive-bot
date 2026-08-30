@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from backend.server.routers import router
+from backend.server.routers import auth
 
 app: FastAPI = FastAPI()
 origins: list[str] = ["http://localhost:5173"]
@@ -14,4 +14,4 @@ app.add_middleware(
         allow_headers=["*"],
 )
 
-app.include_router(router)
+app.include_router(auth)

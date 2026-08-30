@@ -1,8 +1,7 @@
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict
-
 from core.data_center import DataCenter
+from pydantic import BaseModel, ConfigDict
 
 
 class User(BaseModel):
@@ -30,7 +29,7 @@ class File(BaseModel):
     type: str
     size: int
     modified_at: datetime
-    data_center: DataCenter
+    data_center: str
     links: list[str]
     username: str
 
@@ -38,13 +37,13 @@ class File(BaseModel):
         return (
             f"File(fid={self.id}, "
             f"directory={self.directory!r}, "
-            f"fname={self.name!r}, "
-            f"file_size={self.size}, "
-            f"file_type={self.type}, "
+            f"name={self.name!r}, "
+            f"type={self.type}, "
+            f"size={self.size}, "
             f"modified_at={self.modified_at}, "
-            f"flinks={self.links!r}, "
-            f"data_center={self.data_center.NAME!r}, "
-            f"uid={self.username})"
+            f"links={self.links!r}, "
+            f"data_center={self.data_center!r}, "
+            f"username={self.username})"
         )
 
 
