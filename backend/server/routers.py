@@ -18,12 +18,12 @@ from core.data_center import BackEnd
 from core.stream import ChunkCache, get_chunks, parse_range, stream_range
 from core.transfer import upload
 
-router: APIRouter = APIRouter(prefix="/auth")
+auth: APIRouter = APIRouter(prefix="/auth")
 
 class CreateFolderRequest(BaseModel):
     directory: str
 
-@router.post("/register")
+@auth.post("/register")
 def register(user: User) -> dict[str, str]:
     existing_user: User | None = get_user(username=user.username)
 
@@ -35,7 +35,7 @@ def register(user: User) -> dict[str, str]:
     return {"message": "User registered successfully"}
 
 
-@router.post("/login")
+@auth.post("/login")
 def login(credentials: LoginRequest) -> dict[str, str]:
     user: User | None = get_user(username=credentials.username)
 
@@ -49,30 +49,26 @@ def login(credentials: LoginRequest) -> dict[str, str]:
     }
 
 
-@router.post("/upload")
+@auth.post("/upload")
 async def upload_route(file: UploadFile, data_center: str = Form(...), current_user: User = Depends(get_current_user)) -> StreamingResponse:
-    if current_user.uid is None:
-        raise HTTPException(status_code=400, detail="User ID missing")
-
-    uid = current_user.uid
-
     if not file.filename:
         raise ValueError("No file name provided in /upload")
 
-    file_path: Path = TRANSFER_PATH / file.filename
+    file_path: Path = TRANSFER_PATH / current_user.username / file.filename
 
     with open(file_path, "wb") as buffer:
         while chunk := await file.read(BackEnd.MAX_SIZE):
             buffer.write(chunk)
 
     file_job: File = File(
-        fname=file.filename,
         directory="",
-        file_size=file_path.stat().st_size,
-        file_type=guess_type(file.filename)[0],
-        flinks=[],
+        name=file.filename,
+        type=str(guess_type(file.filename)[0]),
+        size=file_path.stat().st_size,
+        modified_at=datetime.fromtimestamp(file_path.stat().st_mtime, tz=timezone.utc),
+        links=[],
         data_center=data_center,
-        uid=uid,
+        username=current_user.username,
     )
 
     async def progress_stream() -> AsyncGenerator[str, None]:
@@ -81,8 +77,7 @@ async def upload_route(file: UploadFile, data_center: str = Form(...), current_u
 
     return StreamingResponse(progress_stream(), media_type="text/plain")
 
-
-@router.post("/create-folder")
+@auth.post("/create-folder")
 def create_folder(
     folder: CreateFolderRequest,
     current_user: User = Depends(get_current_user),
@@ -139,74 +134,69 @@ def create_folder(
         "directory": directory,
     }
 
-@router.get("/files")
+@auth.get("/files")
 def get_files_route(current_user: User = Depends(get_current_user)):
-    files = get_files(uid=current_user.uid)
+    files = get_files(username=current_user.username)
 
     if not files:
         return []
 
     return [
         {
-            "fid": f.fid,
-            "fname": f.fname,
-            "directory": f.directory,
-            "file_size": f.file_size,
-            "data_center": f.data_center,
-            "file_type": f.file_type,
+            "id": file.id,
+            "directory": file.directory,
+            "name": file.name,
+            "type": file.type,
+            "size": file.size,
+            "modified_at": file.modified_at,
+            "data_center": file.data_center,
         }
-        for f in files
+        for file in files
     ]
 
 
-@router.post("/files/{fid}/public-link")
-def create_public_stream_link(fid: int, current_user: User = Depends(get_current_user), ) -> dict[str, str]:
-    file: File | None = get_file(fid=fid)
+@auth.post("/files/{file_id}/public-link")
+def create_public_stream_link(file_id: int, current_user: User = Depends(get_current_user)) -> dict[str, str]:
+    file: File | None = get_file(file_id=file_id)
 
     if file is None:
         raise HTTPException(status_code=404, detail="File not found")
 
-    if file.uid != current_user.uid:
+    if file.username != current_user.username:
         raise HTTPException(status_code=403, detail="Access denied")
 
-    if file.fid is None or file.uid is None:
+    if file.id is None:
         raise HTTPException(status_code=400, detail="Invalid file metadata")
 
     return {
-        "url": f"/auth/public-stream/{create_public_stream_token(fid=file.fid, uid=file.uid)}",
+        "url": f"/auth/public-stream/{create_public_stream_token(file_id=file.id, username=file.username)}",
     }
 
 
-@router.get("/public-stream/{token}")
+@auth.get("/public-stream/{token}")
 async def public_stream_route(token: str, request: Request):
     try:
         payload = verify_public_stream_token(token)
 
     except ValueError:
-        raise HTTPException(
-            status_code=404,
-            detail="Invalid public stream link",
-        )
+        raise HTTPException(status_code=404, detail="Invalid public stream link")
 
-    file: File | None = get_file(fid=payload["fid"])
+    file: File | None = get_file(file_id=payload["file_id"])
 
-    if file is None:
-        raise HTTPException(status_code=404, detail="File not found")
-
-    if file.uid != payload["uid"]:
+    if file is None or file.username != payload["username"]:
         raise HTTPException(status_code=404, detail="File not found")
 
     return await stream_file(file, request)
 
 
-@router.delete("/files/{fid}")
-def delete_file_route(fid: int, current_user: User = Depends(get_current_user)) -> dict[str, str]:
-    file: File | None = get_file(fid=fid)
+@auth.delete("/files/{file_id}")
+def delete_file_route(file_id: int, current_user: User = Depends(get_current_user)) -> dict[str, str]:
+    file: File | None = get_file(file_id=file_id)
 
     if file is None:
         raise HTTPException(status_code=404, detail="File not found")
 
-    if file.uid != current_user.uid:
+    if file.username != current_user.username:
         raise HTTPException(status_code=403, detail="Access denied")
 
     file.directory = "__trash__"
@@ -215,7 +205,7 @@ def delete_file_route(fid: int, current_user: User = Depends(get_current_user)) 
 
 async def stream_file(file: File, request: Request):
     try:
-        parts = get_chunks(file.flinks, file.file_size)
+        parts = get_chunks(file.links, file.size)
 
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"File metadata failure: {e}") from e
@@ -237,15 +227,15 @@ async def stream_file(file: File, request: Request):
             },
         )
 
-    cache = ChunkCache(str(file.fid), file.data_center)
+    cache = ChunkCache(str(file.id), file.data_center)
     length = byte_range.end - byte_range.start + 1
-    content_type = file.file_type or guess_type(file.fname)[0] or "application/octet-stream"
+    content_type = file.type or guess_type(file.name)[0] or "application/octet-stream"
 
     headers = {
         "Accept-Ranges": "bytes",
         "Content-Length": str(length),
         "Content-Type": content_type,
-        "Content-Disposition": f'inline; filename="{file.fname}"',
+        "Content-Disposition": f'inline; filename="{file.name}"',
         "Cache-Control": "public, max-age=3600",
     }
 
