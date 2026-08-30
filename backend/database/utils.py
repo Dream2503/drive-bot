@@ -1,3 +1,5 @@
+from json import loads
+
 from core.data_center import Database
 from core.utils import write_log
 from .connection import CURSOR
@@ -9,7 +11,7 @@ def add_user(user: User) -> None:
         CURSOR.execute(
             """
             INSERT INTO users (first_name, last_name, username, password)
-            VALUES (%s, %s, %s, %s);
+            VALUES (?, ?, ?, ?);
             """, (user.first_name, user.last_name, user.username, user.password),
         )
         CURSOR.connection.commit()
@@ -25,7 +27,7 @@ def get_user(*, uid: int | None = None, username: str | None = None, fid: int | 
             """
             SELECT uid, first_name, last_name, username, password
             FROM users
-            WHERE uid = %s;
+            WHERE uid = ?;
             """,
             (uid,),
         )
@@ -36,7 +38,7 @@ def get_user(*, uid: int | None = None, username: str | None = None, fid: int | 
             """
             SELECT uid, first_name, last_name, username, password
             FROM users
-            WHERE username = %s;
+            WHERE username = ?;
             """,
             (username,),
         )
@@ -45,10 +47,10 @@ def get_user(*, uid: int | None = None, username: str | None = None, fid: int | 
     elif fid is not None:
         CURSOR.execute(
             """
-            SELECT uid, first_name, last_name, username, password
+            SELECT u.uid, u.first_name, u.last_name, u.username, u.password
             FROM users u
                      JOIN files f ON f.uid = u.uid
-            WHERE f.fid = %s;
+            WHERE f.fid = ?;
             """,
             (fid,),
         )
@@ -76,8 +78,9 @@ def add_file(file: File) -> None:
         CURSOR.execute(
             """
             INSERT INTO files (fname, directory, file_size, file_type, flinks, data_center, uid)
-            VALUES (%s, %s, %s, %s, %s, %s, %s);
-            """, (file.fname, file.directory, file.file_size, file.file_type, file.flinks, file.data_center, file.uid),
+            VALUES (?, ?, ?, ?, ?, ?, ?);
+            """,
+            (file.fname, file.directory, file.file_size, file.file_type, json.dumps(file.flinks), file.data_center, file.uid),
         )
         CURSOR.connection.commit()
         write_log("INFO", Database, "INSERT FILES", user.username, f"File `{file.fname}` saved to database with {len(file.flinks)} part(s).")
@@ -96,7 +99,7 @@ def get_file(*, fid: int | None = None, fname: str | None = None, uid: int | Non
                    data_center,
                    uid
             FROM files
-            WHERE fid = %s;
+            WHERE fid = ?;
             """, (fid,),
         )
         attribute, value = "fid", fid
@@ -113,8 +116,8 @@ def get_file(*, fid: int | None = None, fname: str | None = None, uid: int | Non
                    data_center,
                    uid
             FROM files
-            WHERE fname = %s
-              AND uid = %s;
+            WHERE fname = ?
+              AND uid = ?;
             """, (fname, uid),
         )
         attribute, value = ("fname", "uid"), (fname, uid)
@@ -127,6 +130,7 @@ def get_file(*, fid: int | None = None, fname: str | None = None, uid: int | Non
     data: dict[str, int | str | list[str]] | None = CURSOR.fetchone()
 
     if data:
+        data["flinks"] = loads(data["flinks"])
         file: File = File(**data)
         return file
 
@@ -138,9 +142,16 @@ def get_files(*, directory: str | None = None, data_center: str | None = None, u
     if directory is not None:
         CURSOR.execute(
             """
-            SELECT fid, fname, directory, file_size, flinks, data_center, uid
+            SELECT fid,
+                   fname,
+                   directory,
+                   file_size,
+                   file_type,
+                   flinks,
+                   data_center,
+                   uid
             FROM files
-            WHERE directory = %s;
+            WHERE directory = ?;
             """, (directory,),
         )
         attribute, value = "directory", directory
@@ -157,7 +168,7 @@ def get_files(*, directory: str | None = None, data_center: str | None = None, u
                    data_center,
                    uid
             FROM files
-            WHERE data_center = %s;
+            WHERE data_center = ?;
             """, (data_center,),
         )
         attribute, value = "data_center", data_center
@@ -174,7 +185,7 @@ def get_files(*, directory: str | None = None, data_center: str | None = None, u
                    data_center,
                    uid
             FROM files
-            WHERE uid = %s;
+            WHERE uid = ?;
             """, (uid,),
         )
         attribute, value = "uid", uid
@@ -187,7 +198,12 @@ def get_files(*, directory: str | None = None, data_center: str | None = None, u
     data: list[dict[str, int | str | list[str]]] = CURSOR.fetchall()
 
     if data:
-        files: list[File] = [File(**file) for file in data]
+        files: list[File] = []
+
+        for file in data:
+            file["flinks"] = loads(file["flinks"])
+            files.append(File(**file))
+
         write_log("INFO", Database, "GET FILES", str(value), f"Successfully fetched {len(files)} file(s) from database.")
         return files
 
@@ -202,7 +218,6 @@ def github_cursor_get_repo_id() -> int:
         FROM github_cursor;
         """,
     )
-
     data: dict[str, int] | None = CURSOR.fetchone()
 
     if data:
@@ -243,10 +258,9 @@ def github_cursor_set_used(value: int) -> None:
     CURSOR.execute(
         """
         UPDATE github_cursor
-        SET used = %s;
+        SET used = ?;
         """,
         (value,),
     )
-
     CURSOR.connection.commit()
     write_log("INFO", Database, "UPDATE GITHUB CURSOR", "", f"GitHub storage usage increased by {value} bytes.")

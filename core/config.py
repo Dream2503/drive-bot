@@ -4,6 +4,7 @@ from typing import TextIO
 
 from dotenv import load_dotenv
 
+DATABASE_PATH = Path("..") / "backend" / "database" / "database.db"
 LOG_PATH: Path = Path("..") / "logs.txt"
 TRANSFER_PATH: Path = Path('.') / "transfer"
 LOG_HANDLER: TextIO = open(LOG_PATH, 'a')

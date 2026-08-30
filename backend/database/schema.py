@@ -1,5 +1,16 @@
 from pydantic import BaseModel, ConfigDict
 
+"""
+CREATE TABLE IF NOT EXISTS users
+(
+    uid        INTEGER PRIMARY KEY AUTOINCREMENT,
+    username   VARCHAR(50) NOT NULL UNIQUE,
+    password   VARCHAR     NOT NULL,
+    first_name VARCHAR     NOT NULL DEFAULT '',
+    last_name  VARCHAR     NOT NULL DEFAULT ''
+);
+"""
+
 
 class User(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -16,6 +27,22 @@ class User(BaseModel):
             f"last_name={self.last_name!r}, "
             f"username={self.username!r})"
         )
+
+
+"""
+CREATE TABLE IF NOT EXISTS files
+(
+    fid         INTEGER PRIMARY KEY AUTOINCREMENT,
+    fname       TEXT    NOT NULL,
+    directory   TEXT,
+    file_size   INTEGER NOT NULL,
+    file_type   TEXT,
+    data_center TEXT,
+    flinks      TEXT    NOT NULL,
+    uid         INTEGER,
+    FOREIGN KEY (uid) REFERENCES users (uid)
+);
+"""
 
 
 class File(BaseModel):
@@ -40,6 +67,15 @@ class File(BaseModel):
             f"data_center={self.data_center!r}, "
             f"uid={self.uid})"
         )
+
+
+"""
+CREATE TABLE IF NOT EXISTS github_cursor
+(
+    repo_id INTEGER NOT NULL DEFAULT 0 PRIMARY KEY,
+    used    INTEGER NOT NULL DEFAULT 0
+);
+"""
 
 
 class LoginRequest(BaseModel):
