@@ -32,15 +32,34 @@ function formatDate(dateStr) {
 export default function DashboardPage() {
     const navigate = useNavigate();
     const [files, setFiles] = useState([]);
+    const [folders, setFolders] = useState([]);
+    const [currentFolder, setCurrentFolder] = useState("");
     const [sidebarOpen, setSidebarOpen] = useState(false);
 
     const fetchFiles = async () => {
         try {
             const res = await fetch("http://127.0.0.1:8000/auth/files", {
-                headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+                headers: {
+                    Authorization: `Bearer ${localStorage.getItem("token")}`,
+                },
             });
+
             const data = await res.json();
-            setFiles(Array.isArray(data) ? data : []);
+
+            const allFiles = Array.isArray(data) ? data : [];
+
+            setFiles(allFiles);
+
+            // Extract unique folder paths from directory column
+            const uniqueFolders = [
+                ...new Set(
+                    allFiles
+                        .map((file) => file.directory)
+                        .filter((directory) => directory)
+                ),
+            ];
+
+            setFolders(uniqueFolders);
         } catch (err) {
             console.error("Failed to fetch files", err);
         }
@@ -61,10 +80,87 @@ export default function DashboardPage() {
         window.URL.revokeObjectURL(url);
     };
 
+    const createFolder = async () => {
+        const folderName = prompt("Enter folder name:");
+
+        if (!folderName || !folderName.trim()) {
+            return;
+        }
+
+        const cleanName = folderName.trim();
+
+        // If we are inside another folder,
+        // create the new folder inside it
+        const folderPath = currentFolder
+            ? `${currentFolder}/${cleanName}`
+            : cleanName;
+
+        try {
+            const res = await fetch(
+                "http://127.0.0.1:8000/auth/files",
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${localStorage.getItem("token")}`,
+                    },
+                    body: JSON.stringify({
+                        directory: folderPath,
+                    }),
+                }
+            );
+
+            if (!res.ok) {
+                throw new Error("Failed to create folder");
+            }
+
+            // Reload files and folders from database
+            await fetchFiles();
+
+        } catch (err) {
+            console.error("Error creating folder:", err);
+            alert("Could not create folder");
+        }
+    };
+
     const handleLogout = () => {
         localStorage.removeItem("token");
         navigate("/");
     };
+
+    const openFolder = (folderPath) => {
+        setCurrentFolder(folderPath);
+    };
+
+    // Get only direct child folders
+    const visibleFolders = folders.filter((folderPath) => {
+        if (!currentFolder) {
+            // Root folders only
+            return !folderPath.includes("/");
+        }
+
+        // Folder must start with current path
+        const remainingPath = folderPath.replace(
+            `${currentFolder}/`,
+            ""
+        );
+
+        return (
+            folderPath.startsWith(`${currentFolder}/`) &&
+            !remainingPath.includes("/")
+        );
+    });
+
+
+    // Get files inside current folder
+    const visibleFiles = files.filter((file) => {
+        // Hide dummy folder files
+        if (file.fname === ".__folder__") {
+            return false;
+        }
+
+        return (file.directory || "") === currentFolder;
+    });
 
     const Sidebar = () => (
         <nav className="flex flex-col p-6 gap-4 h-screen w-72 backdrop-blur-xl bg-surface/70 border-r border-outline-variant/20 z-50">
@@ -181,15 +277,12 @@ export default function DashboardPage() {
                     {/* Header */}
                     <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-8 gap-4">
                         <div>
-                            <div className="flex items-center gap-1 text-on-surface-variant text-xs font-geist uppercase tracking-widest mb-1">
-                                <span className="hover:text-primary cursor-pointer transition-colors">Home</span>
-                                <span className="material-symbols-outlined text-[16px]">chevron_right</span>
-                                <span className="text-on-surface">My Files</span>
-                            </div>
                             <h2 className="text-2xl font-semibold text-on-surface tracking-tight">Your Files</h2>
                         </div>
                         <div className="flex gap-2">
-                            <button className="bg-surface-container-high hover:bg-surface-container-highest text-on-surface border border-outline-variant/20 rounded-xl px-4 py-2 text-xs font-medium transition-colors flex items-center gap-1">
+                            <button 
+                                onClick={createFolder}
+                                className="bg-surface-container-high hover:bg-surface-container-highest text-on-surface border border-outline-variant/20 rounded-xl px-4 py-2 text-xs font-medium transition-colors flex items-center gap-1">
                                 <span className="material-symbols-outlined text-[16px]">create_new_folder</span>
                                 New Folder
                             </button>
@@ -203,6 +296,25 @@ export default function DashboardPage() {
                         </div>
                     </div>
 
+                    {currentFolder && (
+                        <button
+                            onClick={() => {
+                                const parts = currentFolder.split("/");
+
+                                parts.pop();
+
+                                setCurrentFolder(parts.join("/"));
+                            }}
+                            className="mb-4 flex items-center gap-2 text-sm text-primary hover:underline"
+                        >
+                            <span className="material-symbols-outlined">
+                                arrow_back
+                            </span>
+
+                            Back
+                        </button>
+                    )}
+
                     {/* Storage Summary */}
                     <div className="glass-panel rounded-2xl p-4 mb-8 flex flex-col sm:flex-row items-center justify-between gap-4 border border-outline-variant/10 relative overflow-hidden">
                         <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-transparent pointer-events-none" />
@@ -215,7 +327,7 @@ export default function DashboardPage() {
                             </div>
                             <div>
                                 <h3 className="font-semibold text-on-surface">Storage Status</h3>
-                                <p className="text-sm text-on-surface-variant">3.2 GB of 5 GB used</p>
+                                <p className="text-sm text-on-surface-variant">Unlimited</p>
                             </div>
                         </div>
                         <button className="relative z-10 text-primary text-sm font-medium hover:underline underline-offset-4 decoration-primary/50">
@@ -223,8 +335,51 @@ export default function DashboardPage() {
                         </button>
                     </div>
 
+                    {/* Folders */}
+                    {visibleFolders.length > 0 && (
+                        <div className="mb-8">
+
+                            <h3 className="font-semibold text-on-surface mb-4 flex items-center gap-2">
+                                <span className="material-symbols-outlined text-primary">
+                                    folder
+                                </span>
+
+                                Folders
+                            </h3>
+
+                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+
+                                {visibleFolders.map((folderPath) => {
+
+                                    // Get only the final folder name
+                                    const folderName =
+                                        folderPath.split("/").pop();
+
+                                    return (
+                                        <div
+                                            key={folderPath}
+                                            onClick={() => openFolder(folderPath)}
+                                            className="bg-surface-container-lowest border border-outline-variant/10 rounded-2xl p-4 cursor-pointer hover:bg-surface-container-low hover:border-primary/30 transition-all"
+                                        >
+                                            <span className="material-symbols-outlined text-primary text-[42px]">
+                                                folder
+                                            </span>
+
+                                            <p className="text-sm font-medium text-on-surface mt-3 truncate">
+                                                {folderName}
+                                            </p>
+
+                                        </div>
+                                    );
+                                })}
+
+                            </div>
+
+                        </div>
+                    )}
+
                     {/* Files Table */}
-                    {files.length === 0 ? (
+                    {visibleFiles.length === 0 && visibleFolders.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-24 text-on-surface-variant">
                             <span className="material-symbols-outlined text-[64px] mb-4 text-outline/40">cloud_off</span>
                             <p className="text-lg font-medium text-on-surface">No files yet</p>
@@ -251,7 +406,7 @@ export default function DashboardPage() {
                                     <div className="col-span-3 sm:col-span-2 text-right text-xs font-geist uppercase tracking-widest text-on-surface-variant">Actions</div>
                                 </div>
                                 {/* File Rows */}
-                                {files.map((file, idx) => {
+                                {visibleFiles.map((file, idx) => {
                                     const { icon, color } = getFileIcon(file.fname);
                                     return (
                                         <div

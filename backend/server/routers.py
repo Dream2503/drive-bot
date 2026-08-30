@@ -3,9 +3,11 @@ from mimetypes import guess_type
 from pathlib import Path
 from typing import AsyncGenerator
 from fastapi.responses import FileResponse
+from backend.database.utils import add_file
 import os
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, UploadFile
+from pydantic import BaseModel
 from fastapi.responses import Response, StreamingResponse
 
 from backend.database import add_user, File, get_files, get_user, LoginRequest, User, get_file
@@ -18,6 +20,8 @@ from core.transfer import upload
 
 router: APIRouter = APIRouter(prefix="/auth")
 
+class CreateFolderRequest(BaseModel):
+    directory: str
 
 @router.post("/register")
 def register(user: User) -> dict[str, str]:
@@ -78,6 +82,63 @@ async def upload_route(file: UploadFile, data_center: str = Form(...), current_u
     return StreamingResponse(progress_stream(), media_type="text/plain")
 
 
+@router.post("/create-folder")
+def create_folder(
+    folder: CreateFolderRequest,
+    current_user: User = Depends(get_current_user),
+):
+    if current_user.uid is None:
+        raise HTTPException(
+            status_code=400,
+            detail="User ID missing",
+        )
+
+    directory = folder.directory.strip().strip("/")
+
+    if not directory:
+        raise HTTPException(
+            status_code=400,
+            detail="Folder name cannot be empty",
+        )
+
+    # Check whether the folder already exists
+    files = get_files(uid=current_user.uid) or []
+
+    existing_folder = next(
+        (
+            file
+            for file in files
+            if file.directory == directory
+            and file.fname == ".__folder__"
+        ),
+        None,
+    )
+
+    if existing_folder:
+        raise HTTPException(
+            status_code=400,
+            detail="Folder already exists",
+        )
+
+    # Create dummy file representing the folder
+    folder_file = File(
+        fname=".__folder__",
+        directory=directory,
+        file_size=0,
+        file_type="folder",
+        flinks=[],
+        data_center="",
+        uid=current_user.uid,
+    )
+
+    # Save it to database
+    add_file(folder_file)
+
+    return {
+        "message": "Folder created successfully",
+        "directory": directory,
+    }
+
 @router.get("/files")
 def get_files_route(current_user: User = Depends(get_current_user)):
     files = get_files(uid=current_user.uid)
@@ -89,6 +150,8 @@ def get_files_route(current_user: User = Depends(get_current_user)):
         {
             "fid": f.fid,
             "fname": f.fname,
+            "directory": f.directory,
+            "file_size": f.file_size,
             "data_center": f.data_center,
             "file_type": f.file_type,
         }

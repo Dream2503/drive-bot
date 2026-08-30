@@ -1,0 +1,90 @@
+[2026-08-29 20:02:01,976] [WARNING] [discord.client] PyNaCl is not installed, voice will NOT be supported
+[2026-08-29 20:02:01,976] [WARNING] [discord.client] davey is not installed, voice will NOT be supported
+[2026-08-29 20:02:03] [Telegram] [INFO] [INIT] [StoreLimitless_bot] Bot is online. Logged in (id=8404712547)
+[2026-08-29 20:02:03] [Discord] [INFO] [MAIN] [] Starting Store Limitless Bot...
+[2026-08-29 20:02:03,708] [INFO] [discord.client] logging in using static token
+[2026-08-29 20:02:06,061] [INFO] [discord.gateway] Shard ID None has connected to Gateway (Session ID: 21e325875b5704de5ea61668ae24540c).
+[2026-08-29 20:02:08] [Discord] [INFO] [INIT] [StoreLimitless#1152] FILE_DUMP channel initialized: files-dump (id=1399311590616203284).
+[2026-08-29 20:02:08] [Discord] [INFO] [INIT] [StoreLimitless#1152] Bot online and ready (id=1399287140885725245).
+[2026-08-29 20:03:18] [Database] [INFO] [GET FILE] [] Select query executed for fid=5.
+[2026-08-29 20:03:22] [Database] [INFO] [GET FILE] [] Select query executed for fid=5.
+[2026-08-29 20:03:24] [Database] [INFO] [GET FILE] [] Select query executed for fid=5.
+[2026-08-29 20:03:24] [Database] [INFO] [GET FILE] [] Select query executed for fid=5.
+[2026-08-29 20:03:24] [Database] [INFO] [GET FILE] [] Select query executed for fid=5.
+[2026-08-29 20:04:19] [Database] [INFO] [GET FILE] [] Select query executed for fid=5.
+[2026-08-29 20:05:54] [Telegram] [INFO] [SHUTDOWN] [] Telegram client stopped.
+[2026-08-30 14:05:27,849] [WARNING] [discord.client] PyNaCl is not installed, voice will NOT be supported
+[2026-08-30 14:05:27,849] [WARNING] [discord.client] davey is not installed, voice will NOT be supported
+[2026-08-30 14:05:29] [Telegram] [INFO] [INIT] [StoreLimitless_bot] Bot is online. Logged in (id=8404712547)
+[2026-08-30 14:05:29] [Discord] [INFO] [MAIN] [] Starting Store Limitless Bot...
+[2026-08-30 14:05:29,582] [INFO] [discord.client] logging in using static token
+[2026-08-30 14:05:32,643] [INFO] [discord.gateway] Shard ID None has connected to Gateway (Session ID: c0b3fc15522bdb1b086fd6a0fe75b399).
+[2026-08-30 14:05:34] [Discord] [INFO] [INIT] [StoreLimitless#1152] FILE_DUMP channel initialized: files-dump (id=1399311590616203284).
+[2026-08-30 14:05:34] [Discord] [INFO] [INIT] [StoreLimitless#1152] Bot online and ready (id=1399287140885725245).
+[2026-08-30 14:05:45] [Telegram] [INFO] [SHUTDOWN] [] Telegram client stopped.[2026-08-30 14:28:27,261] [WARNING] [discord.client] PyNaCl is not installed, voice will NOT be supported
+[2026-08-30 14:28:27,261] [WARNING] [discord.client] davey is not installed, voice will NOT be supported
+[2026-08-30 14:28:28] [Telegram] [INFO] [INIT] [StoreLimitless_bot] Bot is online. Logged in (id=8404712547)
+[2026-08-30 14:28:28] [Discord] [INFO] [MAIN] [] Starting Store Limitless Bot...
+[2026-08-30 14:28:28,714] [INFO] [discord.client] logging in using static token
+[2026-08-30 14:28:32,548] [INFO] [discord.gateway] Shard ID None has connected to Gateway (Session ID: e48b761c397dd3eae03377e4fe98561f).
+[2026-08-30 14:28:34] [Discord] [INFO] [INIT] [StoreLimitless#1152] FILE_DUMP channel initialized: files-dump (id=1399311590616203284).
+[2026-08-30 14:28:34] [Discord] [INFO] [INIT] [StoreLimitless#1152] Bot online and ready (id=1399287140885725245).
+[2026-08-30 14:28:46] [Database] [INFO] [GET USER] [] Select query executed for username=i_am_doom.
+[2026-08-30 14:28:47] [Database] [INFO] [GET USER] [] Select query executed for username=i_am_doom.
+[2026-08-30 14:28:47] [Database] [INFO] [GET FILES] [] Select query executed for uid=9.
+[2026-08-30 14:28:47] [Database] [ERROR] [GET FILES] [] No files found for uid=9.
+[2026-08-30 14:28:47] [Database] [INFO] [GET USER] [] Select query executed for username=i_am_doom.
+[2026-08-30 14:28:47] [Database] [INFO] [GET FILES] [] Select query executed for uid=9.
+[2026-08-30 14:28:47] [Database] [ERROR] [GET FILES] [] No files found for uid=9.
+[2026-08-30 14:31:45] [Database] [INFO] [GET USER] [] Select query executed for username=i_am_doom.
+[2026-08-30 14:31:46] [Database] [INFO] [GET FILES] [] Select query executed for uid=9.
+[2026-08-30 14:31:46] [Database] [ERROR] [GET FILES] [] No files found for uid=9.
+[2026-08-30 14:31:46] [Database] [INFO] [GET USER] [] Select query executed for username=i_am_doom.
+[2026-08-30 14:31:46] [Database] [INFO] [GET FILES] [] Select query executed for uid=9.
+[2026-08-30 14:31:46] [Database] [ERROR] [GET FILES] [] No files found for uid=9.
+[2026-08-30 14:33:57] [Database] [INFO] [GET USER] [] Select query executed for username=i_am_doom.
+[2026-08-30 14:33:57] [Database] [INFO] [GET USER] [] Select query executed for username=i_am_doom.
+[2026-08-30 14:33:57] [Database] [INFO] [GET FILES] [] Select query executed for uid=9.
+[2026-08-30 14:33:58] [Database] [ERROR] [GET FILES] [] No files found for uid=9.
+[2026-08-30 14:33:58] [Database] [INFO] [GET USER] [] Select query executed for username=i_am_doom.
+[2026-08-30 14:33:58] [Database] [INFO] [GET FILES] [] Select query executed for uid=9.
+[2026-08-30 14:33:58] [Database] [ERROR] [GET FILES] [] No files found for uid=9.
+[2026-08-30 14:45:16] [Database] [INFO] [GET USER] [] Select query executed for username=i_am_doom.
+[2026-08-30 14:45:16] [Database] [INFO] [GET FILES] [] Select query executed for uid=9.
+[2026-08-30 14:45:16] [Database] [ERROR] [GET FILES] [] No files found for uid=9.
+[2026-08-30 14:45:16] [Database] [INFO] [GET USER] [] Select query executed for username=i_am_doom.
+[2026-08-30 14:45:16] [Database] [INFO] [GET FILES] [] Select query executed for uid=9.
+[2026-08-30 14:45:16] [Database] [ERROR] [GET FILES] [] No files found for uid=9.
+[2026-08-30 14:47:44] [Database] [INFO] [GET USER] [] Select query executed for username=i_am_doom.
+[2026-08-30 14:47:44] [Database] [INFO] [GET FILES] [] Select query executed for uid=9.
+[2026-08-30 14:47:44] [Database] [ERROR] [GET FILES] [] No files found for uid=9.
+[2026-08-30 14:47:44] [Database] [INFO] [GET USER] [] Select query executed for username=i_am_doom.
+[2026-08-30 14:47:44] [Database] [INFO] [GET FILES] [] Select query executed for uid=9.
+[2026-08-30 14:47:44] [Database] [ERROR] [GET FILES] [] No files found for uid=9.
+[2026-08-30 14:48:06] [Database] [INFO] [GET USER] [] Select query executed for username=i_am_doom.
+[2026-08-30 14:48:06] [Database] [INFO] [GET FILES] [] Select query executed for uid=9.
+[2026-08-30 14:48:06] [Database] [ERROR] [GET FILES] [] No files found for uid=9.
+[2026-08-30 14:48:06] [Database] [INFO] [GET USER] [] Select query executed for username=i_am_doom.
+[2026-08-30 14:48:07] [Database] [INFO] [GET FILES] [] Select query executed for uid=9.
+[2026-08-30 14:48:07] [Database] [ERROR] [GET FILES] [] No files found for uid=9.
+[2026-08-30 14:49:27] [Database] [INFO] [GET USER] [] Select query executed for username=i_am_doom.
+[2026-08-30 14:49:27] [Database] [INFO] [GET FILES] [] Select query executed for uid=9.
+[2026-08-30 14:49:27] [Database] [ERROR] [GET FILES] [] No files found for uid=9.
+[2026-08-30 14:49:27] [Database] [INFO] [GET USER] [] Select query executed for username=i_am_doom.
+[2026-08-30 14:49:28] [Database] [INFO] [GET FILES] [] Select query executed for uid=9.
+[2026-08-30 14:49:28] [Database] [ERROR] [GET FILES] [] No files found for uid=9.
+[2026-08-30 15:20:35,375] [INFO] [discord.gateway] Shard ID None has successfully RESUMED session e48b761c397dd3eae03377e4fe98561f.
+[2026-08-30 15:27:08] [Database] [INFO] [GET USER] [] Select query executed for username=i_am_doom.
+[2026-08-30 15:27:09] [Database] [INFO] [GET FILES] [] Select query executed for uid=9.
+[2026-08-30 15:27:09] [Database] [ERROR] [GET FILES] [] No files found for uid=9.
+[2026-08-30 15:27:09] [Database] [INFO] [GET USER] [] Select query executed for username=i_am_doom.
+[2026-08-30 15:27:09] [Database] [INFO] [GET FILES] [] Select query executed for uid=9.
+[2026-08-30 15:27:09] [Database] [ERROR] [GET FILES] [] No files found for uid=9.
+[2026-08-30 15:27:18] [Database] [INFO] [GET USER] [] Select query executed for username=i_am_doom.
+[2026-08-30 15:27:18] [Database] [INFO] [GET FILES] [] Select query executed for uid=9.
+[2026-08-30 15:27:18] [Database] [ERROR] [GET FILES] [] No files found for uid=9.
+[2026-08-30 15:27:19] [Database] [INFO] [GET USER] [] Select query executed for username=i_am_doom.
+[2026-08-30 15:27:19] [Database] [INFO] [GET FILES] [] Select query executed for uid=9.
+[2026-08-30 15:27:19] [Database] [ERROR] [GET FILES] [] No files found for uid=9.
+[2026-08-30 16:01:51,475] [INFO] [discord.gateway] Shard ID None has successfully RESUMED session e48b761c397dd3eae03377e4fe98561f.
+[2026-08-30 16:50:04] [Telegram] [INFO] [SHUTDOWN] [] Telegram client stopped.
