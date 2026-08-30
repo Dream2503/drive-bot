@@ -1,81 +1,51 @@
+from datetime import datetime
+
 from pydantic import BaseModel, ConfigDict
 
-"""
-CREATE TABLE IF NOT EXISTS users
-(
-    uid        INTEGER PRIMARY KEY AUTOINCREMENT,
-    username   VARCHAR(50) NOT NULL UNIQUE,
-    password   VARCHAR     NOT NULL,
-    first_name VARCHAR     NOT NULL DEFAULT '',
-    last_name  VARCHAR     NOT NULL DEFAULT ''
-);
-"""
+from core.data_center import DataCenter
 
 
 class User(BaseModel):
     model_config = ConfigDict(from_attributes=True)
-    uid: int | None = None
-    first_name: str
-    last_name: str
     username: str
     password: str
+    first_name: str
+    last_name: str
+    created_at: datetime
 
     def __repr__(self) -> str:
         return (
-            f"User(uid={self.uid}, "
+            f"User(username={self.username!r}"
             f"first_name={self.first_name!r}, "
             f"last_name={self.last_name!r}, "
-            f"username={self.username!r})"
+            f"created_at={self.created_at})"
         )
-
-
-"""
-CREATE TABLE IF NOT EXISTS files
-(
-    fid         INTEGER PRIMARY KEY AUTOINCREMENT,
-    fname       TEXT    NOT NULL,
-    directory   TEXT,
-    file_size   INTEGER NOT NULL,
-    file_type   TEXT,
-    data_center TEXT,
-    flinks      TEXT    NOT NULL,
-    uid         INTEGER,
-    FOREIGN KEY (uid) REFERENCES users (uid)
-);
-"""
 
 
 class File(BaseModel):
     model_config = ConfigDict(from_attributes=True)
-    fid: int | None = None
-    fname: str
+    id: int | None = None
     directory: str
-    file_size: int
-    file_type: str
-    flinks: list[str]
-    data_center: str
-    uid: int
+    name: str
+    type: str
+    size: int
+    modified_at: datetime
+    data_center: DataCenter
+    links: list[str]
+    username: str
 
     def __repr__(self) -> str:
         return (
-            f"File(fid={self.fid}, "
-            f"fname={self.fname!r}, "
+            f"File(fid={self.id}, "
             f"directory={self.directory!r}, "
-            f"file_size={self.file_size}, "
-            f"file_type={self.file_type}, "
-            f"flinks={self.flinks!r}, "
-            f"data_center={self.data_center!r}, "
-            f"uid={self.uid})"
+            f"fname={self.name!r}, "
+            f"file_size={self.size}, "
+            f"file_type={self.type}, "
+            f"modified_at={self.modified_at}, "
+            f"flinks={self.links!r}, "
+            f"data_center={self.data_center.NAME!r}, "
+            f"uid={self.username})"
         )
-
-
-"""
-CREATE TABLE IF NOT EXISTS github_cursor
-(
-    repo_id INTEGER NOT NULL DEFAULT 0 PRIMARY KEY,
-    used    INTEGER NOT NULL DEFAULT 0
-);
-"""
 
 
 class LoginRequest(BaseModel):

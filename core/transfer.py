@@ -10,7 +10,7 @@ from core.utils import write_log
 
 
 async def upload(file: File) -> AsyncGenerator[float | int, None]:
-    user: User | None = get_user(uid=file.uid)
+    user: User | None = get_user(uid=file.username)
     data_center: type[DataCenter] = DataCenter(file.data_center)
 
     if not user:
@@ -19,14 +19,14 @@ async def upload(file: File) -> AsyncGenerator[float | int, None]:
     write_log("INFO", data_center, "UPLOAD", user.username, f"Got file: {file}")
 
     try:
-        if get_file(fname=file.fname, uid=file.uid):
-            write_log("ERROR", data_center, "UPLOAD", user.username, f"File `{file.fname}` already exists.")
+        if get_file(file_name=file.name, username=file.username):
+            write_log("ERROR", data_center, "UPLOAD", user.username, f"File `{file.name}` already exists.")
             return
 
-        file_path: Path = (TRANSFER_PATH / Path(file.fname).name).resolve()
+        file_path: Path = (TRANSFER_PATH / Path(file.name).name).resolve()
 
         if not file_path.is_relative_to(TRANSFER_PATH.resolve()):
-            write_log("ERROR", data_center, "UPLOAD", user.username, f"Illegal file path attempted: {file.fname}")
+            write_log("ERROR", data_center, "UPLOAD", user.username, f"Illegal file path attempted: {file.name}")
             return
 
         if not file_path.exists():
@@ -79,7 +79,7 @@ async def upload(file: File) -> AsyncGenerator[float | int, None]:
                 write_log("INFO", data_center, "UPLOAD", user.username, f"Uploaded {len(results)}/{total_parts} ({progress:.1f}%)")
                 yield progress
 
-            file.flinks = [results[i] for i in range(1, total_parts + 1)]
+            file.links = [results[i] for i in range(1, total_parts + 1)]
 
         add_file(file)
         write_log("INFO", data_center, "UPLOAD", user.username, f"Upload complete `{file_path.name}`")
@@ -91,26 +91,26 @@ async def upload(file: File) -> AsyncGenerator[float | int, None]:
 
 async def download(file: File) -> AsyncGenerator[float | int, None]:
     data_center: type[DataCenter] = DataCenter(file.data_center)
-    write_log("INFO", data_center, "DOWNLOAD", str(file.uid), f"Got file: {file}")
+    write_log("INFO", data_center, "DOWNLOAD", str(file.username), f"Got file: {file}")
 
     try:
-        total_parts: int = len(file.flinks)
+        total_parts: int = len(file.links)
 
         if total_parts == 0:
-            write_log("ERROR", data_center, "DOWNLOAD", str(file.uid), "File has no parts")
+            write_log("ERROR", data_center, "DOWNLOAD", str(file.username), "File has no parts")
             return
 
-        file_path: Path = (TRANSFER_PATH / Path(file.fname).name).resolve()
+        file_path: Path = (TRANSFER_PATH / Path(file.name).name).resolve()
 
         if not file_path.is_relative_to(TRANSFER_PATH.resolve()):
-            write_log("ERROR", data_center, "DOWNLOAD", str(file.uid), f"Illegal file path attempted: {file.fname}")
+            write_log("ERROR", data_center, "DOWNLOAD", str(file.username), f"Illegal file path attempted: {file.name}")
             return
 
-        write_log("INFO", data_center, "DOWNLOAD", str(file.uid), f"Starting download `{file.fname}` ({total_parts} parts)")
+        write_log("INFO", data_center, "DOWNLOAD", str(file.username), f"Starting download `{file.name}` ({total_parts} parts)")
 
         with file_path.open("wb") as output:
-            for i, flink in enumerate(file.flinks):
-                part = await DataCenter.get_cached_part(str(file.uid), i)
+            for i, flink in enumerate(file.links):
+                part = await DataCenter.get_cached_part(str(file.username), i)
 
                 if part is None:
                     while True:
@@ -119,18 +119,18 @@ async def download(file: File) -> AsyncGenerator[float | int, None]:
                             break
 
                         except OSError as e:
-                            write_log("ERROR", data_center, "DOWNLOAD", str(file.uid), f"Network error part {i + 1}/{total_parts}, retrying: {e}")
+                            write_log("ERROR", data_center, "DOWNLOAD", str(file.username), f"Network error part {i + 1}/{total_parts}, retrying: {e}")
 
-                    await DataCenter.cache_part(str(file.uid), i, chunk)
+                    await DataCenter.cache_part(str(file.username), i, chunk)
                     part = chunk
 
                 output.write(part)
 
                 progress: float | int = round(((i + 1) / total_parts) * 100, 2)
-                write_log("INFO", data_center, "DOWNLOAD", str(file.uid), f"Downloaded {i + 1}/{total_parts} ({progress:.1f}%)")
+                write_log("INFO", data_center, "DOWNLOAD", str(file.username), f"Downloaded {i + 1}/{total_parts} ({progress:.1f}%)")
                 yield progress
 
-        write_log("INFO", data_center, "DOWNLOAD", str(file.uid), f"Download complete `{file_path.name}`")
+        write_log("INFO", data_center, "DOWNLOAD", str(file.username), f"Download complete `{file_path.name}`")
 
     except Exception as e:
-        write_log("ERROR", data_center, "DOWNLOAD", str(file.uid), f"Unhandled exception: {e}\n{format_exc()}")
+        write_log("ERROR", data_center, "DOWNLOAD", str(file.username), f"Unhandled exception: {e}\n{format_exc()}")

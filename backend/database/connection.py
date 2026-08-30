@@ -11,24 +11,24 @@ try:
     CURSOR.executescript(
         """
         CREATE TABLE IF NOT EXISTS users (
-            uid        INTEGER PRIMARY KEY AUTOINCREMENT,
-            username   TEXT NOT NULL UNIQUE,
+            username   TEXT PRIMARY KEY,
             password   TEXT NOT NULL,
             first_name TEXT NOT NULL DEFAULT '',
-            last_name  TEXT NOT NULL DEFAULT ''
+            last_name  TEXT NOT NULL DEFAULT '',
+            created_at TEXT NOT NULL
         );
 
         CREATE TABLE IF NOT EXISTS files (
-            fid         INTEGER PRIMARY KEY AUTOINCREMENT,
-            fname       TEXT    NOT NULL,
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
             directory   TEXT,
-            file_size   INTEGER NOT NULL,
-            file_type   TEXT,
+            name        TEXT    NOT NULL,
+            type        TEXT    NOT NULL,
+            size        INTEGER NOT NULL,
             modified_at TEXT    NOT NULL,
-            data_center TEXT,
-            flinks      TEXT    NOT NULL,
-            uid         INTEGER,
-            FOREIGN KEY (uid) REFERENCES users (uid)
+            data_center TEXT    NOT NULL,
+            links       TEXT    NOT NULL,
+            username    TEXT,
+            FOREIGN KEY (username) REFERENCES users (username)
         );
 
         CREATE TABLE IF NOT EXISTS github_cursor (
