@@ -2,15 +2,15 @@ from json import dumps
 from mimetypes import guess_type
 from pathlib import Path
 from typing import AsyncGenerator
-from fastapi.responses import FileResponse
-from backend.database.utils import add_file
-import os
+# from fastapi.responses import FileResponse
+# import os
+from datetime import datetime,timezone
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, UploadFile
 from pydantic import BaseModel
 from fastapi.responses import Response, StreamingResponse
 
-from backend.database import add_user, File, get_files, get_user, LoginRequest, User, get_file
+from backend.database import add_user, File, get_files, get_user, LoginRequest, User, get_file, add_file,update_file,update_user,delete_file
 from backend.server.jwt_handler import create_access_token, get_current_user
 from backend.server.security import hash_password, verify_password, create_public_stream_token, verify_public_stream_token
 from core.config import TRANSFER_PATH
@@ -38,32 +38,57 @@ def register(user: User) -> dict[str, str]:
 @auth.post("/login")
 def login(credentials: LoginRequest) -> dict[str, str]:
     user: User | None = get_user(username=credentials.username)
+    print(user)
 
     if not user or not verify_password(credentials.password, user.password):
         raise HTTPException(status_code=401, detail="Invalid username or password")
 
     return {
-        "Message": "Login successful",
+        "message": "Login successful",
         "access_token": create_access_token(data={"sub": user.username}),
         "token_type": "bearer",
     }
 
 
 @auth.post("/upload")
-async def upload_route(file: UploadFile, data_center: str = Form(...), current_user: User = Depends(get_current_user)) -> StreamingResponse:
-    if not file.filename:
-        raise ValueError("No file name provided in /upload")
+async def upload_route(
+    file: UploadFile,
+    data_center: str = Form(...),
+    directory: str = Form(""),
+    current_user: User = Depends(get_current_user),
+) -> StreamingResponse:
 
-    file_path: Path = TRANSFER_PATH / current_user.username / file.filename
+    if not file.filename:
+        raise HTTPException(
+            status_code=400,
+            detail="No file name provided",
+        )
+    filename = Path(file.filename).name
+    
+    directory = directory.strip().strip("/")
+
+    if (directory in {".", ".."} or "/" in directory or "\\" in directory):
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid folder name",
+            )
+    
+
+    user_transfer_path = TRANSFER_PATH / current_user.username
+    if directory:
+        user_transfer_path = user_transfer_path / directory
+    user_transfer_path.mkdir(parents=True, exist_ok=True)
+
+    file_path = user_transfer_path / filename
 
     with open(file_path, "wb") as buffer:
         while chunk := await file.read(BackEnd.MAX_SIZE):
             buffer.write(chunk)
 
     file_job: File = File(
-        directory="",
+        directory=directory,
         name=file.filename,
-        type=str(guess_type(file.filename)[0]),
+        type=guess_type(filename)[0] or "application/octet-stream",
         size=file_path.stat().st_size,
         modified_at=datetime.fromtimestamp(file_path.stat().st_mtime, tz=timezone.utc),
         links=[],
@@ -75,19 +100,13 @@ async def upload_route(file: UploadFile, data_center: str = Form(...), current_u
         async for progress in upload(file_job):
             yield dumps({"progress": progress}) + "\n"
 
-    return StreamingResponse(progress_stream(), media_type="text/plain")
+    return StreamingResponse(progress_stream(), media_type="application/x-ndjson")
 
 @auth.post("/create-folder")
 def create_folder(
     folder: CreateFolderRequest,
     current_user: User = Depends(get_current_user),
 ):
-    if current_user.uid is None:
-        raise HTTPException(
-            status_code=400,
-            detail="User ID missing",
-        )
-
     directory = folder.directory.strip().strip("/")
 
     if not directory:
@@ -96,15 +115,22 @@ def create_folder(
             detail="Folder name cannot be empty",
         )
 
-    # Check whether the folder already exists
-    files = get_files(uid=current_user.uid) or []
+    # Prevent nested/invalid paths if you only want one folder name
+    if (directory in {".", ".."} or "/" in directory or "\\" in directory):
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid folder name",
+        )
+
+    # Check existing folders/files
+    files = get_files(username=current_user.username) or []
 
     existing_folder = next(
         (
             file
             for file in files
             if file.directory == directory
-            and file.fname == ".__folder__"
+            and file.name == ".__folder__"
         ),
         None,
     )
@@ -115,18 +141,22 @@ def create_folder(
             detail="Folder already exists",
         )
 
-    # Create dummy file representing the folder
+    # Create actual folder on disk
+    folder_path = TRANSFER_PATH / current_user.username / directory
+    folder_path.mkdir(parents=True, exist_ok=True)
+
+    # Create database entry representing the folder
     folder_file = File(
-        fname=".__folder__",
         directory=directory,
-        file_size=0,
-        file_type="folder",
-        flinks=[],
+        name=".__folder__",
+        type="folder",
+        size=0,
+        modified_at=datetime.now(timezone.utc),
+        links=[],
         data_center="",
-        uid=current_user.uid,
+        username=current_user.username,
     )
 
-    # Save it to database
     add_file(folder_file)
 
     return {
@@ -135,25 +165,16 @@ def create_folder(
     }
 
 @auth.get("/files")
-def get_files_route(current_user: User = Depends(get_current_user)):
-    files = get_files(username=current_user.username)
-
-    if not files:
-        return []
+def get_user_files(
+    current_user: User = Depends(get_current_user),
+) -> list[File]:
+    files = get_files(username=current_user.username) or []
 
     return [
-        {
-            "id": file.id,
-            "directory": file.directory,
-            "name": file.name,
-            "type": file.type,
-            "size": file.size,
-            "modified_at": file.modified_at,
-            "data_center": file.data_center,
-        }
+        file
         for file in files
+        if file.directory != "__trash__"
     ]
-
 
 @auth.post("/files/{file_id}/public-link")
 def create_public_stream_link(file_id: int, current_user: User = Depends(get_current_user)) -> dict[str, str]:

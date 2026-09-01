@@ -1,7 +1,7 @@
-from datetime import datetime
+from datetime import datetime,timezone
 
 from core.data_center import DataCenter
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict,Field
 
 
 class User(BaseModel):
@@ -10,7 +10,7 @@ class User(BaseModel):
     password: str
     first_name: str
     last_name: str
-    created_at: datetime
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     def __repr__(self) -> str:
         return (
