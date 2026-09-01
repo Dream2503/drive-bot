@@ -15,6 +15,7 @@ load_dotenv()
 
 LOG_HANDLER: TextIO = open(LOG_PATH, 'a')
 
+
 def getenv(key: str) -> str:
     value: str | None = os.getenv(key)
 
