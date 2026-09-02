@@ -15,6 +15,7 @@ from core.config import TRANSFER_PATH
 from core.data_center import BackEnd
 from core.stream import ChunkCache, get_chunks, parse_range, stream_range
 from core.transfer import upload
+from core.download_utils.downloaders import download_google_drive
 
 auth: APIRouter = APIRouter(prefix="/auth")
 
@@ -22,6 +23,10 @@ auth: APIRouter = APIRouter(prefix="/auth")
 class CreateFolderRequest(BaseModel):
     directory: str
 
+class GoogleDriveDownloadRequest(BaseModel):
+    google_drive_url: str
+    data_center: str
+    directory: str = ""
 
 @auth.post("/register")
 def register(user: User) -> dict[str, str]:
@@ -92,6 +97,68 @@ async def upload_route(file: UploadFile, data_center: str = Form(...), directory
             yield json.dumps({"progress": progress}) + "\n"
 
     return StreamingResponse(progress_stream(), media_type="application/x-ndjson")
+
+
+@auth.post("/upload-from-drive")
+async def upload_from_drive_route(
+    request: GoogleDriveDownloadRequest,
+    current_user: User = Depends(get_current_user),
+) -> StreamingResponse:
+
+    google_drive_url = request.google_drive_url.strip()
+    data_center = request.data_center.strip()
+    directory = request.directory.strip().strip("/")
+
+    if not google_drive_url:
+        raise HTTPException(status_code=400,detail="Google Drive URL is required")
+
+    if "drive.google.com" not in google_drive_url:
+        raise HTTPException(status_code=400,detail="Please provide a valid Google Drive link")
+    
+    if not data_center:
+        raise HTTPException(status_code=400,detail="Data center is required")
+
+    if data_center not in {"Discord", "Telegram"}:
+        raise HTTPException(status_code=400,detail="Invalid data center")
+
+    if directory in {".", ".."} or "/" in directory or "\\" in directory:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid folder name",
+        )
+
+    file_job = File(
+        directory=directory,
+        name="google_drive_file",
+        type="application/octet-stream",
+        size=0,
+        modified_at=datetime.now(timezone.utc),
+        links=[],
+        data_center=data_center,
+        username=current_user.username,
+    )
+
+    async def progress_stream() -> AsyncGenerator[str, None]:
+        try:
+            async for progress in download_google_drive(
+                file_job,
+                google_drive_url,
+            ):
+                yield json.dumps({
+                    "status": "uploading",
+                    "progress": progress,
+                }) + "\n"
+
+            yield json.dumps({"status": "completed","progress": 100,}) + "\n"
+
+        except Exception as e:
+            print(f"Google Drive upload error: {e}")
+            yield json.dumps({"status": "error","error": str(e),}) + "\n"
+
+    return StreamingResponse(
+        progress_stream(),
+        media_type="application/x-ndjson",
+    )
 
 
 @auth.post("/create-folder")
