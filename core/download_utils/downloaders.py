@@ -1,218 +1,105 @@
 import asyncio
 import mimetypes
+from datetime import datetime, timezone
 from pathlib import Path
 from traceback import format_exc
-from typing import AsyncGenerator, BinaryIO
-from datetime import datetime,timezone
+from typing import AsyncGenerator
 
 import gdown
 import libtorrent as lt
 import requests
 
 from backend.database import File, add_file
-from core.config import TRANSFER_PATH
+from core.config import GOOGLE_API_KEY, TRANSFER_PATH
 from core.data_center import DataCenter
 from core.transfer import upload
 from core.utils import write_log
 
 
-async def download_google_drive(
-    file: File,
-    link: str,
-) -> AsyncGenerator[float | int, None]:
-
+async def download_google_drive(file: File, link: str) -> AsyncGenerator[float | int, None]:
     data_center: type[DataCenter] = DataCenter(file.data_center)
-
-    write_log(
-        "INFO",
-        data_center,
-        "DOWNLOAD",
-        str(file.username),
-        f"Starting download: {link}",
-    )
-
+    write_log("INFO", data_center, "DOWNLOAD", file.username, f"Starting download: {link}")
     downloaded_path: Path | None = None
 
     try:
-        response = await asyncio.to_thread(
-            requests.get,
-            link,
-            stream=True,
-        )
-
+        response = await asyncio.to_thread(requests.get, f"https://www.googleapis.com/drive/v3/files/{link.split("/file/d/")[1].split("/")[0]}",
+                                           params={"fields": "size", "key": GOOGLE_API_KEY})
         response.raise_for_status()
 
-        if "Content-Length" not in response.headers:
-            response.close()
+        if "size" not in response.json():
+            raise OSError("Could not determine Google Drive file size")
 
-            raise OSError(
-                "Could not determine Google Drive file size"
-            )
-
-        total_size = int(
-            response.headers["Content-Length"]
-        )
-
-        response.close()
-        temp_dir = (
-            TRANSFER_PATH
-            / file.username
-            / "gdown"
-        )
-
-        temp_dir.mkdir(
-            parents=True,
-            exist_ok=True,
-        )
-
-        download_task = asyncio.create_task(
-            asyncio.to_thread(
-                gdown.download,
-                link,
-                output=str(temp_dir),
-                quiet=True,
-                fuzzy=True,
-            )
-        )
+        total_size: int = int(response.json()["size"])
+        temp_dir: Path = TRANSFER_PATH / file.username / "gdown"
+        temp_dir.mkdir(parents=True, exist_ok=True)
+        download_task = asyncio.create_task(asyncio.to_thread(gdown.download, link, output=str(temp_dir), quiet=True))
         part_file = None
 
         while not download_task.done():
-
-            files = [
-                path
-                for path in temp_dir.iterdir()
-                if path.is_file()
-            ]
+            files = [path for path in temp_dir.iterdir() if path.is_file()]
 
             if files:
-                part_file = max(
-                    files,
-                    key=lambda path: path.stat().st_mtime,
-                )
-
+                part_file = max(files, key=lambda path: path.stat().st_mtime)
                 break
 
             await asyncio.sleep(0.1)
 
         if part_file is None:
-
             downloaded = await download_task
 
             if not isinstance(downloaded, str):
-                raise OSError(
-                    "Google Drive download failed"
-                )
+                raise OSError("Google Drive download failed")
 
             downloaded_path = Path(downloaded)
 
         else:
             part = 0
             max_size = data_center.MAX_SIZE
-
             links: dict[int, str] = {}
-
-            total_parts = (
-                total_size + max_size - 1
-            ) // max_size
-
+            total_parts = (total_size + max_size - 1) // max_size
 
             while not download_task.done():
-
                 size = part_file.stat().st_size
-
-                limit = (
-                    part + 1
-                ) * max_size
-
+                limit = (part + 1) * max_size
 
                 if size >= limit:
+                    with part_file.open("rb") as buffer:
+                        buffer.seek(part * max_size)
+                        chunk = buffer.read(max_size)
 
-                    with part_file.open(
-                        "rb"
-                    ) as buffer:
-
-                        buffer.seek(
-                            part * max_size
-                        )
-
-                        chunk = buffer.read(
-                            max_size
-                        )
-
-
-                    msg_id = (
-                        await data_center.upload(
-                            chunk,
-                            f"{part_file.name}.part{part}",
-                        )
-                    )
-
+                    msg_id = await data_center.upload(chunk, f"{part_file.name}.part{part}")
                     links[part] = msg_id
                     part += 1
-
-                    progress = min(
-                        part * max_size,
-                        total_size,
-                    ) / total_size * 100
-
-
-                    write_log("INFO",data_center,"UPLOAD",str(file.username),f"Uploaded part {part}/{total_parts}",)
-
-                    yield round(progress,2,)
+                    progress = min(part * max_size, total_size) / total_size * 100
+                    write_log("INFO", data_center, "UPLOAD", str(file.username), f"Uploaded part {part}/{total_parts}")
+                    yield round(progress, 2)
 
                 await asyncio.sleep(0.1)
 
             downloaded = await download_task
 
-
-            if not isinstance(
-                downloaded,
-                str,
-            ):
+            if not isinstance(downloaded, str):
                 raise OSError("Google Drive download failed")
 
-
             downloaded_path = Path(downloaded)
-
             file.name = downloaded_path.name
-
-            file.size = (downloaded_path.stat().st_size)    
-            file.type = (mimetypes.guess_type(file.name)[0]or "application/octet-stream")
-
-            file.modified_at = (datetime.now(timezone.utc))
-
+            file.size = downloaded_path.stat().st_size
+            file.type = mimetypes.guess_type(file.name)[0] or "application/octet-stream"
+            file.modified_at = datetime.now(timezone.utc)
             size = file.size
 
-            while size >= (
-                part + 1
-            ) * max_size:
+            while size >= (part + 1) * max_size:
+                with downloaded_path.open("rb") as buffer:
+                    buffer.seek(part * max_size)
+                    chunk = buffer.read(max_size)
 
-                with downloaded_path.open(
-                    "rb"
-                ) as buffer:
-
-                    buffer.seek(
-                        part * max_size
-                    )
-
-                    chunk = buffer.read(
-                        max_size
-                    )
-
-                msg_id = (await data_center.upload(chunk,f"{downloaded_path.name}.part{part}",))
-
+                msg_id = await data_center.upload(chunk, f"{downloaded_path.name}.part{part}")
                 links[part] = msg_id
-
                 part += 1
 
-                progress = min(
-                    part * max_size,
-                    total_size,
-                ) / total_size * 100
-
-                write_log("INFO",data_center,"UPLOAD",str(file.username),f"Uploaded part {part}/{total_parts}",)
-
-                yield round(progress,2,)
+                progress = min(part * max_size, total_size) / total_size * 100
+                write_log("INFO", data_center, "UPLOAD", str(file.username), f"Uploaded part {part}/{total_parts}")
+                yield round(progress, 2)
 
             start = part * max_size
 
@@ -221,32 +108,22 @@ async def download_google_drive(
                     buffer.seek(start)
                     chunk = buffer.read()
 
-                msg_id = (
-                    await data_center.upload(chunk,f"{downloaded_path.name}.part{part}",))
-
+                msg_id = await data_center.upload(chunk, f"{downloaded_path.name}.part{part}")
                 links[part] = msg_id
                 part += 1
-
-                write_log("INFO",data_center,"UPLOAD",str(file.username),(f"Uploaded final part "f"{part}/{total_parts}"),)
-
+                write_log("INFO", data_center, "UPLOAD", str(file.username), f"Uploaded final part {part}/{total_parts}")
                 yield 100
 
-            file.links = [
-                links[i]
-                for i in range(part)
-            ]
-
+            file.links = [links[i] for i in range(part)]
             add_file(file)
-
-            write_log("INFO",data_center,"DOWNLOAD",str(file.username),(f"Download and upload complete "f"`{file.name}`"),)
+            write_log("INFO", data_center, "DOWNLOAD", str(file.username), f"Download and upload complete `{file.name}`")
 
     except Exception as e:
-        write_log("ERROR",data_center,"DOWNLOAD",str(file.username),(f"Unhandled exception: {e}\n"f"{format_exc()}"),)
-
+        write_log("ERROR", data_center, "DOWNLOAD", str(file.username), f"Unhandled exception: {e}\n{format_exc()}")
         raise
 
     finally:
-        if (downloaded_path is not None and downloaded_path.exists()):
+        if downloaded_path is not None and downloaded_path.exists():
             downloaded_path.unlink()
 
 

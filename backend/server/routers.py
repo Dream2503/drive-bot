@@ -13,9 +13,9 @@ from backend.server.jwt_handler import create_access_token, get_current_user
 from backend.server.security import hash_password, verify_password, create_public_stream_token, verify_public_stream_token
 from core.config import TRANSFER_PATH
 from core.data_center import BackEnd
+from core.parser import parse_link
 from core.stream import ChunkCache, get_chunks, parse_range, stream_range
 from core.transfer import upload
-from core.download_utils.downloaders import download_google_drive
 
 auth: APIRouter = APIRouter(prefix="/auth")
 
@@ -23,10 +23,12 @@ auth: APIRouter = APIRouter(prefix="/auth")
 class CreateFolderRequest(BaseModel):
     directory: str
 
+
 class GoogleDriveDownloadRequest(BaseModel):
     google_drive_url: str
     data_center: str
     directory: str = ""
+
 
 @auth.post("/register")
 def register(user: User) -> dict[str, str]:
@@ -59,10 +61,8 @@ def login(credentials: LoginRequest) -> dict[str, str]:
 async def upload_route(file: UploadFile, data_center: str = Form(...), directory: str = Form(""),
                        current_user: User = Depends(get_current_user)) -> StreamingResponse:
     if not file.filename:
-        raise HTTPException(
-            status_code=400,
-            detail="No file name provided",
-        )
+        raise HTTPException(status_code=400, detail="No file name provided")
+
     filename = Path(file.filename).name
     directory = directory.strip().strip("/")
 
@@ -100,32 +100,25 @@ async def upload_route(file: UploadFile, data_center: str = Form(...), directory
 
 
 @auth.post("/upload-from-drive")
-async def upload_from_drive_route(
-    request: GoogleDriveDownloadRequest,
-    current_user: User = Depends(get_current_user),
-) -> StreamingResponse:
-
+async def upload_from_drive_route(request: GoogleDriveDownloadRequest, current_user: User = Depends(get_current_user), ) -> StreamingResponse:
     google_drive_url = request.google_drive_url.strip()
     data_center = request.data_center.strip()
     directory = request.directory.strip().strip("/")
 
     if not google_drive_url:
-        raise HTTPException(status_code=400,detail="Google Drive URL is required")
+        raise HTTPException(status_code=400, detail="Google Drive URL is required")
 
     if "drive.google.com" not in google_drive_url:
-        raise HTTPException(status_code=400,detail="Please provide a valid Google Drive link")
-    
+        raise HTTPException(status_code=400, detail="Please provide a valid Google Drive link")
+
     if not data_center:
-        raise HTTPException(status_code=400,detail="Data center is required")
+        raise HTTPException(status_code=400, detail="Data center is required")
 
     if data_center not in {"Discord", "Telegram"}:
-        raise HTTPException(status_code=400,detail="Invalid data center")
+        raise HTTPException(status_code=400, detail="Invalid data center")
 
     if directory in {".", ".."} or "/" in directory or "\\" in directory:
-        raise HTTPException(
-            status_code=400,
-            detail="Invalid folder name",
-        )
+        raise HTTPException(status_code=400, detail="Invalid folder name")
 
     file_job = File(
         directory=directory,
@@ -140,25 +133,19 @@ async def upload_from_drive_route(
 
     async def progress_stream() -> AsyncGenerator[str, None]:
         try:
-            async for progress in download_google_drive(
-                file_job,
-                google_drive_url,
-            ):
+            async for progress in parse_link(file_job, google_drive_url):
                 yield json.dumps({
                     "status": "uploading",
                     "progress": progress,
                 }) + "\n"
 
-            yield json.dumps({"status": "completed","progress": 100,}) + "\n"
+            yield json.dumps({"status": "completed", "progress": 100, }) + "\n"
 
         except Exception as e:
             print(f"Google Drive upload error: {e}")
-            yield json.dumps({"status": "error","error": str(e),}) + "\n"
+            yield json.dumps({"status": "error", "error": str(e), }) + "\n"
 
-    return StreamingResponse(
-        progress_stream(),
-        media_type="application/x-ndjson",
-    )
+    return StreamingResponse(progress_stream(), media_type="application/x-ndjson")
 
 
 @auth.post("/create-folder")
@@ -235,24 +222,6 @@ async def public_stream_route(token: str, request: Request):
     if file is None or file.username != payload["username"]:
         raise HTTPException(status_code=404, detail="File not found")
 
-    return await stream_file(file, request)
-
-
-@auth.delete("/files/{file_id}")
-def delete_file_route(file_id: int, current_user: User = Depends(get_current_user)) -> dict[str, str]:
-    file: File | None = get_file(file_id=file_id)
-
-    if file is None:
-        raise HTTPException(status_code=404, detail="File not found")
-
-    if file.username != current_user.username:
-        raise HTTPException(status_code=403, detail="Access denied")
-
-    file.directory = "__trash__"
-    return {"message": "File moved to trash"}
-
-
-async def stream_file(file: File, request: Request):
     try:
         parts = get_chunks(file.links, file.size)
 
@@ -294,9 +263,18 @@ async def stream_file(file: File, request: Request):
     else:
         status_code = 200
 
-    return StreamingResponse(
-        stream_range(parts, byte_range, cache),
-        status_code=status_code,
-        headers=headers,
-        media_type=content_type,
-    )
+    return StreamingResponse(stream_range(parts, byte_range, cache), status_code=status_code, headers=headers, media_type=content_type)
+
+
+@auth.delete("/files/{file_id}")
+def delete_file_route(file_id: int, current_user: User = Depends(get_current_user)) -> dict[str, str]:
+    file: File | None = get_file(file_id=file_id)
+
+    if file is None:
+        raise HTTPException(status_code=404, detail="File not found")
+
+    if file.username != current_user.username:
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    file.directory = "__trash__"
+    return {"message": "File moved to trash"}
