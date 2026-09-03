@@ -1,344 +1,262 @@
-import { useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import {useState} from "react";
+import {useNavigate, useSearchParams} from "react-router-dom";
 
 const DATA_CENTERS = ["Discord", "Telegram"];
 
 export default function UploadPage() {
-const navigate = useNavigate();
-const [searchParams] = useSearchParams();
+    const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
 
 // Current directory from dashboard
-const directory = searchParams.get("directory") || "";
+    const directory = searchParams.get("directory") || "";
 
 // Upload states
-const [file, setFile] = useState(null);
-const [googleDriveLink, setGoogleDriveLink] = useState("");
-const [uploadMode, setUploadMode] = useState("file");
+    const [file, setFile] = useState(null);
+    const [googleDriveLink, setGoogleDriveLink] = useState("");
+    const [uploadMode, setUploadMode] = useState("file");
 
 // Other states
-const [dataCenter, setDataCenter] = useState("Discord");
-const [progress, setProgress] = useState(0);
-const [status, setStatus] = useState("idle");
-const [dragOver, setDragOver] = useState(false);
+    const [dataCenter, setDataCenter] = useState("Discord");
+    const [progress, setProgress] = useState(0);
+    const [status, setStatus] = useState("idle");
+    const [dragOver, setDragOver] = useState(false);
 
 
-const handleUpload = async () => {
-    // ==========================================
-    // VALIDATION
-    // ==========================================
-    if (!dataCenter) return;
-
-    if (uploadMode === "file" && !file) return;
-
-    if (
-        uploadMode === "google-drive" &&
-        !googleDriveLink.trim()
-    ) {
-        return;
-    }
-
-    setStatus("uploading");
-    setProgress(0);
-
-    try {
-        let res;
-
+    const handleUpload = async () => {
         // ==========================================
-        // LOCAL FILE UPLOAD
+        // VALIDATION
         // ==========================================
-        if (uploadMode === "file") {
-            const formData = new FormData();
+        if (!dataCenter) return;
 
-            formData.append("file", file);
-            formData.append("data_center", dataCenter);
-            formData.append("directory", directory);
+        if (uploadMode === "file" && !file) return;
 
-            res = await fetch(
-                "http://127.0.0.1:8000/auth/upload",
-                {
-                    method: "POST",
-                    headers: {
-                        Authorization: `Bearer ${localStorage.getItem(
-                            "token"
-                        )}`,
-                    },
-                    body: formData,
-                }
-            );
-        }
-
-        // ==========================================
-        // GOOGLE DRIVE UPLOAD
-        // ==========================================
-        else {
-            res = await fetch(
-                "http://127.0.0.1:8000/auth/upload-from-drive",
-                {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                        Authorization: `Bearer ${localStorage.getItem(
-                            "token"
-                        )}`,
-                    },
-                    body: JSON.stringify({
-                        google_drive_url:
-                            googleDriveLink.trim(),
-                        data_center: dataCenter,
-                        directory: directory,
-                    }),
-                }
-            );
-        }
-
-        // ==========================================
-        // CHECK HTTP RESPONSE
-        // ==========================================
-        if (!res.ok || !res.body) {
-            let errorMessage = "Upload failed";
-
-            try {
-                const errorData = await res.json();
-                errorMessage =
-                    errorData.detail ||
-                    errorData.error ||
-                    errorMessage;
-            } catch {
-                // Ignore JSON parsing errors
-            }
-
-            console.error(
-                "Upload failed:",
-                errorMessage
-            );
-
-            setStatus("error");
+        if (uploadMode === "google-drive" && !googleDriveLink.trim()) {
             return;
         }
 
-        // ==========================================
-        // READ STREAMING RESPONSE
-        // ==========================================
-        const reader = res.body.getReader();
-        const decoder = new TextDecoder();
+        setStatus("uploading");
+        setProgress(0);
 
-        let buffer = "";
-        let uploadFailed = false;
-        let uploadError = "";
-        let uploadCompleted = false;
+        try {
+            let res;
 
-        while (true) {
-            const { done, value } =
-                await reader.read();
+            // ==========================================
+            // LOCAL FILE UPLOAD
+            // ==========================================
+            if (uploadMode === "file") {
+                const formData = new FormData();
 
-            if (done) break;
+                formData.append("file", file);
+                formData.append("data_center", dataCenter);
+                formData.append("directory", directory);
 
-            buffer += decoder.decode(value, {
-                stream: true,
-            });
+                res = await fetch("http://127.0.0.1:8000/auth/upload", {
+                    method: "POST", headers: {
+                        Authorization: `Bearer ${localStorage.getItem("token")}`,
+                    }, body: formData,
+                });
+            }
 
-            const lines = buffer.split("\n");
+                // ==========================================
+                // GOOGLE DRIVE UPLOAD
+            // ==========================================
+            else {
+                res = await fetch("http://127.0.0.1:8000/auth/upload-from-drive", {
+                    method: "POST", headers: {
+                        "Content-Type": "application/json", Authorization: `Bearer ${localStorage.getItem("token")}`,
+                    }, body: JSON.stringify({
+                        google_drive_url: googleDriveLink.trim(), data_center: dataCenter, directory: directory,
+                    }),
+                });
+            }
 
-            // Keep incomplete JSON
-            buffer = lines.pop() || "";
-
-            for (const line of lines) {
-                if (!line.trim()) continue;
+            // ==========================================
+            // CHECK HTTP RESPONSE
+            // ==========================================
+            if (!res.ok || !res.body) {
+                let errorMessage = "Upload failed";
 
                 try {
-                    const data = JSON.parse(line);
+                    const errorData = await res.json();
+                    errorMessage = errorData.detail || errorData.error || errorMessage;
+                } catch {
+                    // Ignore JSON parsing errors
+                }
 
-                    // ==========================================
-                    // BACKEND ERROR
-                    // ==========================================
+                console.error("Upload failed:", errorMessage);
+
+                setStatus("error");
+                return;
+            }
+
+            // ==========================================
+            // READ STREAMING RESPONSE
+            // ==========================================
+            const reader = res.body.getReader();
+            const decoder = new TextDecoder();
+
+            let buffer = "";
+            let uploadFailed = false;
+            let uploadError = "";
+            let uploadCompleted = false;
+
+            while (true) {
+                const {done, value} = await reader.read();
+
+                if (done) break;
+
+                buffer += decoder.decode(value, {
+                    stream: true,
+                });
+
+                const lines = buffer.split("\n");
+
+                // Keep incomplete JSON
+                buffer = lines.pop() || "";
+
+                for (const line of lines) {
+                    if (!line.trim()) continue;
+
+                    try {
+                        const data = JSON.parse(line);
+
+                        // ==========================================
+                        // BACKEND ERROR
+                        // ==========================================
+                        if (data.status === "error") {
+                            uploadFailed = true;
+
+                            uploadError = data.error || "Upload failed";
+
+                            break;
+                        }
+
+                        // ==========================================
+                        // BACKEND COMPLETED
+                        // ==========================================
+                        if (data.status === "completed") {
+                            uploadCompleted = true;
+
+                            setProgress(100);
+
+                            continue;
+                        }
+
+                        // ==========================================
+                        // PROGRESS UPDATE
+                        // ==========================================
+                        if (data.progress !== undefined) {
+                            setProgress((previousProgress) => Math.max(previousProgress, Number(data.progress)));
+                        }
+
+                    } catch (error) {
+                        console.error("Could not parse upload progress:", error);
+                    }
+                }
+
+                // Stop reading if backend reported failure
+                if (uploadFailed) {
+                    await reader.cancel();
+                    break;
+                }
+            }
+
+            // ==========================================
+            // HANDLE REMAINING BUFFER
+            // ==========================================
+            if (buffer.trim() && !uploadFailed) {
+                try {
+                    const data = JSON.parse(buffer);
+
                     if (data.status === "error") {
                         uploadFailed = true;
 
-                        uploadError =
-                            data.error ||
-                            "Upload failed";
-
-                        break;
+                        uploadError = data.error || "Upload failed";
                     }
 
-                    // ==========================================
-                    // BACKEND COMPLETED
-                    // ==========================================
-                    if (
-                        data.status === "completed"
-                    ) {
+                    if (data.status === "completed") {
                         uploadCompleted = true;
 
                         setProgress(100);
-
-                        continue;
-                    }
-
-                    // ==========================================
-                    // PROGRESS UPDATE
-                    // ==========================================
-                    if (
-                        data.progress !== undefined
-                    ) {
-                        setProgress(
-                            (previousProgress) =>
-                                Math.max(
-                                    previousProgress,
-                                    Number(
-                                        data.progress
-                                    )
-                                )
-                        );
                     }
 
                 } catch (error) {
-                    console.error(
-                        "Could not parse upload progress:",
-                        error
-                    );
+                    console.error("Could not parse final response:", error);
                 }
             }
 
-            // Stop reading if backend reported failure
+            // ==========================================
+            // UPLOAD FAILED
+            // ==========================================
             if (uploadFailed) {
-                await reader.cancel();
-                break;
+                console.error("Upload failed:", uploadError);
+
+                setStatus("error");
+
+                return;
             }
-        }
 
-        // ==========================================
-        // HANDLE REMAINING BUFFER
-        // ==========================================
-        if (
-            buffer.trim() &&
-            !uploadFailed
-        ) {
-            try {
-                const data =
-                    JSON.parse(buffer);
+            // ==========================================
+            // IMPORTANT:
+            // GOOGLE DRIVE REQUIRES AN EXPLICIT
+            // COMPLETED STATUS
+            // ==========================================
+            if (uploadMode === "google-drive" && !uploadCompleted) {
+                console.error("Google Drive upload ended without completion confirmation.");
 
-                if (
-                    data.status === "error"
-                ) {
-                    uploadFailed = true;
+                setStatus("error");
 
-                    uploadError =
-                        data.error ||
-                        "Upload failed";
-                }
-
-                if (
-                    data.status === "completed"
-                ) {
-                    uploadCompleted = true;
-
-                    setProgress(100);
-                }
-
-            } catch (error) {
-                console.error(
-                    "Could not parse final response:",
-                    error
-                );
+                return;
             }
-        }
 
-        // ==========================================
-        // UPLOAD FAILED
-        // ==========================================
-        if (uploadFailed) {
-            console.error(
-                "Upload failed:",
-                uploadError
-            );
+            // ==========================================
+            // SUCCESS
+            // ==========================================
+            setProgress(100);
+            setStatus("done");
+
+            // ==========================================
+            // RETURN TO CURRENT DIRECTORY
+            // ==========================================
+            setTimeout(() => {
+                if (directory) {
+                    navigate(`/dashboard?directory=${encodeURIComponent(directory)}`);
+                } else {
+                    navigate("/dashboard");
+                }
+            }, 1200);
+
+        } catch (error) {
+            console.error("Upload error:", error);
 
             setStatus("error");
-
-            return;
         }
-
-        // ==========================================
-        // IMPORTANT:
-        // GOOGLE DRIVE REQUIRES AN EXPLICIT
-        // COMPLETED STATUS
-        // ==========================================
-        if (
-            uploadMode === "google-drive" &&
-            !uploadCompleted
-        ) {
-            console.error(
-                "Google Drive upload ended without completion confirmation."
-            );
-
-            setStatus("error");
-
-            return;
-        }
-
-        // ==========================================
-        // SUCCESS
-        // ==========================================
-        setProgress(100);
-        setStatus("done");
-
-        // ==========================================
-        // RETURN TO CURRENT DIRECTORY
-        // ==========================================
-        setTimeout(() => {
-            if (directory) {
-                navigate(
-                    `/dashboard?directory=${encodeURIComponent(
-                        directory
-                    )}`
-                );
-            } else {
-                navigate("/dashboard");
-            }
-        }, 1200);
-
-    } catch (error) {
-        console.error(
-            "Upload error:",
-            error
-        );
-
-        setStatus("error");
-    }
-};
+    };
 
 
 // ==========================================
 // HANDLE DRAG AND DROP
 // ==========================================
-const handleDrop = (event) => {
-    event.preventDefault();
+    const handleDrop = (event) => {
+        event.preventDefault();
 
-    setDragOver(false);
+        setDragOver(false);
 
-    const droppedFile =
-        event.dataTransfer.files?.[0];
+        const droppedFile = event.dataTransfer.files?.[0];
 
-    if (droppedFile) {
-        setFile(droppedFile);
-    }
-};
+        if (droppedFile) {
+            setFile(droppedFile);
+        }
+    };
 
 
 // ==========================================
 // CHECK IF UPLOAD BUTTON SHOULD BE DISABLED
 // ==========================================
-const isUploadDisabled =
-    !dataCenter ||
-    status === "uploading" ||
-    (uploadMode === "file" && !file) ||
-    (
-        uploadMode === "google-drive" &&
-        !googleDriveLink.trim()
-    );
+    const isUploadDisabled = !dataCenter || status === "uploading" || (uploadMode === "file" && !file) || (uploadMode === "google-drive" && !googleDriveLink.trim());
 
 
-return (
-    <div className="min-h-screen bg-background text-on-surface flex flex-col">
+    return (<div className="min-h-screen bg-background text-on-surface flex flex-col">
 
         {/* ==========================================
             TOP BAR
@@ -364,8 +282,7 @@ return (
                     <span
                         className="material-symbols-outlined text-on-primary text-[16px]"
                         style={{
-                            fontVariationSettings:
-                                "'FILL' 1",
+                            fontVariationSettings: "'FILL' 1",
                         }}
                     >
                         cloud
@@ -415,24 +332,14 @@ return (
                             <button
                                 key={dc}
                                 type="button"
-                                onClick={() =>
-                                    setDataCenter(dc)
-                                }
-                                disabled={
-                                    status === "uploading"
-                                }
-                                className={`flex items-center gap-2 px-5 py-2.5 rounded-xl border text-sm font-medium transition-all ${
-                                    dataCenter === dc
-                                        ? "bg-primary/10 border-primary text-primary shadow-[0_0_12px_rgba(192,193,255,0.15)]"
-                                        : "border-outline-variant/30 text-on-surface-variant hover:border-primary/50 hover:text-on-surface"
-                                }`}
+                                onClick={() => setDataCenter(dc)}
+                                disabled={status === "uploading"}
+                                className={`flex items-center gap-2 px-5 py-2.5 rounded-xl border text-sm font-medium transition-all ${dataCenter === dc ? "bg-primary/10 border-primary text-primary shadow-[0_0_12px_rgba(192,193,255,0.15)]" : "border-outline-variant/30 text-on-surface-variant hover:border-primary/50 hover:text-on-surface"}`}
                             >
 
                                 <span className="material-symbols-outlined text-[18px]">
 
-                                    {dc === "Discord"
-                                        ? "forum"
-                                        : "send"}
+                                    {dc === "Discord" ? "forum" : "send"}
 
                                 </span>
 
@@ -462,19 +369,13 @@ return (
                         {/* LOCAL FILE */}
                         <button
                             type="button"
-                            disabled={
-                                status === "uploading"
-                            }
+                            disabled={status === "uploading"}
                             onClick={() => {
                                 setUploadMode("file");
                                 setProgress(0);
                                 setStatus("idle");
                             }}
-                            className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl border text-sm font-medium transition-all ${
-                                uploadMode === "file"
-                                    ? "bg-primary/10 border-primary text-primary"
-                                    : "border-outline-variant/30 text-on-surface-variant hover:border-primary/50 hover:text-on-surface"
-                            }`}
+                            className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl border text-sm font-medium transition-all ${uploadMode === "file" ? "bg-primary/10 border-primary text-primary" : "border-outline-variant/30 text-on-surface-variant hover:border-primary/50 hover:text-on-surface"}`}
                         >
 
                             <span className="material-symbols-outlined text-[18px]">
@@ -489,21 +390,13 @@ return (
                         {/* GOOGLE DRIVE */}
                         <button
                             type="button"
-                            disabled={
-                                status === "uploading"
-                            }
+                            disabled={status === "uploading"}
                             onClick={() => {
-                                setUploadMode(
-                                    "google-drive"
-                                );
+                                setUploadMode("google-drive");
                                 setProgress(0);
                                 setStatus("idle");
                             }}
-                            className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl border text-sm font-medium transition-all ${
-                                uploadMode === "google-drive"
-                                    ? "bg-primary/10 border-primary text-primary"
-                                    : "border-outline-variant/30 text-on-surface-variant hover:border-primary/50 hover:text-on-surface"
-                            }`}
+                            className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl border text-sm font-medium transition-all ${uploadMode === "google-drive" ? "bg-primary/10 border-primary text-primary" : "border-outline-variant/30 text-on-surface-variant hover:border-primary/50 hover:text-on-surface"}`}
                         >
                             <span className="material-symbols-outlined text-[18px]">
                                 add_link
@@ -535,41 +428,20 @@ return (
                             onDragOver={(event) => {
                                 event.preventDefault();
 
-                                if (
-                                    status !==
-                                    "uploading"
-                                ) {
+                                if (status !== "uploading") {
                                     setDragOver(true);
                                 }
                             }}
-                            onDragLeave={() =>
-                                setDragOver(false)
-                            }
+                            onDragLeave={() => setDragOver(false)}
                             onDrop={handleDrop}
-                            className={`flex flex-col items-center justify-center w-full h-40 rounded-2xl border-2 border-dashed cursor-pointer transition-all ${
-                                dragOver
-                                    ? "border-primary bg-primary/10"
-                                    : file
-                                    ? "border-primary/40 bg-primary/5"
-                                    : "border-outline-variant/30 bg-surface-container-low hover:border-primary/40 hover:bg-surface-container"
-                            } ${
-                                status === "uploading"
-                                    ? "opacity-60 cursor-not-allowed"
-                                    : ""
-                            }`}
+                            className={`flex flex-col items-center justify-center w-full h-40 rounded-2xl border-2 border-dashed cursor-pointer transition-all ${dragOver ? "border-primary bg-primary/10" : file ? "border-primary/40 bg-primary/5" : "border-outline-variant/30 bg-surface-container-low hover:border-primary/40 hover:bg-surface-container"} ${status === "uploading" ? "opacity-60 cursor-not-allowed" : ""}`}
                         >
 
                             <span
-                                className={`material-symbols-outlined text-[40px] mb-2 ${
-                                    file
-                                        ? "text-primary"
-                                        : "text-on-surface-variant/40"
-                                }`}
+                                className={`material-symbols-outlined text-[40px] mb-2 ${file ? "text-primary" : "text-on-surface-variant/40"}`}
                             >
 
-                                {file
-                                    ? "check_circle"
-                                    : "cloud_upload"}
+                                {file ? "check_circle" : "cloud_upload"}
 
                             </span>
 
@@ -584,9 +456,7 @@ return (
 
                                     <p className="text-xs text-on-surface-variant mt-1">
 
-                                        {(file.size / 1024).toFixed(
-                                            1
-                                        )}{" "}
+                                        {(file.size / 1024).toFixed(1)}{" "}
                                         KB
 
                                     </p>
@@ -620,18 +490,13 @@ return (
                                 id="file-input"
                                 type="file"
                                 className="hidden"
-                                disabled={
-                                    status === "uploading"
-                                }
+                                disabled={status === "uploading"}
                                 onChange={(event) => {
 
-                                    const selectedFile =
-                                        event.target.files?.[0];
+                                    const selectedFile = event.target.files?.[0];
 
                                     if (selectedFile) {
-                                        setFile(
-                                            selectedFile
-                                        );
+                                        setFile(selectedFile);
                                     }
 
                                 }}
@@ -694,17 +559,9 @@ return (
 
                                 <input
                                     type="url"
-                                    value={
-                                        googleDriveLink
-                                    }
-                                    disabled={
-                                        status === "uploading"
-                                    }
-                                    onChange={(event) =>
-                                        setGoogleDriveLink(
-                                            event.target.value
-                                        )
-                                    }
+                                    value={googleDriveLink}
+                                    disabled={status === "uploading"}
+                                    onChange={(event) => setGoogleDriveLink(event.target.value)}
                                     placeholder="https://drive.google.com/file/d/..."
                                     className="w-full bg-surface-container border border-outline-variant/30 rounded-xl pl-11 pr-4 py-3 text-sm text-on-surface placeholder:text-on-surface-variant/50 outline-none focus:border-primary transition-colors"
                                 />
@@ -764,10 +621,7 @@ return (
                             </span>
 
 
-                            {uploadMode === "google-drive"
-                                ? "Importing from Google Drive..."
-                                : "Uploading..."
-                            }
+                            {uploadMode === "google-drive" ? "Importing from Google Drive..." : "Uploading..."}
 
                         </>
 
@@ -780,10 +634,7 @@ return (
                             </span>
 
 
-                            {uploadMode === "google-drive"
-                                ? "Import File"
-                                : "Upload File"
-                            }
+                            {uploadMode === "google-drive" ? "Import File" : "Upload File"}
 
                         </>
 
@@ -803,22 +654,11 @@ return (
 
                             <span className="font-geist uppercase tracking-widest">
 
-                                {status === "uploading" &&
-                                    (
-                                        uploadMode ===
-                                        "google-drive"
-                                            ? "Importing"
-                                            : "Uploading"
-                                    )
-                                }
+                                {status === "uploading" && (uploadMode === "google-drive" ? "Importing" : "Uploading")}
 
-                                {status === "done" &&
-                                    "✓ Completed"
-                                }
+                                {status === "done" && "✓ Completed"}
 
-                                {status === "error" &&
-                                    "✗ Failed"
-                                }
+                                {status === "error" && "✗ Failed"}
 
                             </span>
 
@@ -834,11 +674,7 @@ return (
                         <div className="w-full bg-surface-container-high h-1 rounded-full overflow-hidden">
 
                             <div
-                                className={`h-full rounded-full transition-all duration-300 ${
-                                    status === "error"
-                                        ? "bg-error"
-                                        : "bg-primary"
-                                }`}
+                                className={`h-full rounded-full transition-all duration-300 ${status === "error" ? "bg-error" : "bg-primary"}`}
                                 style={{
                                     width: `${progress}%`,
                                 }}
@@ -879,6 +715,5 @@ return (
 
         </div>
 
-    </div>
-);
+    </div>);
 }

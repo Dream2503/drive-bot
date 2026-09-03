@@ -9,7 +9,7 @@ import gdown
 import libtorrent as lt
 import requests
 
-from backend.database import File, add_file
+from backend.database import File, add_file, get_file
 from core.config import GOOGLE_API_KEY, TRANSFER_PATH
 from core.data_center import DataCenter
 from core.transfer import upload
@@ -22,7 +22,7 @@ async def download_google_drive(file: File, link: str) -> AsyncGenerator[float |
     downloaded_path: Path | None = None
 
     try:
-        response = await asyncio.to_thread(requests.get, f"https://www.googleapis.com/drive/v3/files/{link.split("/file/d/")[1].split("/")[0]}",
+        response = await asyncio.to_thread(requests.get, f"https://www.googleapis.com/drive/v3/files/{link.split('/file/d/')[1].split('/')[0]}",
                                            params={"fields": "size", "key": GOOGLE_API_KEY})
         response.raise_for_status()
 
@@ -71,7 +71,7 @@ async def download_google_drive(file: File, link: str) -> AsyncGenerator[float |
                     links[part] = msg_id
                     part += 1
                     progress = min(part * max_size, total_size) / total_size * 100
-                    write_log("INFO", data_center, "UPLOAD", str(file.username), f"Uploaded part {part}/{total_parts}")
+                    write_log("INFO", data_center, "UPLOAD", file.username, f"Uploaded part {part}/{total_parts}")
                     yield round(progress, 2)
 
                 await asyncio.sleep(0.1)
@@ -98,7 +98,7 @@ async def download_google_drive(file: File, link: str) -> AsyncGenerator[float |
                 part += 1
 
                 progress = min(part * max_size, total_size) / total_size * 100
-                write_log("INFO", data_center, "UPLOAD", str(file.username), f"Uploaded part {part}/{total_parts}")
+                write_log("INFO", data_center, "UPLOAD", file.username, f"Uploaded part {part}/{total_parts}")
                 yield round(progress, 2)
 
             start = part * max_size
@@ -111,15 +111,26 @@ async def download_google_drive(file: File, link: str) -> AsyncGenerator[float |
                 msg_id = await data_center.upload(chunk, f"{downloaded_path.name}.part{part}")
                 links[part] = msg_id
                 part += 1
-                write_log("INFO", data_center, "UPLOAD", str(file.username), f"Uploaded final part {part}/{total_parts}")
+                write_log("INFO", data_center, "UPLOAD", file.username, f"Uploaded final part {part}/{total_parts}")
                 yield 100
 
             file.links = [links[i] for i in range(part)]
-            add_file(file)
-            write_log("INFO", data_center, "DOWNLOAD", str(file.username), f"Download and upload complete `{file.name}`")
+
+        if get_file(name=file.name, username=file.username):
+            path = Path(file.name)
+            stem, extension = path.stem, path.suffix
+            i = 1
+
+            while get_file(name=f"{stem}({i}){extension}", username=file.username):
+                i += 1
+
+            file.name = f"{stem}({i}){extension}"
+
+        add_file(file)
+        write_log("INFO", data_center, "DOWNLOAD", file.username, f"Download and upload complete `{file.name}`")
 
     except Exception as e:
-        write_log("ERROR", data_center, "DOWNLOAD", str(file.username), f"Unhandled exception: {e}\n{format_exc()}")
+        write_log("ERROR", data_center, "DOWNLOAD", file.username, f"Unhandled exception: {e}\n{format_exc()}")
         raise
 
     finally:

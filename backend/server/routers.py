@@ -14,7 +14,7 @@ from backend.server.security import hash_password, verify_password, create_publi
 from core.config import TRANSFER_PATH
 from core.data_center import BackEnd
 from core.parser import parse_link
-from core.stream import ChunkCache, get_chunks, parse_range, stream_range
+from core.stream import ChunkCache, get_chunks, parse_range, stream_range, ByteRange
 from core.transfer import upload
 
 auth: APIRouter = APIRouter(prefix="/auth")
@@ -194,7 +194,7 @@ def get_user_files(current_user: User = Depends(get_current_user)) -> list[File]
 
 
 @auth.post("/files/{file_id}/public-link")
-def create_public_stream_link(file_id: int, current_user: User = Depends(get_current_user)) -> dict[str, str]:
+def create_public_link(file_id: int, current_user: User = Depends(get_current_user)) -> dict[str, str]:
     file: File | None = get_file(file_id=file_id)
 
     if file is None:
@@ -206,10 +206,10 @@ def create_public_stream_link(file_id: int, current_user: User = Depends(get_cur
     if file.id is None:
         raise HTTPException(status_code=400, detail="Invalid file metadata")
 
-    return {"url": f"/auth/public-stream/{create_public_stream_token(file_id=file.id, username=file.username)}"}
+    return {"url": f"/auth/public-stream/{create_public_stream_token(file=file, username=file.username)}"}
 
 
-@auth.get("/public-stream/{token}")
+@auth.get("/stream/{token}")
 async def public_stream_route(token: str, request: Request):
     try:
         payload = verify_public_stream_token(token)
@@ -264,6 +264,45 @@ async def public_stream_route(token: str, request: Request):
         status_code = 200
 
     return StreamingResponse(stream_range(parts, byte_range, cache), status_code=status_code, headers=headers, media_type=content_type)
+
+
+@auth.get("/download/{token}")
+async def public_download_route(token: str):
+    try:
+        payload = verify_public_stream_token(token)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Invalid public download link")
+
+    file: File | None = get_file(file_id=payload["file_id"])
+
+    if file is None or file.username != payload["username"]:
+        raise HTTPException(status_code=404, detail="File not found")
+
+    try:
+        parts = get_chunks(file.links, file.size)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"File metadata failure: {e}") from e
+
+    if not parts:
+        raise HTTPException(status_code=404, detail="File has no parts")
+
+    size = parts[-1].end + 1
+    cache = ChunkCache(str(file.id), file.data_center)
+    content_type = file.type or mimetypes.guess_type(file.name)[0] or "application/octet-stream"
+
+    headers = {
+        "Content-Length": str(size),
+        "Content-Type": content_type,
+        "Content-Disposition": f'attachment; filename="{file.name}"',
+        "Cache-Control": "public, max-age=3600",
+    }
+
+    return StreamingResponse(
+        stream_range(parts, ByteRange(0, size - 1), cache),
+        status_code=200,
+        headers=headers,
+        media_type=content_type,
+    )
 
 
 @auth.delete("/files/{file_id}")
