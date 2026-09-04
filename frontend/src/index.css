@@ -2,6 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
+<<<<<<< HEAD
 @layer base {
   *, *::before, *::after { box-sizing: border-box; }
 
@@ -19,6 +20,19 @@
   input, button, select, textarea {
     font-family: inherit;
   }
+=======
+@layer components {
+    .glass-panel {
+        background: rgba(8, 20, 37, 0.7);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .card-shadow {
+        box-shadow: 0 4px 40px rgba(0, 0, 0, 0.2);
+    }
+>>>>>>> c4e38fc05abd10c170694ef88ebe21095748476a
 }
 
 @layer components {
