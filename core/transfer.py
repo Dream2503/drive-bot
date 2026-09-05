@@ -4,7 +4,7 @@ from traceback import format_exc
 from typing import AsyncGenerator
 
 from backend.database import add_file, File, get_file, get_user, User
-from core.config import TRANSFER_PATH
+from core.config import TRANSFER_PATH,get_transfer_path
 from core.data_center import DataCenter
 from core.utils import write_log
 
@@ -28,7 +28,7 @@ async def upload(file: File) -> AsyncGenerator[float | int, None]:
                 file.name = f"{stem}({i}){extension}"
                 i += 1
 
-        file_path: Path = (TRANSFER_PATH / file.username / Path(file.name)).resolve()
+        file_path: Path = get_transfer_path(file.username, file.directory, file.name)
 
         if not file_path.is_relative_to(TRANSFER_PATH.resolve()):
             write_log("ERROR", data_center, "UPLOAD", user.username, f"Illegal file path attempted: {file.name}")
@@ -98,7 +98,7 @@ async def download(file: File) -> AsyncGenerator[float | int, None]:
             write_log("ERROR", data_center, "DOWNLOAD", str(file.username), "File has no parts")
             return
 
-        file_path: Path = (TRANSFER_PATH / file.username / Path(file.name)).resolve()
+        file_path: Path = get_transfer_path(file.username, file.directory, file.name)
 
         if not file_path.is_relative_to(TRANSFER_PATH.resolve()):
             write_log("ERROR", data_center, "DOWNLOAD", str(file.username), f"Illegal file path attempted: {file.name}")

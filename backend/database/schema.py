@@ -30,6 +30,7 @@ class File(BaseModel):
     modified_at: datetime
     data_center: str
     links: list[str]
+    deleted_at: datetime | None = None
     username: str
 
     def __repr__(self) -> str:

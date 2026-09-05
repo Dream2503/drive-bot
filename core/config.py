@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 from typing import TextIO
+from pathlib import Path
 
 from dotenv import load_dotenv
 
@@ -11,10 +12,16 @@ LOG_PATH: Path = BASE_DIR / "logs.txt"
 TRANSFER_PATH: Path = BASE_DIR / "transfer"
 
 TRANSFER_PATH.mkdir(exist_ok=True)
+
+def get_transfer_path(username: str, directory: str, filename: str) -> Path:
+    path = TRANSFER_PATH / username
+    if directory:
+        path = path / directory
+    return path / filename
+
 load_dotenv()
 
 LOG_HANDLER: TextIO = open(LOG_PATH, 'a')
-
 
 def getenv(key: str) -> str:
     value: str | None = os.getenv(key)

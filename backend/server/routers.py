@@ -8,10 +8,10 @@ from fastapi import APIRouter, Depends, Form, HTTPException, Request, UploadFile
 from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel
 
-from backend.database import add_user, File, get_files, get_user, LoginRequest, User, get_file, add_file
+from backend.database import add_user, File, get_files, get_user, LoginRequest, User, get_file, add_file, update_file, purge_expired_trash, get_trashed_files
 from backend.server.jwt_handler import create_access_token, get_current_user
 from backend.server.security import hash_password, verify_password, create_public_stream_token, verify_public_stream_token
-from core.config import TRANSFER_PATH
+from core.config import TRANSFER_PATH,get_transfer_path
 from core.data_center import BackEnd
 from core.parser import parse_link
 from core.stream import ChunkCache, get_chunks, parse_range, stream_range, ByteRange
@@ -29,6 +29,30 @@ class GoogleDriveDownloadRequest(BaseModel):
     data_center: str
     directory: str = ""
 
+def validate_directory_path(directory: str) -> str:
+    directory = directory.strip().strip("/")
+    if not directory:
+        return directory
+    for segment in directory.split("/"):
+        if not segment or segment in {".", ".."} or "\\" in segment:
+            raise HTTPException(status_code=400, detail="Invalid folder name")
+    return directory
+
+# Ensure there is a .__folder__ chain cause the frontend is accessing the files through that chain only
+def ensure_folder_chain(username: str, directory: str) -> None:
+    if not directory:
+        return
+    segments = directory.split("/")
+    existing = {f.directory for f in (get_files(username=username) or []) if f.name == ".__folder__"}
+    path_so_far = ""
+    for segment in segments:
+        path_so_far = f"{path_so_far}/{segment}" if path_so_far else segment
+        if path_so_far not in existing:
+            add_file(File(
+                directory=path_so_far, name=".__folder__", type="folder", size=0,
+                modified_at=datetime.now(timezone.utc), links=[], data_center="", username=username,
+            ))
+            existing.add(path_so_far)
 
 @auth.post("/register")
 def register(user: User) -> dict[str, str]:
@@ -60,22 +84,17 @@ def login(credentials: LoginRequest) -> dict[str, str]:
 @auth.post("/upload")
 async def upload_route(file: UploadFile, data_center: str = Form(...), directory: str = Form(""),
                        current_user: User = Depends(get_current_user)) -> StreamingResponse:
+
     if not file.filename:
         raise HTTPException(status_code=400, detail="No file name provided")
 
     filename = Path(file.filename).name
-    directory = directory.strip().strip("/")
+    directory = validate_directory_path(directory)
 
-    if directory in {".", ".."} or "/" in directory or "\\" in directory:
-        raise HTTPException(status_code=400, detail="Invalid folder name")
+    ensure_folder_chain(current_user.username, directory)
 
-    user_transfer_path = TRANSFER_PATH / current_user.username
-
-    if directory:
-        user_transfer_path = user_transfer_path / directory
-
-    user_transfer_path.mkdir(parents=True, exist_ok=True)
-    file_path = user_transfer_path / filename
+    file_path = get_transfer_path(current_user.username, directory, filename)
+    file_path.parent.mkdir(parents=True, exist_ok=True)
 
     with open(file_path, "wb") as buffer:
         while chunk := await file.read(BackEnd.MAX_SIZE):
@@ -103,7 +122,6 @@ async def upload_route(file: UploadFile, data_center: str = Form(...), directory
 async def upload_from_drive_route(request: GoogleDriveDownloadRequest, current_user: User = Depends(get_current_user), ) -> StreamingResponse:
     google_drive_url = request.google_drive_url.strip()
     data_center = request.data_center.strip()
-    directory = request.directory.strip().strip("/")
 
     if not google_drive_url:
         raise HTTPException(status_code=400, detail="Google Drive URL is required")
@@ -117,8 +135,8 @@ async def upload_from_drive_route(request: GoogleDriveDownloadRequest, current_u
     if data_center not in {"Discord", "Telegram"}:
         raise HTTPException(status_code=400, detail="Invalid data center")
 
-    if directory in {".", ".."} or "/" in directory or "\\" in directory:
-        raise HTTPException(status_code=400, detail="Invalid folder name")
+    directory = validate_directory_path(directory)
+    ensure_folder_chain(current_user.username,directory)
 
     file_job = File(
         directory=directory,
@@ -147,7 +165,6 @@ async def upload_from_drive_route(request: GoogleDriveDownloadRequest, current_u
 
     return StreamingResponse(progress_stream(), media_type="application/x-ndjson")
 
-
 @auth.post("/create-folder")
 def create_folder(folder: CreateFolderRequest, current_user: User = Depends(get_current_user)):
     directory = folder.directory.strip().strip("/")
@@ -155,36 +172,19 @@ def create_folder(folder: CreateFolderRequest, current_user: User = Depends(get_
     if not directory:
         raise HTTPException(status_code=400, detail="Folder name cannot be empty")
 
-    # Prevent nested/invalid paths if you only want one folder name
-    if directory in {".", ".."} or "/" in directory or "\\" in directory:
-        raise HTTPException(status_code=400, detail="Invalid folder name")
+    directory = validate_directory_path(directory)
 
-    # Check existing folders/files
     files = get_files(username=current_user.username) or []
-    existing_folder = next((file for file in files if file.directory == directory and file.name == ".__folder__"), None)
-
+    existing_folder = next((f for f in files if f.directory == directory and f.name == ".__folder__"), None)
     if existing_folder:
         raise HTTPException(status_code=400, detail="Folder already exists")
 
-    # Create actual folder on disk
     folder_path = TRANSFER_PATH / current_user.username / directory
     folder_path.mkdir(parents=True, exist_ok=True)
 
-    # Create database entry representing the folder
-    add_file(File(
-        directory=directory,
-        name=".__folder__",
-        type="folder",
-        size=0,
-        modified_at=datetime.now(timezone.utc),
-        links=[],
-        data_center="",
-        username=current_user.username,
-    ))
-    return {
-        "message": "Folder created successfully",
-        "directory": directory,
-    }
+    ensure_folder_chain(current_user.username, directory)
+
+    return {"message": "Folder created successfully", "directory": directory}
 
 
 @auth.get("/files")
@@ -192,6 +192,30 @@ def get_user_files(current_user: User = Depends(get_current_user)) -> list[File]
     files = get_files(username=current_user.username) or []
     return [file for file in files if file.directory != "__trash__"]
 
+@auth.get("/trash")
+def get_trash(current_user: User = Depends(get_current_user)) -> list[File]:
+    purge_expired_trash(username=current_user.username)
+    return get_trashed_files(username=current_user.username)
+
+@auth.post("/trash/{file_id}/restore")
+def restore_file(file_id: int, current_user: User = Depends(get_current_user)) -> dict[str, str]:
+    file: File | None = get_file(file_id=file_id, include_trashed=True)
+ 
+    if file is None or file.username != current_user.username:
+        raise HTTPException(status_code=404, detail="File not found")
+ 
+    if file.name == ".__folder__":
+        prefix = f"{file.directory}/"
+        trashed = get_trashed_files(username=current_user.username)
+        targets = [file] + [f for f in trashed if f.directory == file.directory or f.directory.startswith(prefix)]
+        for target in targets:
+            target.deleted_at = None
+            update_file(target)
+    else:
+        file.deleted_at = None
+        update_file(file)
+ 
+    return {"message": "Restored"}
 
 @auth.post("/files/{file_id}/public-link")
 def create_public_link(file_id: int, current_user: User = Depends(get_current_user)) -> dict[str, str]:
@@ -315,5 +339,19 @@ def delete_file_route(file_id: int, current_user: User = Depends(get_current_use
     if file.username != current_user.username:
         raise HTTPException(status_code=403, detail="Access denied")
 
-    file.directory = "__trash__"
+    file.deleted_at = datetime.now(timezone.utc)
+    update_file(file)
     return {"message": "File moved to trash"}
+
+@auth.delete("/trash/{file_id}")
+def permanently_delete(file_id: int, current_user: User = Depends(get_current_user)) -> dict[str, str]:
+    from backend.database import delete_file  # local import to avoid widening the top-level import list unnecessarily
+ 
+    file: File | None = get_file(file_id=file_id, include_trashed=True)
+ 
+    if file is None or file.username != current_user.username:
+        raise HTTPException(status_code=404, detail="File not found")
+
+    delete_file(file)
+ 
+    return {"message": "Permanently deleted"}

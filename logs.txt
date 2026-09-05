@@ -1,0 +1,327 @@
+[2026-09-05 11:47:23,315] [WARNING] [discord.client] PyNaCl is not installed, voice will NOT be supported
+[2026-09-05 11:47:23,331] [WARNING] [discord.client] davey is not installed, voice will NOT be supported
+[2026-09-05 11:47:24] [Telegram] [INFO] [INIT] [StoreLimitless_bot] Bot is online. Logged in (id=8404712547)
+[2026-09-05 11:47:24] [Discord] [INFO] [MAIN] [] Starting Store Limitless Bot...
+[2026-09-05 11:47:24,979] [INFO] [discord.client] logging in using static token
+[2026-09-05 11:47:27,432] [INFO] [discord.gateway] Shard ID None has connected to Gateway (Session ID: f1389603866ade20e43b314610060569).
+[2026-09-05 11:47:29] [Discord] [INFO] [INIT] [StoreLimitless#1152] FILE_DUMP channel initialized: files-dump (id=1399311590616203284).
+[2026-09-05 11:47:29] [Discord] [INFO] [INIT] [StoreLimitless#1152] Bot online and ready (id=1399287140885725245).
+[2026-09-05 11:48:15] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 11:48:16] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 11:48:16] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
+[2026-09-05 11:48:16] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 11:48:16] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
+[2026-09-05 11:48:49] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 11:48:49] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
+[2026-09-05 11:48:49] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 11:48:49] [Database] [INFO] [INSERT FILES] [i_am_doom] File `.__folder__` saved to database with 0 part(s).
+[2026-09-05 11:48:49] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 11:48:49] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
+[2026-09-05 11:51:12] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 11:51:13] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 11:51:13] [Discord] [INFO] [UPLOAD] [i_am_doom] Got file: id=None directory='Phase_1' name='100MB.bin' type='application/octet-stream' size=104857600 modified_at=datetime.datetime(2026, 9, 5, 6, 21, 12, 871385, tzinfo=datetime.timezone.utc) data_center='Discord' links=[] username='i_am_doom'
+[2026-09-05 11:51:13] [Database] [INFO] [GET FILE] [] Select query executed for ('name', 'username')=('100MB.bin', 'i_am_doom').
+[2026-09-05 11:51:13] [Database] [INFO] [GET FILE] [] Select query executed for ('name', 'username')=('100MB.bin', 'i_am_doom').
+[2026-09-05 11:51:13] [Database] [INFO] [GET FILE] [] Select query executed for ('name', 'username')=('100MB(1).bin', 'i_am_doom').
+[2026-09-05 11:51:13] [Database] [ERROR] [GET FILE] [] No file found for ('name', 'username')=('100MB(1).bin', 'i_am_doom').
+[2026-09-05 11:51:13] [Discord] [ERROR] [UPLOAD] [i_am_doom] Local file not found: C:\Users\anwes\OneDrive\Desktop\Drive_Bot\transfer\i_am_doom\100MB(1).bin
+[2026-09-05 11:51:14] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 11:51:14] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
+[2026-09-05 11:51:14] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 11:51:14] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
+[2026-09-05 11:52:37] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 11:52:37] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 11:52:37] [Discord] [INFO] [UPLOAD] [i_am_doom] Got file: id=None directory='Phase_1' name="Marvel Studios' Avengers_ Infinity War Official Trailer.mp4" type='video/mp4' size=5575143 modified_at=datetime.datetime(2026, 9, 5, 6, 22, 37, 934687, tzinfo=datetime.timezone.utc) data_center='Discord' links=[] username='i_am_doom'
+[2026-09-05 11:52:37] [Database] [INFO] [GET FILE] [] Select query executed for ('name', 'username')=("Marvel Studios' Avengers_ Infinity War Official Trailer.mp4", 'i_am_doom').
+[2026-09-05 11:52:37] [Database] [ERROR] [GET FILE] [] No file found for ('name', 'username')=("Marvel Studios' Avengers_ Infinity War Official Trailer.mp4", 'i_am_doom').
+[2026-09-05 11:52:37] [Discord] [ERROR] [UPLOAD] [i_am_doom] Local file not found: C:\Users\anwes\OneDrive\Desktop\Drive_Bot\transfer\i_am_doom\Marvel Studios' Avengers_ Infinity War Official Trailer.mp4
+[2026-09-05 11:52:39] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 11:52:39] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
+[2026-09-05 11:52:39] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 11:52:39] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
+[2026-09-05 11:54:44] [Telegram] [INFO] [SHUTDOWN] [] Telegram client stopped.
+[2026-09-05 18:56:09,884] [WARNING] [discord.client] PyNaCl is not installed, voice will NOT be supported
+[2026-09-05 18:56:09,884] [WARNING] [discord.client] davey is not installed, voice will NOT be supported
+[2026-09-05 18:56:11] [Telegram] [INFO] [INIT] [StoreLimitless_bot] Bot is online. Logged in (id=8404712547)
+[2026-09-05 18:56:11] [Discord] [INFO] [MAIN] [] Starting Store Limitless Bot...
+[2026-09-05 18:56:11,857] [INFO] [discord.client] logging in using static token
+[2026-09-05 18:56:14,337] [INFO] [discord.gateway] Shard ID None has connected to Gateway (Session ID: a2aae14215021d5fb129138fd0f02349).
+[2026-09-05 18:56:16] [Discord] [INFO] [INIT] [StoreLimitless#1152] FILE_DUMP channel initialized: files-dump (id=1399311590616203284).
+[2026-09-05 18:56:16] [Discord] [INFO] [INIT] [StoreLimitless#1152] Bot online and ready (id=1399287140885725245).
+[2026-09-05 18:56:44] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 18:56:45] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 18:56:45] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
+[2026-09-05 18:56:45] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 18:56:45] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
+[2026-09-05 18:57:04] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 18:57:04] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 18:57:04] [Discord] [INFO] [UPLOAD] [i_am_doom] Got file: id=None directory='' name="Marvel Studios' Avengers_ Infinity War Official Trailer.mp4" type='video/mp4' size=5575143 modified_at=datetime.datetime(2026, 9, 5, 13, 27, 4, 422709, tzinfo=datetime.timezone.utc) data_center='Discord' links=[] username='i_am_doom'
+[2026-09-05 18:57:04] [Database] [INFO] [GET FILE] [] Select query executed for ('name', 'username')=("Marvel Studios' Avengers_ Infinity War Official Trailer.mp4", 'i_am_doom').
+[2026-09-05 18:57:04] [Database] [ERROR] [GET FILE] [] No file found for ('name', 'username')=("Marvel Studios' Avengers_ Infinity War Official Trailer.mp4", 'i_am_doom').
+[2026-09-05 18:57:04] [Discord] [INFO] [UPLOAD] [i_am_doom] Found local file: Marvel Studios' Avengers_ Infinity War Official Trailer.mp4
+[2026-09-05 18:57:04] [Discord] [INFO] [UPLOAD] [i_am_doom] Starting upload `Marvel Studios' Avengers_ Infinity War Official Trailer.mp4` (1 parts)
+[2026-09-05 18:57:12] [Discord] [INFO] [UPLOAD] [i_am_doom] Uploaded 1/1 (100.0%)
+[2026-09-05 18:57:12] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 18:57:12] [Database] [INFO] [INSERT FILES] [i_am_doom] File `Marvel Studios' Avengers_ Infinity War Official Trailer.mp4` saved to database with 1 part(s).
+[2026-09-05 18:57:12] [Discord] [INFO] [UPLOAD] [i_am_doom] Upload complete `Marvel Studios' Avengers_ Infinity War Official Trailer.mp4`
+[2026-09-05 18:57:13] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 18:57:13] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
+[2026-09-05 18:57:13] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 18:57:13] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
+[2026-09-05 18:57:52] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 18:57:52] [Database] [INFO] [GET FILE] [] Select query executed for id=3.
+[2026-09-05 18:57:52] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 18:57:52] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
+[2026-09-05 18:57:57] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 18:57:57] [Database] [INFO] [GET FILE] [] Select query executed for id=3.
+[2026-09-05 18:57:58] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 18:57:58] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
+[2026-09-05 18:58:09] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 18:58:09] [Database] [INFO] [GET FILE] [] Select query executed for id=8.
+[2026-09-05 18:58:09] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 18:58:09] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
+[2026-09-05 18:58:30] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 18:58:31] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 18:58:31] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
+[2026-09-05 18:58:31] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 18:58:31] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
+[2026-09-05 19:00:35] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 19:00:35] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
+[2026-09-05 19:00:35] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 19:00:35] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
+[2026-09-05 19:00:54] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 19:04:58] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 19:04:58] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
+[2026-09-05 19:05:00] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 19:05:00] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
+[2026-09-05 19:05:10] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 19:05:10] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
+[2026-09-05 19:05:14] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 19:05:14] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
+[2026-09-05 19:07:12] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 19:07:12] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
+[2026-09-05 19:07:15] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 19:07:15] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
+[2026-09-05 19:07:22] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 19:07:22] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
+[2026-09-05 19:07:22] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 19:07:22] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
+[2026-09-05 19:07:27] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 19:07:27] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
+[2026-09-05 19:07:27] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 19:07:27] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
+[2026-09-05 19:13:46] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 19:13:46] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
+[2026-09-05 19:13:47] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 19:13:47] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
+[2026-09-05 19:13:59] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 19:13:59] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
+[2026-09-05 19:14:09] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 19:14:09] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
+[2026-09-05 19:14:09] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 19:14:09] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
+[2026-09-05 19:14:31] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 19:16:01] [Telegram] [INFO] [SHUTDOWN] [] Telegram client stopped.
+[2026-09-05 19:16:09,084] [WARNING] [discord.client] PyNaCl is not installed, voice will NOT be supported
+[2026-09-05 19:16:09,084] [WARNING] [discord.client] davey is not installed, voice will NOT be supported
+[2026-09-05 19:16:10] [Telegram] [INFO] [INIT] [StoreLimitless_bot] Bot is online. Logged in (id=8404712547)
+[2026-09-05 19:16:10] [Discord] [INFO] [MAIN] [] Starting Store Limitless Bot...
+[2026-09-05 19:16:10,462] [INFO] [discord.client] logging in using static token
+[2026-09-05 19:16:13,402] [INFO] [discord.gateway] Shard ID None has connected to Gateway (Session ID: a80e033daabd11f97987b9d4c0e94703).
+[2026-09-05 19:16:15] [Discord] [INFO] [INIT] [StoreLimitless#1152] FILE_DUMP channel initialized: files-dump (id=1399311590616203284).
+[2026-09-05 19:16:15] [Discord] [INFO] [INIT] [StoreLimitless#1152] Bot online and ready (id=1399287140885725245).
+[2026-09-05 19:16:18] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 19:16:18] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
+[2026-09-05 19:16:18] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 19:16:18] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
+[2026-09-05 19:16:19] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 19:16:19] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
+[2026-09-05 19:16:19] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 19:16:19] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
+[2026-09-05 19:16:27] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 19:16:27] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
+[2026-09-05 19:16:27] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
+[2026-09-05 19:16:27] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 19:16:27] [Database] [INFO] [INSERT FILES] [i_am_doom] File `.__folder__` saved to database with 0 part(s).
+[2026-09-05 19:16:27] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 19:16:27] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
+[2026-09-05 19:18:04] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 19:18:04] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
+[2026-09-05 19:18:04] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 19:18:04] [Discord] [INFO] [UPLOAD] [i_am_doom] Got file: id=None directory='Phase_1/iron_man_1' name='ironman-1.bin' type='application/octet-stream' size=104857600 modified_at=datetime.datetime(2026, 9, 5, 13, 48, 4, 431694, tzinfo=datetime.timezone.utc) data_center='Discord' links=[] username='i_am_doom'
+[2026-09-05 19:18:04] [Database] [INFO] [GET FILE] [] Select query executed for ('name', 'username')=('ironman-1.bin', 'i_am_doom').
+[2026-09-05 19:18:04] [Database] [ERROR] [GET FILE] [] No file found for ('name', 'username')=('ironman-1.bin', 'i_am_doom').
+[2026-09-05 19:18:04] [Discord] [ERROR] [UPLOAD] [i_am_doom] Local file not found: C:\Users\anwes\OneDrive\Desktop\Drive_Bot\transfer\i_am_doom\ironman-1.bin
+[2026-09-05 19:18:05] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 19:18:05] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
+[2026-09-05 19:18:05] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 19:18:05] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
+[2026-09-05 19:18:46] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 19:18:46] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
+[2026-09-05 19:18:46] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 19:18:46] [Discord] [INFO] [UPLOAD] [i_am_doom] Got file: id=None directory='Phase_1/iron_man_1' name='Avengers_ Doomsday _ Official Trailer _ In Theaters December 18_1080p.mp4' type='video/mp4' size=46910974 modified_at=datetime.datetime(2026, 9, 5, 13, 48, 46, 232582, tzinfo=datetime.timezone.utc) data_center='Discord' links=[] username='i_am_doom'
+[2026-09-05 19:18:46] [Database] [INFO] [GET FILE] [] Select query executed for ('name', 'username')=('Avengers_ Doomsday _ Official Trailer _ In Theaters December 18_1080p.mp4', 'i_am_doom').
+[2026-09-05 19:18:46] [Database] [ERROR] [GET FILE] [] No file found for ('name', 'username')=('Avengers_ Doomsday _ Official Trailer _ In Theaters December 18_1080p.mp4', 'i_am_doom').
+[2026-09-05 19:18:46] [Discord] [ERROR] [UPLOAD] [i_am_doom] Local file not found: C:\Users\anwes\OneDrive\Desktop\Drive_Bot\transfer\i_am_doom\Avengers_ Doomsday _ Official Trailer _ In Theaters December 18_1080p.mp4
+[2026-09-05 19:18:47] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 19:18:47] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
+[2026-09-05 19:18:47] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 19:18:47] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
+[2026-09-05 19:26:36] [Telegram] [INFO] [SHUTDOWN] [] Telegram client stopped.
+[2026-09-05 19:26:43,507] [WARNING] [discord.client] PyNaCl is not installed, voice will NOT be supported
+[2026-09-05 19:26:43,507] [WARNING] [discord.client] davey is not installed, voice will NOT be supported
+[2026-09-05 19:26:44] [Telegram] [INFO] [INIT] [StoreLimitless_bot] Bot is online. Logged in (id=8404712547)
+[2026-09-05 19:26:44] [Discord] [INFO] [MAIN] [] Starting Store Limitless Bot...
+[2026-09-05 19:26:44,843] [INFO] [discord.client] logging in using static token
+[2026-09-05 19:26:45] [Telegram] [INFO] [SHUTDOWN] [] Telegram client stopped.
+[2026-09-05 19:26:46,957] [INFO] [discord.gateway] Shard ID None has connected to Gateway (Session ID: ee53cb75a089283fb59c65426f7bffaf).
+[2026-09-05 19:26:48] [Discord] [INFO] [INIT] [StoreLimitless#1152] FILE_DUMP channel initialized: files-dump (id=1399311590616203284).
+[2026-09-05 19:26:48] [Discord] [INFO] [INIT] [StoreLimitless#1152] Bot online and ready (id=1399287140885725245).
+[2026-09-05 19:29:54,740] [WARNING] [discord.client] PyNaCl is not installed, voice will NOT be supported
+[2026-09-05 19:29:54,740] [WARNING] [discord.client] davey is not installed, voice will NOT be supported
+[2026-09-05 19:29:56] [Telegram] [INFO] [INIT] [StoreLimitless_bot] Bot is online. Logged in (id=8404712547)
+[2026-09-05 19:29:56] [Discord] [INFO] [MAIN] [] Starting Store Limitless Bot...
+[2026-09-05 19:29:56,095] [INFO] [discord.client] logging in using static token
+[2026-09-05 19:29:58,322] [INFO] [discord.gateway] Shard ID None has connected to Gateway (Session ID: c443be648c223affbd141d76cc1dd076).
+[2026-09-05 19:30:00] [Discord] [INFO] [INIT] [StoreLimitless#1152] FILE_DUMP channel initialized: files-dump (id=1399311590616203284).
+[2026-09-05 19:30:00] [Discord] [INFO] [INIT] [StoreLimitless#1152] Bot online and ready (id=1399287140885725245).
+[2026-09-05 19:30:01] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 19:30:01] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
+[2026-09-05 19:30:01] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 19:30:01] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
+[2026-09-05 19:30:12] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 19:30:12] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
+[2026-09-05 19:30:12] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 19:30:12] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
+[2026-09-05 19:30:21] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 19:30:21] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
+[2026-09-05 19:30:21] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 19:30:21] [Discord] [INFO] [UPLOAD] [i_am_doom] Got file: id=None directory='Doom' name='Avengers_ Doomsday _ Official Trailer _ In Theaters December 18_1080p.mp4' type='video/mp4' size=46910974 modified_at=datetime.datetime(2026, 9, 5, 14, 0, 21, 224293, tzinfo=datetime.timezone.utc) data_center='Discord' links=[] username='i_am_doom'
+[2026-09-05 19:30:21] [Database] [INFO] [GET FILE] [] Select query executed for ('name', 'username')=('Avengers_ Doomsday _ Official Trailer _ In Theaters December 18_1080p.mp4', 'i_am_doom').
+[2026-09-05 19:30:21] [Database] [ERROR] [GET FILE] [] No file found for ('name', 'username')=('Avengers_ Doomsday _ Official Trailer _ In Theaters December 18_1080p.mp4', 'i_am_doom').
+[2026-09-05 19:30:21] [Discord] [INFO] [UPLOAD] [i_am_doom] Found local file: Avengers_ Doomsday _ Official Trailer _ In Theaters December 18_1080p.mp4
+[2026-09-05 19:30:21] [Discord] [INFO] [UPLOAD] [i_am_doom] Starting upload `Avengers_ Doomsday _ Official Trailer _ In Theaters December 18_1080p.mp4` (5 parts)
+[2026-09-05 19:30:39] [Discord] [INFO] [UPLOAD] [i_am_doom] Uploaded 1/5 (20.0%)
+[2026-09-05 19:31:03] [Discord] [INFO] [UPLOAD] [i_am_doom] Uploaded 2/5 (40.0%)
+[2026-09-05 19:31:07] [Discord] [INFO] [UPLOAD] [i_am_doom] Uploaded 3/5 (60.0%)
+[2026-09-05 19:31:13] [Discord] [INFO] [UPLOAD] [i_am_doom] Uploaded 4/5 (80.0%)
+[2026-09-05 19:31:18] [Discord] [INFO] [UPLOAD] [i_am_doom] Uploaded 5/5 (100.0%)
+[2026-09-05 19:31:18] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 19:31:18] [Database] [INFO] [INSERT FILES] [i_am_doom] File `Avengers_ Doomsday _ Official Trailer _ In Theaters December 18_1080p.mp4` saved to database with 5 part(s).
+[2026-09-05 19:31:18] [Discord] [INFO] [UPLOAD] [i_am_doom] Upload complete `Avengers_ Doomsday _ Official Trailer _ In Theaters December 18_1080p.mp4`
+[2026-09-05 19:31:19] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 19:31:19] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
+[2026-09-05 19:31:19] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 19:31:19] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
+[2026-09-05 19:31:55] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 19:31:55] [Database] [INFO] [GET FILE] [] Select query executed for id=3.
+[2026-09-05 19:31:55] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 19:31:55] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
+[2026-09-05 19:33:52,488] [INFO] [discord.gateway] Shard ID None has successfully RESUMED session c443be648c223affbd141d76cc1dd076.
+[2026-09-05 19:48:40] [Telegram] [INFO] [SHUTDOWN] [] Telegram client stopped.
+[2026-09-05 20:12:58,900] [WARNING] [discord.client] PyNaCl is not installed, voice will NOT be supported
+[2026-09-05 20:12:58,900] [WARNING] [discord.client] davey is not installed, voice will NOT be supported
+[2026-09-05 20:13:00] [Telegram] [INFO] [INIT] [StoreLimitless_bot] Bot is online. Logged in (id=8404712547)
+[2026-09-05 20:13:00] [Discord] [INFO] [MAIN] [] Starting Store Limitless Bot...
+[2026-09-05 20:13:00,460] [INFO] [discord.client] logging in using static token
+[2026-09-05 20:13:03,600] [INFO] [discord.gateway] Shard ID None has connected to Gateway (Session ID: 11a3bc3157fb60cfb773ec261968ed5e).
+[2026-09-05 20:13:05] [Discord] [INFO] [INIT] [StoreLimitless#1152] FILE_DUMP channel initialized: files-dump (id=1399311590616203284).
+[2026-09-05 20:13:05] [Discord] [INFO] [INIT] [StoreLimitless#1152] Bot online and ready (id=1399287140885725245).
+[2026-09-05 20:13:25] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 20:13:25] [Database] [ERROR] [GET USER] [] User not found in the database
+[2026-09-05 20:13:55] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 20:13:55] [Database] [ERROR] [GET USER] [] User not found in the database
+[2026-09-05 20:13:55] [Database] [INFO] [SET USER] [i_am_doom] User successfully inserted into database.
+[2026-09-05 20:13:58] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 20:13:58] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 20:13:58] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
+[2026-09-05 20:13:58] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 20:13:58] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
+[2026-09-05 20:14:29] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 20:14:30] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 20:14:30] [Discord] [INFO] [UPLOAD] [i_am_doom] Got file: id=None directory='' name='ironman-1.bin' type='application/octet-stream' size=104857600 modified_at=datetime.datetime(2026, 9, 5, 14, 44, 29, 992306, tzinfo=datetime.timezone.utc) data_center='Discord' links=[] deleted_at=None username='i_am_doom'
+[2026-09-05 20:14:30] [Database] [INFO] [GET FILE] [] Select query executed for ('name', 'username')=('ironman-1.bin', 'i_am_doom').
+[2026-09-05 20:14:30] [Database] [ERROR] [GET FILE] [] No file found for ('name', 'username')=('ironman-1.bin', 'i_am_doom').
+[2026-09-05 20:14:30] [Discord] [INFO] [UPLOAD] [i_am_doom] Found local file: ironman-1.bin
+[2026-09-05 20:14:30] [Discord] [INFO] [UPLOAD] [i_am_doom] Starting upload `ironman-1.bin` (10 parts)
+[2026-09-05 20:14:40] [Discord] [INFO] [UPLOAD] [i_am_doom] Uploaded 1/10 (10.0%)
+[2026-09-05 20:14:50] [Discord] [INFO] [UPLOAD] [i_am_doom] Uploaded 2/10 (20.0%)
+[2026-09-05 20:14:53] [Discord] [INFO] [UPLOAD] [i_am_doom] Uploaded 3/10 (30.0%)
+[2026-09-05 20:14:54] [Discord] [INFO] [UPLOAD] [i_am_doom] Uploaded 4/10 (40.0%)
+[2026-09-05 20:14:56] [Discord] [INFO] [UPLOAD] [i_am_doom] Uploaded 5/10 (50.0%)
+[2026-09-05 20:14:58] [Discord] [INFO] [UPLOAD] [i_am_doom] Uploaded 6/10 (60.0%)
+[2026-09-05 20:14:58] [Discord] [INFO] [UPLOAD] [i_am_doom] Uploaded 7/10 (70.0%)
+[2026-09-05 20:15:06] [Discord] [INFO] [UPLOAD] [i_am_doom] Uploaded 8/10 (80.0%)
+[2026-09-05 20:15:06] [Discord] [INFO] [UPLOAD] [i_am_doom] Uploaded 9/10 (90.0%)
+[2026-09-05 20:15:12] [Discord] [INFO] [UPLOAD] [i_am_doom] Uploaded 10/10 (100.0%)
+[2026-09-05 20:15:12] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 20:15:12] [Database] [INFO] [INSERT FILES] [i_am_doom] File `ironman-1.bin` saved to database with 10 part(s).
+[2026-09-05 20:15:12] [Discord] [INFO] [UPLOAD] [i_am_doom] Upload complete `ironman-1.bin`
+[2026-09-05 20:15:13] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 20:15:13] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
+[2026-09-05 20:15:14] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 20:15:14] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
+[2026-09-05 20:16:54] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 20:16:54] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
+[2026-09-05 20:16:54] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
+[2026-09-05 20:16:54] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 20:16:54] [Database] [INFO] [INSERT FILES] [i_am_doom] File `.__folder__` saved to database with 0 part(s).
+[2026-09-05 20:16:54] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 20:16:54] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
+[2026-09-05 20:17:13] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 20:17:13] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
+[2026-09-05 20:17:13] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 20:17:13] [Discord] [INFO] [UPLOAD] [i_am_doom] Got file: id=None directory='phase_6' name='Avengers_ Doomsday _ Official Trailer _ In Theaters December 18_1080p.mp4' type='video/mp4' size=46910974 modified_at=datetime.datetime(2026, 9, 5, 14, 47, 13, 723151, tzinfo=datetime.timezone.utc) data_center='Discord' links=[] deleted_at=None username='i_am_doom'
+[2026-09-05 20:17:13] [Database] [INFO] [GET FILE] [] Select query executed for ('name', 'username')=('Avengers_ Doomsday _ Official Trailer _ In Theaters December 18_1080p.mp4', 'i_am_doom').
+[2026-09-05 20:17:13] [Database] [ERROR] [GET FILE] [] No file found for ('name', 'username')=('Avengers_ Doomsday _ Official Trailer _ In Theaters December 18_1080p.mp4', 'i_am_doom').
+[2026-09-05 20:17:13] [Discord] [INFO] [UPLOAD] [i_am_doom] Found local file: Avengers_ Doomsday _ Official Trailer _ In Theaters December 18_1080p.mp4
+[2026-09-05 20:17:13] [Discord] [INFO] [UPLOAD] [i_am_doom] Starting upload `Avengers_ Doomsday _ Official Trailer _ In Theaters December 18_1080p.mp4` (5 parts)
+[2026-09-05 20:17:44] [Discord] [INFO] [UPLOAD] [i_am_doom] Uploaded 1/5 (20.0%)
+[2026-09-05 20:17:54] [Discord] [INFO] [UPLOAD] [i_am_doom] Uploaded 2/5 (40.0%)
+[2026-09-05 20:17:57] [Discord] [INFO] [UPLOAD] [i_am_doom] Uploaded 3/5 (60.0%)
+[2026-09-05 20:17:57] [Discord] [INFO] [UPLOAD] [i_am_doom] Uploaded 4/5 (80.0%)
+[2026-09-05 20:17:57] [Discord] [INFO] [UPLOAD] [i_am_doom] Uploaded 5/5 (100.0%)
+[2026-09-05 20:17:57] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 20:17:57] [Database] [INFO] [INSERT FILES] [i_am_doom] File `Avengers_ Doomsday _ Official Trailer _ In Theaters December 18_1080p.mp4` saved to database with 5 part(s).
+[2026-09-05 20:17:57] [Discord] [INFO] [UPLOAD] [i_am_doom] Upload complete `Avengers_ Doomsday _ Official Trailer _ In Theaters December 18_1080p.mp4`
+[2026-09-05 20:17:59] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 20:17:59] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
+[2026-09-05 20:17:59] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 20:17:59] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
+[2026-09-05 20:25:25] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 20:25:25] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
+[2026-09-05 20:25:34] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 20:25:34] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
+[2026-09-05 20:26:00] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 20:26:00] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
+[2026-09-05 20:26:04] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 20:26:05] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
+[2026-09-05 20:26:57] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 20:26:57] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
+[2026-09-05 20:26:59] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 20:26:59] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
+[2026-09-05 20:27:45] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 20:27:45] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
+[2026-09-05 20:27:45] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 20:27:45] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
+[2026-09-05 20:28:48] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 20:28:48] [Database] [INFO] [GET FILE] [] Select query executed for id=3.
+[2026-09-05 20:28:48] [Database] [INFO] [UPDATE FILE] [i_am_doom] File `Avengers_ Doomsday _ Official Trailer _ In Theaters December 18_1080p.mp4` successfully updated.
+[2026-09-05 20:28:52] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 20:28:52] [Database] [INFO] [GET FILE] [] Select query executed for id=2.
+[2026-09-05 20:28:52] [Database] [INFO] [UPDATE FILE] [i_am_doom] File `.__folder__` successfully updated.
+[2026-09-05 20:28:52] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 20:28:52] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
+[2026-09-05 20:29:49] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 20:29:49] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
+[2026-09-05 20:29:49] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 20:29:49] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
+[2026-09-05 20:29:50] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 20:29:50] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
+[2026-09-05 20:29:50] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 20:29:50] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
+[2026-09-05 20:29:51] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 20:29:51] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
+[2026-09-05 20:29:51] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
+[2026-09-05 20:29:51] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
+[2026-09-05 20:30:01] [Telegram] [INFO] [SHUTDOWN] [] Telegram client stopped.
