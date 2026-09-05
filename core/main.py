@@ -16,7 +16,7 @@ async def run_server() -> None:
 async def main() -> None:
     await DataCenter.initialize_cache()
     await telegram_utils.Telegram.initialize()
-    discord_thread = Thread(target=discord_utils.Discord.main, daemon=True)
+    discord_thread: Thread = Thread(target=discord_utils.Discord.main, daemon=True)
     server_task: Task[None] = create_task(run_server())
     discord_thread.start()
 

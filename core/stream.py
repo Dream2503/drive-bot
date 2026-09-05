@@ -2,7 +2,7 @@ from bisect import bisect_right
 from dataclasses import dataclass
 from typing import AsyncGenerator
 
-from core.data_center import DataCenter
+from core import DataCenter
 
 
 @dataclass(frozen=True)

@@ -3,8 +3,7 @@ from logging import basicConfig, getLogger, INFO, WARNING
 
 from filelock import FileLock
 
-from core.config import LOG_HANDLER, LOG_PATH
-from core.data_center import DataCenter
+from core import LOG_HANDLER, LOG_PATH, DataCenter
 
 LOCK: FileLock = FileLock("logs.txt.lock")
 basicConfig(level=INFO, filename=LOG_PATH, filemode="a", format="[%(asctime)s] [%(levelname)s] [%(name)s] %(message)s")

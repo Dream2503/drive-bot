@@ -74,7 +74,6 @@ async def download_google_drive(file: File, link: str) -> tuple[Path, Path, int,
             raise OSError("Google Drive download failed")
 
     task: Task[Any] = create_task(to_thread(download))
-
     return temp_dir, output, total_size, task
 
 
@@ -88,15 +87,24 @@ async def download_youtube(file: File, link: str) -> tuple[Path, None, int, Task
 
     progress: dict[str, float | int] = {"value": 0.0}
 
-    def hook(data):
+    def hook(data: dict):
         if data["status"] == "downloading":
-            total = data.get("total_bytes") or data.get("total_bytes_estimate")
+            filename: str = data.get("filename", "")
+
+            if filename.endswith((".vtt", ".srt", ".ass", ".ttml", ".srv1", ".srv2", ".srv3")):
+                return
+
+            total: int = data.get("total_bytes") or data.get("total_bytes_estimate") or 0
+            downloaded: int = data.get("downloaded_bytes", 0)
 
             if total:
-                progress["value"] = min(data.get("downloaded_bytes", 0) / total, 1.0)
+                progress["value"] = min(downloaded / total, 1.0)
 
         elif data["status"] == "finished":
-            progress["value"] = 1.0
+            filename: str = data.get("filename", "")
+
+            if not filename.endswith((".vtt", ".srt", ".ass", ".ttml", ".srv1", ".srv2", ".srv3")):
+                progress["value"] = 1.0
 
     def download():
         with YoutubeDL({
@@ -116,7 +124,6 @@ async def download_youtube(file: File, link: str) -> tuple[Path, None, int, Task
 
     async def runner():
         await to_thread(download)
-
         files: list[Path] = [path for path in temp_dir.iterdir() if path.is_file()]
 
         if not files:

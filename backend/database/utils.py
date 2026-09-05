@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from json import loads, dumps
 from sqlite3 import Row
 
@@ -170,10 +170,20 @@ def get_files(*, directory: str | None = None, username: str | None = None,
 
     return files
 
+
 def get_trashed_files(*, username: str) -> list[File]:
     CURSOR.execute(
         """
-        SELECT id, directory, name, type, size, modified_at, data_center, links, deleted_at, username
+        SELECT id,
+               directory,
+               name,
+               type,
+               size,
+               modified_at,
+               data_center,
+               links,
+               deleted_at,
+               username
         FROM files
         WHERE username = ?
           AND deleted_at IS NOT NULL;
@@ -216,12 +226,14 @@ def update_file(file: File) -> None:
         write_log("ERROR", Database, "UPDATE FILE", file.username, f"Failed to update file: {e}")
         raise
 
+
 def purge_expired_trash(*, username: str, older_than_days: int = 30) -> None:
     cutoff = (datetime.now(timezone.utc) - timedelta(days=older_than_days)).isoformat()
     try:
         CURSOR.execute(
             """
-            DELETE FROM files
+            DELETE
+            FROM files
             WHERE username = ?
               AND deleted_at IS NOT NULL
               AND deleted_at < ?;

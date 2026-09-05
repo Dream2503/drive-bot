@@ -1,4 +1,3 @@
-import os
 from pathlib import Path
 from typing import TextIO
 
@@ -15,16 +14,21 @@ SUPPORTED_DOMAIN: list[str] = ["drive.google.com", ]
 
 
 def get_transfer_path(username: str, directory: str, filename: str) -> Path:
-    path = TRANSFER_PATH / username
+    path: Path = TRANSFER_PATH / username
+
     if directory:
         path = path / directory
+
     return path / filename
+
 
 load_dotenv()
 
 LOG_HANDLER: TextIO = open(LOG_PATH, 'a')
 
+
 def getenv(key: str) -> str:
+    import os
     value: str | None = os.getenv(key)
 
     if value is None or not value.strip():

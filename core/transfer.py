@@ -4,9 +4,7 @@ from traceback import format_exc
 from typing import AsyncGenerator
 
 from backend.database import add_file, File, get_file, get_user, User
-from core.config import TRANSFER_PATH,get_transfer_path
-from core.data_center import DataCenter
-from core.utils import write_log
+from core import TRANSFER_PATH, get_transfer_path, DataCenter, write_log
 
 
 async def upload(file: File) -> AsyncGenerator[float | int, None]:

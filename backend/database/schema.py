@@ -28,9 +28,9 @@ class File(BaseModel):
     type: str
     size: int
     modified_at: datetime
+    deleted_at: datetime | None = None
     data_center: str
     links: list[str]
-    deleted_at: datetime | None = None
     username: str
 
     def __repr__(self) -> str:
@@ -41,6 +41,7 @@ class File(BaseModel):
             f"type={self.type}, "
             f"size={self.size}, "
             f"modified_at={self.modified_at}, "
+            f"deleted_at={self.deleted_at}, "
             f"data_center={self.data_center!r}, "
             f"links={self.links!r}, "
             f"username={self.username})"

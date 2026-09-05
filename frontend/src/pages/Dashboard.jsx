@@ -127,13 +127,15 @@ function Sidebar({onUpload, onGoHome, onLogout}) {
 
 /* -------------------------------------------------------------------- */
 
-function CreateFolderModal({ targetPath, onClose, onCreate }) {
+function CreateFolderModal({targetPath, onClose, onCreate}) {
     const [name, setName] = useState("");
     const [error, setError] = useState("");
     const [creating, setCreating] = useState(false);
 
     useEffect(() => {
-        const onKeyDown = (e) => { if (e.key === "Escape" && !creating) onClose(); };
+        const onKeyDown = (e) => {
+            if (e.key === "Escape" && !creating) onClose();
+        };
         window.addEventListener("keydown", onKeyDown);
         return () => window.removeEventListener("keydown", onKeyDown);
     }, [creating, onClose]);
@@ -142,7 +144,10 @@ function CreateFolderModal({ targetPath, onClose, onCreate }) {
         event.preventDefault();
         const cleanName = name.trim();
 
-        if (!cleanName) { setError("Folder name cannot be empty."); return; }
+        if (!cleanName) {
+            setError("Folder name cannot be empty.");
+            return;
+        }
         if (cleanName === "." || cleanName === ".." || cleanName.includes("/") || cleanName.includes("\\")) {
             setError("Folder name contains invalid characters.");
             return;
@@ -159,42 +164,49 @@ function CreateFolderModal({ targetPath, onClose, onCreate }) {
         }
     };
 
-    return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm" onClick={() => !creating && onClose()}>
-            <div className="w-full max-w-md rounded-2xl border border-outline-variant/20 bg-surface p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-                <div className="mb-5 flex items-center justify-between">
-                    <div>
-                        <h2 className="text-lg font-semibold text-on-surface">Create New Folder</h2>
-                        <p className="mt-1 text-sm text-on-surface-variant">
-                            Will be created inside <span className="text-on-surface font-medium">{targetPath || "Root"}</span>.
-                        </p>
-                    </div>
-                    <button type="button" onClick={onClose} disabled={creating} aria-label="Close" className="text-on-surface-variant hover:text-on-surface disabled:opacity-50">
-                        <span className="material-symbols-outlined" aria-hidden="true">close</span>
+    return (<div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm"
+                 onClick={() => !creating && onClose()}>
+        <div className="w-full max-w-md rounded-2xl border border-outline-variant/20 bg-surface p-6 shadow-2xl"
+             onClick={(e) => e.stopPropagation()}>
+            <div className="mb-5 flex items-center justify-between">
+                <div>
+                    <h2 className="text-lg font-semibold text-on-surface">Create New Folder</h2>
+                    <p className="mt-1 text-sm text-on-surface-variant">
+                        Will be created inside <span className="text-on-surface font-medium">{targetPath || "Root"}</span>.
+                    </p>
+                </div>
+                <button type="button" onClick={onClose} disabled={creating} aria-label="Close"
+                        className="text-on-surface-variant hover:text-on-surface disabled:opacity-50">
+                    <span className="material-symbols-outlined" aria-hidden="true">close</span>
+                </button>
+            </div>
+
+            <form onSubmit={handleSubmit}>
+                <input
+                    type="text"
+                    value={name}
+                    onChange={(e) => {
+                        setName(e.target.value);
+                        setError("");
+                    }}
+                    placeholder="Folder name"
+                    autoFocus
+                    disabled={creating}
+                    className="w-full rounded-xl border border-outline-variant/30 bg-surface-container-low px-4 py-3 text-sm text-on-surface focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/30 disabled:opacity-60"
+                />
+                {error && <p className="mt-2 text-sm text-error">{error}</p>}
+                <div className="mt-6 flex justify-end gap-3">
+                    <button type="button" onClick={onClose} disabled={creating}
+                            className="rounded-xl px-4 py-2 text-sm text-on-surface-variant hover:bg-surface-container disabled:opacity-50">Cancel
+                    </button>
+                    <button type="submit" disabled={creating}
+                            className="rounded-xl bg-primary px-5 py-2 text-sm font-medium text-on-primary transition-colors hover:bg-primary/90 disabled:opacity-60">
+                        {creating ? "Creating…" : "Create Folder"}
                     </button>
                 </div>
-
-                <form onSubmit={handleSubmit}>
-                    <input
-                        type="text"
-                        value={name}
-                        onChange={(e) => { setName(e.target.value); setError(""); }}
-                        placeholder="Folder name"
-                        autoFocus
-                        disabled={creating}
-                        className="w-full rounded-xl border border-outline-variant/30 bg-surface-container-low px-4 py-3 text-sm text-on-surface focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/30 disabled:opacity-60"
-                    />
-                    {error && <p className="mt-2 text-sm text-error">{error}</p>}
-                    <div className="mt-6 flex justify-end gap-3">
-                        <button type="button" onClick={onClose} disabled={creating} className="rounded-xl px-4 py-2 text-sm text-on-surface-variant hover:bg-surface-container disabled:opacity-50">Cancel</button>
-                        <button type="submit" disabled={creating} className="rounded-xl bg-primary px-5 py-2 text-sm font-medium text-on-primary transition-colors hover:bg-primary/90 disabled:opacity-60">
-                            {creating ? "Creating…" : "Create Folder"}
-                        </button>
-                    </div>
-                </form>
-            </div>
+            </form>
         </div>
-    );
+    </div>);
 }
 
 /* -------------------------------------------------------------------- */
@@ -252,7 +264,7 @@ export default function DashboardPage() {
             allFiles.forEach((file) => {
                 if (file.name === ".__folder__" && file.directory && !seenPaths.has(file.directory)) {
                     seenPaths.add(file.directory);
-                    uniqueFolders.push({ path: file.directory, id: file.id });
+                    uniqueFolders.push({path: file.directory, id: file.id});
                 }
             });
             setFolders(uniqueFolders);
@@ -281,15 +293,17 @@ export default function DashboardPage() {
 
     const downloadFile = async (fileId, filename) => {
         const token = getToken();
-        if (!token) { navigate("/"); return; }
+        if (!token) {
+            navigate("/");
+            return;
+        }
 
         try {
             const linkRes = await fetch(`${API_URL}/auth/files/${fileId}/public-link`, {
-                method: "POST",
-                headers: { Authorization: `Bearer ${token}` },
+                method: "POST", headers: {Authorization: `Bearer ${token}`},
             });
             if (!linkRes.ok) throw new Error("Failed to get download link.");
-            const { url } = await linkRes.json();
+            const {url} = await linkRes.json();
 
             const response = await fetch(`${API_URL}${url.replace("/stream/", "/download/")}`);
             if (!response.ok) throw new Error("Failed to download file.");
@@ -365,8 +379,8 @@ export default function DashboardPage() {
 
         const response = await fetch(`${API_URL}/auth/create-folder`, {
             method: "POST",
-            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-            body: JSON.stringify({ directory: folderPath }),
+            headers: {"Content-Type": "application/json", Authorization: `Bearer ${token}`},
+            body: JSON.stringify({directory: folderPath}),
         });
 
         const data = await response.json();
@@ -406,8 +420,7 @@ export default function DashboardPage() {
 
         try {
             const response = await fetch(`${API_URL}/auth/files/${folderId}`, {
-                method: "DELETE",
-                headers: {
+                method: "DELETE", headers: {
                     Authorization: `Bearer ${token}`,
                 },
             });
@@ -462,7 +475,7 @@ export default function DashboardPage() {
 
     // Direct-child folders of the current directory.
     const visibleFolders = useMemo(() => {
-        return folders.filter(({ path }) => {
+        return folders.filter(({path}) => {
             if (!currentFolder) return !path.includes("/");
             if (!path.startsWith(`${currentFolder}/`)) return false;
             const remainder = path.slice(currentFolder.length + 1);
@@ -483,13 +496,13 @@ export default function DashboardPage() {
     const filteredFolders = useMemo(() => {
         const query = searchQuery.trim().toLowerCase();
         if (!query) return visibleFolders;
-        return visibleFolders.filter(({ path }) => path.split("/").pop()?.toLowerCase().includes(query));
+        return visibleFolders.filter(({path}) => path.split("/").pop()?.toLowerCase().includes(query));
     }, [visibleFolders, searchQuery]);
 
     const breadcrumbSegments = useMemo(() => {
         if (!currentFolder) return [];
         const parts = currentFolder.split("/");
-        return parts.map((label, i) => ({ label, path: parts.slice(0, i + 1).join("/") }));
+        return parts.map((label, i) => ({label, path: parts.slice(0, i + 1).join("/")}));
     }, [currentFolder]);
 
     const isEmpty = filteredFiles.length === 0 && filteredFolders.length === 0;
@@ -511,7 +524,10 @@ export default function DashboardPage() {
             <div className="flex-shrink-0">
                 <Sidebar
                     onUpload={() => navigate(`/upload?directory=${encodeURIComponent(currentFolder)}`)}
-                    onGoHome={() => { setCurrentFolder(""); setSidebarOpen(false); }}
+                    onGoHome={() => {
+                        setCurrentFolder("");
+                        setSidebarOpen(false);
+                    }}
                     onLogout={handleLogout}
                 />
             </div>
@@ -592,19 +608,14 @@ export default function DashboardPage() {
                         <h2 className="text-2xl font-semibold tracking-tight text-on-surface">
                             Your Files
                         </h2>
-                        {currentFolder && (
-                            <div className="mb-4 flex items-center gap-1 text-sm text-on-surface-variant">
-                                <button onClick={() => setCurrentFolder("")} className="hover:text-primary hover:underline">All Files</button>
-                                {breadcrumbSegments.map(({ label, path }, i) => (
-                                    <span key={path} className="flex items-center gap-1">
+                        {currentFolder && (<div className="mb-4 flex items-center gap-1 text-sm text-on-surface-variant">
+                            <button onClick={() => setCurrentFolder("")} className="hover:text-primary hover:underline">All Files</button>
+                            {breadcrumbSegments.map(({label, path}, i) => (<span key={path} className="flex items-center gap-1">
                                         <span className="text-on-surface-variant/40">/</span>
-                                        {i === breadcrumbSegments.length - 1
-                                            ? <span className="text-on-surface font-medium">{label}</span>
-                                            : <button onClick={() => openFolder(path)} className="hover:text-primary hover:underline">{label}</button>}
-                                    </span>
-                                ))}
-                            </div>
-                        )}
+                                {i === breadcrumbSegments.length - 1 ? <span className="text-on-surface font-medium">{label}</span> :
+                                    <button onClick={() => openFolder(path)} className="hover:text-primary hover:underline">{label}</button>}
+                                    </span>))}
+                        </div>)}
                     </div>
 
                     <div className="flex gap-2">
@@ -688,31 +699,29 @@ export default function DashboardPage() {
                         </h3>
 
                         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-                            {filteredFolders.map(({ path, id }) => {
+                            {filteredFolders.map(({path, id}) => {
                                 const displayName = path.split("/").pop();
-                                return (
-                                    <div
-                                        key={path}
-                                        className="group relative rounded-2xl border border-outline-variant/10 bg-surface-container-lowest p-4 text-left transition-all hover:border-primary/30 hover:bg-surface-container-low"
+                                return (<div
+                                    key={path}
+                                    className="group relative rounded-2xl border border-outline-variant/10 bg-surface-container-lowest p-4 text-left transition-all hover:border-primary/30 hover:bg-surface-container-low"
+                                >
+                                    <button type="button" onClick={() => openFolder(path)} className="block w-full text-left">
+                                        <span className="material-symbols-outlined text-[42px] text-primary" aria-hidden="true">folder</span>
+                                        <p className="mt-3 truncate text-sm font-medium text-on-surface">{displayName}</p>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => deleteFolder(id, path)}
+                                        disabled={deletingId === `folder-${id}`}
+                                        title="Delete folder"
+                                        aria-label={`Delete folder ${displayName}`}
+                                        className="absolute right-2 top-2 rounded-lg p-1 text-on-surface-variant opacity-0 transition-opacity hover:bg-error/10 hover:text-error group-hover:opacity-100 disabled:opacity-50"
                                     >
-                                        <button type="button" onClick={() => openFolder(path)} className="block w-full text-left">
-                                            <span className="material-symbols-outlined text-[42px] text-primary" aria-hidden="true">folder</span>
-                                            <p className="mt-3 truncate text-sm font-medium text-on-surface">{displayName}</p>
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => deleteFolder(id, path)}
-                                            disabled={deletingId === `folder-${id}`}
-                                            title="Delete folder"
-                                            aria-label={`Delete folder ${displayName}`}
-                                            className="absolute right-2 top-2 rounded-lg p-1 text-on-surface-variant opacity-0 transition-opacity hover:bg-error/10 hover:text-error group-hover:opacity-100 disabled:opacity-50"
-                                        >
                                             <span className="material-symbols-outlined text-[16px]" aria-hidden="true">
                                                 {deletingId === `folder-${id}` ? "progress_activity" : "delete"}
                                             </span>
-                                        </button>
-                                    </div>
-                                );
+                                    </button>
+                                </div>);
                             })}
                         </div>
                     </div>)}
