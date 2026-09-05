@@ -65,7 +65,6 @@ def update_user(user: User) -> None:
 
 def add_file(file: File) -> None:
     user: User | None = get_user(username=file.username)
-
     if user is None:
         raise ValueError(f"User `{file.username}` does not exist")
 
@@ -79,10 +78,12 @@ def add_file(file: File) -> None:
                                modified_at,
                                data_center,
                                links,
+                               deleted_at,
                                username)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
             """,
-            (file.directory, file.name, file.type, file.size, file.modified_at.isoformat(), file.data_center, dumps(file.links), file.username),
+            (file.directory, file.name, file.type, file.size, file.modified_at.isoformat(), file.data_center,
+             dumps(file.links), file.deleted_at.isoformat() if file.deleted_at else None, file.username),
         )
         CURSOR.connection.commit()
 
@@ -92,39 +93,25 @@ def add_file(file: File) -> None:
         raise
 
 
-def get_file(*, file_id: int | None = None, name: str | None = None, username: str | None = None) -> File | None:
+def get_file(*, file_id: int | None = None, name: str | None = None, username: str | None = None,
+             include_trashed: bool = False) -> File | None:
+    trash_clause = "" if include_trashed else "AND deleted_at IS NULL"
+
     if file_id is not None:
         CURSOR.execute(
-            """
-            SELECT id,
-                   directory,
-                   name,
-                   type,
-                   size,
-                   modified_at,
-                   data_center,
-                   links,
-                   username
+            f"""
+            SELECT id, directory, name, type, size, modified_at, data_center, links, deleted_at, username
             FROM files
-            WHERE id = ?;
+            WHERE id = ? {trash_clause};
             """, (file_id,),
         )
 
     elif name is not None and username is not None:
         CURSOR.execute(
-            """
-            SELECT id,
-                   directory,
-                   name,
-                   type,
-                   size,
-                   modified_at,
-                   data_center,
-                   links,
-                   username
+            f"""
+            SELECT id, directory, name, type, size, modified_at, data_center, links, deleted_at, username
             FROM files
-            WHERE name = ?
-              AND username = ?;
+            WHERE name = ? AND username = ? {trash_clause};
             """, (name, username),
         )
 
@@ -138,44 +125,32 @@ def get_file(*, file_id: int | None = None, name: str | None = None, username: s
         file: dict[str, int | str] = dict(row)
         file["links"] = loads(file["links"])
         file["modified_at"] = datetime.fromisoformat(file["modified_at"])
+        file["deleted_at"] = datetime.fromisoformat(file["deleted_at"]) if file["deleted_at"] else None
         return File(**file)
 
     return None
 
 
-def get_files(*, directory: str | None = None, username: str | None = None) -> list[File] | None:
+def get_files(*, directory: str | None = None, username: str | None = None,
+              include_trashed: bool = False) -> list[File] | None:
+    trash_clause = "" if include_trashed else "AND deleted_at IS NULL"
+
     if directory is not None:
         CURSOR.execute(
-            """
-            SELECT id,
-                   directory,
-                   name,
-                   type,
-                   size,
-                   modified_at,
-                   data_center,
-                   links,
-                   username
+            f"""
+            SELECT id, directory, name, type, size, modified_at, data_center, links, deleted_at, username
             FROM files
-            WHERE directory = ?;
+            WHERE directory = ? {trash_clause};
             """,
             (directory,),
         )
 
     elif username is not None:
         CURSOR.execute(
-            """
-            SELECT id,
-                   directory,
-                   name,
-                   type,
-                   size,
-                   modified_at,
-                   data_center,
-                   links,
-                   username
+            f"""
+            SELECT id, directory, name, type, size, modified_at, data_center, links, deleted_at, username
             FROM files
-            WHERE username = ?;
+            WHERE username = ? {trash_clause};
             """,
             (username,),
         )
@@ -190,6 +165,29 @@ def get_files(*, directory: str | None = None, username: str | None = None) -> l
         file: dict[str, int | str] = dict(row)
         file["links"] = loads(file["links"])
         file["modified_at"] = datetime.fromisoformat(file["modified_at"])
+        file["deleted_at"] = datetime.fromisoformat(file["deleted_at"]) if file["deleted_at"] else None
+        files.append(File(**file))
+
+    return files
+
+def get_trashed_files(*, username: str) -> list[File]:
+    CURSOR.execute(
+        """
+        SELECT id, directory, name, type, size, modified_at, data_center, links, deleted_at, username
+        FROM files
+        WHERE username = ?
+          AND deleted_at IS NOT NULL;
+        """,
+        (username,),
+    )
+    write_log("INFO", Database, "GET TRASHED FILES", username, "Select query executed for trashed files.")
+    files: list[File] = []
+
+    for row in CURSOR.fetchall():
+        file: dict[str, int | str] = dict(row)
+        file["links"] = loads(file["links"])
+        file["modified_at"] = datetime.fromisoformat(file["modified_at"])
+        file["deleted_at"] = datetime.fromisoformat(file["deleted_at"])
         files.append(File(**file))
 
     return files
@@ -203,17 +201,39 @@ def update_file(file: File) -> None:
             SET directory   = ?,
                 name        = ?,
                 type        = ?,
-                modified_at = ?
+                modified_at = ?,
+                deleted_at  = ?
             WHERE id = ?
               AND username = ?;
             """,
-            (file.directory, file.name, file.type, file.modified_at.isoformat(), file.id, file.username),
+            (file.directory, file.name, file.type, file.modified_at.isoformat(),
+             file.deleted_at.isoformat() if file.deleted_at else None, file.id, file.username),
         )
         CURSOR.connection.commit()
 
     except Exception as e:
         CURSOR.connection.rollback()
         write_log("ERROR", Database, "UPDATE FILE", file.username, f"Failed to update file: {e}")
+        raise
+
+def purge_expired_trash(*, username: str, older_than_days: int = 30) -> None:
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=older_than_days)).isoformat()
+    try:
+        CURSOR.execute(
+            """
+            DELETE FROM files
+            WHERE username = ?
+              AND deleted_at IS NOT NULL
+              AND deleted_at < ?;
+            """,
+            (username, cutoff),
+        )
+        CURSOR.connection.commit()
+        write_log("INFO", Database, "PURGE TRASH", username, f"Purged {CURSOR.rowcount} expired trash item(s).")
+
+    except Exception as e:
+        CURSOR.connection.rollback()
+        write_log("ERROR", Database, "PURGE TRASH", username, f"Failed to purge trash: {e}")
         raise
 
 

@@ -13,10 +13,16 @@ TRANSFER_PATH.mkdir(exist_ok=True)
 
 SUPPORTED_DOMAIN: list[str] = ["drive.google.com", ]
 
+
+def get_transfer_path(username: str, directory: str, filename: str) -> Path:
+    path = TRANSFER_PATH / username
+    if directory:
+        path = path / directory
+    return path / filename
+
 load_dotenv()
 
 LOG_HANDLER: TextIO = open(LOG_PATH, 'a')
-
 
 def getenv(key: str) -> str:
     value: str | None = os.getenv(key)
