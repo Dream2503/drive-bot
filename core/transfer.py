@@ -1,4 +1,4 @@
-import asyncio
+from asyncio import Semaphore, create_task, as_completed, Task
 from pathlib import Path
 from traceback import format_exc
 from typing import AsyncGenerator
@@ -11,7 +11,7 @@ from core.utils import write_log
 
 async def upload(file: File) -> AsyncGenerator[float | int, None]:
     user: User | None = get_user(username=file.username)
-    data_center: type[DataCenter] = DataCenter(file.data_center)
+    data_center: DataCenter = DataCenter(file.data_center)
 
     if not user:
         return
@@ -55,7 +55,7 @@ async def upload(file: File) -> AsyncGenerator[float | int, None]:
                 filename: str = f"{file_path.name}{'' if total_parts == 1 else f'.part{i:03d}'}"
                 chunks.append((i, chunk, filename))
 
-            semaphore = asyncio.Semaphore(8)
+            semaphore = Semaphore(8)
 
             async def upload_part(i: int, chunk: bytes, filename: str) -> tuple[int, str]:
                 async with semaphore:
@@ -67,10 +67,10 @@ async def upload(file: File) -> AsyncGenerator[float | int, None]:
                         except OSError as e:
                             write_log("ERROR", data_center, "UPLOAD", user.username, f"Network error part {i}/{total_parts}, retrying: {e}")
 
-            tasks = [asyncio.create_task(upload_part(i, chunk, filename)) for i, chunk, filename in chunks]
+            tasks: list[Task[tuple[int, str]]] = [create_task(upload_part(i, chunk, filename)) for i, chunk, filename in chunks]
             results: dict[int, str] = {}
 
-            for task in asyncio.as_completed(tasks):
+            for task in as_completed(tasks):
                 i, msg_id = await task
                 results[i] = msg_id
                 progress: float | int = round((len(results) / total_parts) * 100, 2)
@@ -88,7 +88,7 @@ async def upload(file: File) -> AsyncGenerator[float | int, None]:
 
 
 async def download(file: File) -> AsyncGenerator[float | int, None]:
-    data_center: type[DataCenter] = DataCenter(file.data_center)
+    data_center: DataCenter = DataCenter(file.data_center)
     write_log("INFO", data_center, "DOWNLOAD", str(file.username), f"Got file: {file}")
 
     try:
@@ -108,7 +108,7 @@ async def download(file: File) -> AsyncGenerator[float | int, None]:
 
         with file_path.open("wb") as output:
             for i, flink in enumerate(file.links):
-                part = await DataCenter.get_cached_part(str(file.username), i)
+                part: bytes | None = await DataCenter.get_cached_part(str(file.username), i)
 
                 if part is None:
                     while True:

@@ -40,8 +40,8 @@ class File(BaseModel):
             f"type={self.type}, "
             f"size={self.size}, "
             f"modified_at={self.modified_at}, "
-            f"links={self.links!r}, "
             f"data_center={self.data_center!r}, "
+            f"links={self.links!r}, "
             f"username={self.username})"
         )
 

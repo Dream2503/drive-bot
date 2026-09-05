@@ -1,8 +1,9 @@
-import json
-import mimetypes
 from datetime import datetime, timezone
+from json import dumps
+from mimetypes import guess_type
 from pathlib import Path
 from typing import AsyncGenerator
+from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, UploadFile
 from fastapi.responses import Response, StreamingResponse
@@ -13,7 +14,7 @@ from backend.server.jwt_handler import create_access_token, get_current_user
 from backend.server.security import hash_password, verify_password, create_public_stream_token, verify_public_stream_token
 from core.config import TRANSFER_PATH
 from core.data_center import BackEnd
-from core.parser import parse_link
+from core.downloader import download_link
 from core.stream import ChunkCache, get_chunks, parse_range, stream_range, ByteRange
 from core.transfer import upload
 
@@ -24,8 +25,8 @@ class CreateFolderRequest(BaseModel):
     directory: str
 
 
-class GoogleDriveDownloadRequest(BaseModel):
-    google_drive_url: str
+class LinkDownloadRequest(BaseModel):
+    link: str
     data_center: str
     directory: str = ""
 
@@ -84,7 +85,7 @@ async def upload_route(file: UploadFile, data_center: str = Form(...), directory
     file_job: File = File(
         directory=directory,
         name=file.filename,
-        type=mimetypes.guess_type(filename)[0] or "application/octet-stream",
+        type=guess_type(filename)[0] or "application/octet-stream",
         size=file_path.stat().st_size,
         modified_at=datetime.fromtimestamp(file_path.stat().st_mtime, tz=timezone.utc),
         links=[],
@@ -94,22 +95,19 @@ async def upload_route(file: UploadFile, data_center: str = Form(...), directory
 
     async def progress_stream() -> AsyncGenerator[str, None]:
         async for progress in upload(file_job):
-            yield json.dumps({"progress": progress}) + "\n"
+            yield dumps({"progress": progress}) + "\n"
 
     return StreamingResponse(progress_stream(), media_type="application/x-ndjson")
 
 
-@auth.post("/upload-from-drive")
-async def upload_from_drive_route(request: GoogleDriveDownloadRequest, current_user: User = Depends(get_current_user), ) -> StreamingResponse:
-    google_drive_url = request.google_drive_url.strip()
+@auth.post("/upload-from-link")
+async def upload_from_link_route(request: LinkDownloadRequest, current_user: User = Depends(get_current_user)) -> StreamingResponse:
+    link = request.link.strip()
     data_center = request.data_center.strip()
     directory = request.directory.strip().strip("/")
 
-    if not google_drive_url:
-        raise HTTPException(status_code=400, detail="Google Drive URL is required")
-
-    if "drive.google.com" not in google_drive_url:
-        raise HTTPException(status_code=400, detail="Please provide a valid Google Drive link")
+    if not link:
+        raise HTTPException(status_code=400, detail="Link is required")
 
     if not data_center:
         raise HTTPException(status_code=400, detail="Data center is required")
@@ -122,7 +120,7 @@ async def upload_from_drive_route(request: GoogleDriveDownloadRequest, current_u
 
     file_job = File(
         directory=directory,
-        name="google_drive_file",
+        name="link_file",
         type="application/octet-stream",
         size=0,
         modified_at=datetime.now(timezone.utc),
@@ -133,17 +131,14 @@ async def upload_from_drive_route(request: GoogleDriveDownloadRequest, current_u
 
     async def progress_stream() -> AsyncGenerator[str, None]:
         try:
-            async for progress in parse_link(file_job, google_drive_url):
-                yield json.dumps({
-                    "status": "uploading",
-                    "progress": progress,
-                }) + "\n"
+            async for progress in download_link(file_job, link):
+                yield dumps({"status": "uploading", "progress": progress}) + "\n"
 
-            yield json.dumps({"status": "completed", "progress": 100, }) + "\n"
+            yield dumps({"status": "completed", "progress": 100}) + "\n"
 
         except Exception as e:
-            print(f"Google Drive upload error: {e}")
-            yield json.dumps({"status": "error", "error": str(e), }) + "\n"
+            print(f"Link upload error: {e}")
+            yield dumps({"status": "error", "error": str(e)}) + "\n"
 
     return StreamingResponse(progress_stream(), media_type="application/x-ndjson")
 
@@ -247,12 +242,12 @@ async def public_stream_route(token: str, request: Request):
 
     cache = ChunkCache(str(file.id), file.data_center)
     length = byte_range.end - byte_range.start + 1
-    content_type = file.type or mimetypes.guess_type(file.name)[0] or "application/octet-stream"
+    content_type = file.type or guess_type(file.name)[0] or "application/octet-stream"
     headers = {
         "Accept-Ranges": "bytes",
         "Content-Length": str(length),
         "Content-Type": content_type,
-        "Content-Disposition": f'inline; filename="{file.name}"',
+        "Content-Disposition": f"inline; filename=\"{file.name.encode('ascii', 'ignore').decode()}\"; filename*=UTF-8''{quote(file.name)}",
         "Cache-Control": "public, max-age=3600",
     }
 
@@ -288,7 +283,7 @@ async def public_download_route(token: str):
 
     size = parts[-1].end + 1
     cache = ChunkCache(str(file.id), file.data_center)
-    content_type = file.type or mimetypes.guess_type(file.name)[0] or "application/octet-stream"
+    content_type = file.type or guess_type(file.name)[0] or "application/octet-stream"
 
     headers = {
         "Content-Length": str(size),

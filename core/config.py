@@ -4,13 +4,15 @@ from typing import TextIO
 
 from dotenv import load_dotenv
 
-BASE_DIR = Path(__file__).resolve().parent.parent
+BASE_DIR: Path = Path(__file__).resolve().parent.parent
 
-DATABASE_PATH = BASE_DIR / "backend" / "database" / "database.db"
+DATABASE_PATH: Path = BASE_DIR / "backend" / "database" / "database.db"
 LOG_PATH: Path = BASE_DIR / "logs.txt"
 TRANSFER_PATH: Path = BASE_DIR / "transfer"
-
 TRANSFER_PATH.mkdir(exist_ok=True)
+
+SUPPORTED_DOMAIN: list[str] = ["drive.google.com", ]
+
 load_dotenv()
 
 LOG_HANDLER: TextIO = open(LOG_PATH, 'a')

@@ -17,7 +17,6 @@ def add_user(user: User) -> None:
             """, (user.username, user.password, user.first_name, user.last_name, user.created_at.isoformat()),
         )
         CURSOR.connection.commit()
-        write_log("INFO", Database, "SET USER", user.username, "User successfully inserted into database.")
 
     except Exception as e:
         CURSOR.connection.rollback()
@@ -33,7 +32,6 @@ def get_user(username: str) -> User | None:
         """,
         (username,),
     )
-    write_log("INFO", Database, "GET USER", username, f"Select query executed for {username}.")
     row: Row | None = CURSOR.fetchone()
 
     if row:
@@ -45,7 +43,7 @@ def get_user(username: str) -> User | None:
     return None
 
 
-def update_user(user: User):
+def update_user(user: User) -> None:
     try:
         CURSOR.execute(
             """
@@ -58,7 +56,6 @@ def update_user(user: User):
             (user.password, user.first_name, user.last_name, user.username),
         )
         CURSOR.connection.commit()
-        write_log("INFO", Database, "UPDATE USER", user.username, "User successfully updated.")
 
     except Exception as e:
         CURSOR.connection.rollback()
@@ -88,7 +85,6 @@ def add_file(file: File) -> None:
             (file.directory, file.name, file.type, file.size, file.modified_at.isoformat(), file.data_center, dumps(file.links), file.username),
         )
         CURSOR.connection.commit()
-        write_log("INFO", Database, "INSERT FILES", file.username, f"File `{file.name}` saved to database with {len(file.links)} part(s).")
 
     except Exception as e:
         CURSOR.connection.rollback()
@@ -113,7 +109,6 @@ def get_file(*, file_id: int | None = None, name: str | None = None, username: s
             WHERE id = ?;
             """, (file_id,),
         )
-        attribute, value = "id", file_id
 
     elif name is not None and username is not None:
         CURSOR.execute(
@@ -132,13 +127,11 @@ def get_file(*, file_id: int | None = None, name: str | None = None, username: s
               AND username = ?;
             """, (name, username),
         )
-        attribute, value = ("name", "username"), (name, username)
 
     else:
         write_log("ERROR", Database, "GET FILE", "", "Invalid search parameters provided by caller.")
         return None
 
-    write_log("INFO", Database, "GET FILE", "", f"Select query executed for {attribute}={value}.")
     row: Row | None = CURSOR.fetchone()
 
     if row:
@@ -147,7 +140,6 @@ def get_file(*, file_id: int | None = None, name: str | None = None, username: s
         file["modified_at"] = datetime.fromisoformat(file["modified_at"])
         return File(**file)
 
-    write_log("ERROR", Database, "GET FILE", "", f"No file found for {attribute}={value}.")
     return None
 
 
@@ -169,7 +161,6 @@ def get_files(*, directory: str | None = None, username: str | None = None) -> l
             """,
             (directory,),
         )
-        attribute, value = "directory", directory
 
     elif username is not None:
         CURSOR.execute(
@@ -188,13 +179,11 @@ def get_files(*, directory: str | None = None, username: str | None = None) -> l
             """,
             (username,),
         )
-        attribute, value = "username", username
 
     else:
         write_log("ERROR", Database, "GET FILES", "", "No valid search parameter provided.")
         return None
 
-    write_log("INFO", Database, "GET FILES", "", f"Select query executed for {attribute}={value}.")
     files: list[File] = []
 
     for row in CURSOR.fetchall():
@@ -221,7 +210,6 @@ def update_file(file: File) -> None:
             (file.directory, file.name, file.type, file.modified_at.isoformat(), file.id, file.username),
         )
         CURSOR.connection.commit()
-        write_log("INFO", Database, "UPDATE FILE", file.username, f"File `{file.name}` successfully updated.")
 
     except Exception as e:
         CURSOR.connection.rollback()
@@ -241,7 +229,6 @@ def delete_file(file: File) -> None:
             (file.id, file.username),
         )
         CURSOR.connection.commit()
-        write_log("INFO", Database, "DELETE FILE", file.username, f"File `{file.name}` successfully deleted.")
 
     except Exception as e:
         CURSOR.connection.rollback()
@@ -273,7 +260,6 @@ def github_cursor_increment_repo_id() -> None:
         """,
     )
     CURSOR.connection.commit()
-    write_log("INFO", Database, "UPDATE GITHUB CURSOR", "", "GitHub repository ID incremented.")
 
 
 def github_cursor_get_used() -> int:
@@ -301,4 +287,3 @@ def github_cursor_set_used(value: int) -> None:
         (value,),
     )
     CURSOR.connection.commit()
-    write_log("INFO", Database, "UPDATE GITHUB CURSOR", "", f"GitHub storage usage increased by {value} bytes.")

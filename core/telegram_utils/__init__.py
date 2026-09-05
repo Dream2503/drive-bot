@@ -52,9 +52,7 @@ class Telegram(DataCenter, metaclass=ConfigMeta):
     async def initialize() -> None:
         try:
             Telegram.FILE_DUMP = Bot(token=Telegram.TOKEN)
-
             me = await Telegram.FILE_DUMP.get_me()
-
             write_log("INFO", Telegram, "INIT", me.username or str(me.id), f"Bot is online. Logged in (id={me.id})")
 
         except Exception as e:

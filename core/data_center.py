@@ -1,10 +1,10 @@
-import asyncio
 import os
-import time
+from asyncio import Lock, to_thread
 from collections import OrderedDict
 from pathlib import Path
+from time import monotonic
 
-from core.config import TRANSFER_PATH
+from core import TRANSFER_PATH
 
 
 class DataCenter:
@@ -19,7 +19,7 @@ class DataCenter:
 
     _cache: OrderedDict[str, tuple[int, float]] = OrderedDict()
     _cache_size: int = 0
-    _cache_lock: asyncio.Lock | None = None
+    _cache_lock: Lock | None = None
 
     def __new__(cls, name: str):
         from core.discord_utils import Discord
@@ -41,9 +41,9 @@ class DataCenter:
         return None
 
     @staticmethod
-    def _lock() -> asyncio.Lock:
+    def _lock() -> Lock:
         if DataCenter._cache_lock is None:
-            DataCenter._cache_lock = asyncio.Lock()
+            DataCenter._cache_lock = Lock()
 
         return DataCenter._cache_lock
 
@@ -58,7 +58,7 @@ class DataCenter:
 
         temp = path.with_suffix(".tmp")
 
-        await asyncio.to_thread(temp.write_bytes, data)
+        await to_thread(temp.write_bytes, data)
         os.replace(temp, path)
 
         key = str(path)
@@ -70,7 +70,7 @@ class DataCenter:
             if old:
                 DataCenter._cache_size -= old[0]
 
-            DataCenter._cache[key] = (new_size, time.monotonic())
+            DataCenter._cache[key] = (new_size, monotonic())
             DataCenter._cache_size += new_size
 
             await DataCenter._evict()
@@ -84,7 +84,7 @@ class DataCenter:
         if not path.is_file() or path.stat().st_size <= 0:
             return None
 
-        data = await asyncio.to_thread(path.read_bytes)
+        data = await to_thread(path.read_bytes)
         key = str(path)
         size = len(data)
 
@@ -94,7 +94,7 @@ class DataCenter:
             if old:
                 DataCenter._cache_size -= old[0]
 
-            DataCenter._cache[key] = (size, time.monotonic())
+            DataCenter._cache[key] = (size, monotonic())
             DataCenter._cache_size += size
 
         return data
@@ -128,7 +128,7 @@ class DataCenter:
             if old:
                 DataCenter._cache_size -= old[0]
 
-            DataCenter._cache[path] = (size, time.monotonic())
+            DataCenter._cache[path] = (size, monotonic())
             DataCenter._cache_size += size
 
         return True
@@ -157,7 +157,7 @@ class DataCenter:
         async with DataCenter._lock():
             if fid is None:
                 if DataCenter.CACHE_DIR.exists():
-                    await asyncio.to_thread(shutil.rmtree, DataCenter.CACHE_DIR)
+                    await to_thread(shutil.rmtree, DataCenter.CACHE_DIR)
 
                 DataCenter._cache.clear()
                 DataCenter._cache_size = 0
@@ -166,7 +166,7 @@ class DataCenter:
             folder = DataCenter.CACHE_DIR / fid
 
             if folder.exists():
-                await asyncio.to_thread(shutil.rmtree, folder)
+                await to_thread(shutil.rmtree, folder)
 
             prefix = str(folder) + os.sep
 
@@ -181,7 +181,7 @@ class DataCenter:
 
         async with DataCenter._lock():
             if DataCenter.CACHE_DIR.exists():
-                await asyncio.to_thread(shutil.rmtree, DataCenter.CACHE_DIR)
+                await to_thread(shutil.rmtree, DataCenter.CACHE_DIR)
 
             DataCenter.CACHE_DIR.mkdir(parents=True, exist_ok=True)
             DataCenter._cache.clear()
