@@ -3,8 +3,7 @@ from threading import Thread
 
 from uvicorn import Config, Server
 
-from core import discord_utils, telegram_utils
-from core.data_center import DataCenter
+from core import discord_utils, telegram_utils, DataCenter
 
 
 async def run_server() -> None:

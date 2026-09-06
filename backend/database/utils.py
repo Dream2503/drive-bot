@@ -93,9 +93,9 @@ def add_file(file: File) -> None:
         raise
 
 
-def get_file(*, file_id: int | None = None, name: str | None = None, username: str | None = None,
+def get_file(*, file_id: int | None = None, directory: str | None = None, name: str | None = None, username: str | None = None,
              include_trashed: bool = False) -> File | None:
-    trash_clause = "" if include_trashed else "AND deleted_at IS NULL"
+    trash_clause: str = "" if include_trashed else "AND deleted_at IS NULL"
 
     if file_id is not None:
         CURSOR.execute(
@@ -106,13 +106,15 @@ def get_file(*, file_id: int | None = None, name: str | None = None, username: s
             """, (file_id,),
         )
 
-    elif name is not None and username is not None:
+    elif directory is not None and name is not None and username is not None:
         CURSOR.execute(
             f"""
             SELECT id, directory, name, type, size, modified_at, data_center, links, deleted_at, username
             FROM files
-            WHERE name = ? AND username = ? {trash_clause};
-            """, (name, username),
+            WHERE directory = ? 
+              AND name = ? 
+              AND username = ? {trash_clause};
+            """, (directory, name, username),
         )
 
     else:

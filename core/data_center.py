@@ -5,7 +5,7 @@ from pathlib import Path
 from shutil import rmtree
 from time import monotonic
 
-from core import TRANSFER_PATH
+from core.config import TRANSFER_PATH
 
 
 class DataCenter:
