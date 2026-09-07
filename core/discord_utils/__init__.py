@@ -6,9 +6,7 @@ import discord
 from discord import Intents, Message, TextChannel
 from discord.ext.commands import Bot
 
-from core.config import getenv
-from core.data_center import ConfigMeta, DataCenter
-from core.utils import write_log
+from core import getenv, ConfigMeta, DataCenter, write_log
 
 
 class Discord(DataCenter, metaclass=ConfigMeta):
@@ -28,14 +26,8 @@ class Discord(DataCenter, metaclass=ConfigMeta):
 
     @staticmethod
     async def upload(chunk: bytes, filename: str) -> str:
-        return str(
-            (await wrap_future(
-                run_coroutine_threadsafe(
-                    Discord.FILE_DUMP.send(file=discord.File(BytesIO(chunk), filename=filename)),
-                    Discord.LOOP,
-                ),
-            )).id,
-        )
+        return str((await wrap_future(
+            run_coroutine_threadsafe(Discord.FILE_DUMP.send(file=discord.File(BytesIO(chunk), filename=filename)), Discord.LOOP))).id)
 
     @staticmethod
     async def download(flink: str) -> bytes:

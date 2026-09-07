@@ -1,461 +1,475 @@
-[2026-09-05 11:47:23,315] [WARNING] [discord.client] PyNaCl is not installed, voice will NOT be supported
-[2026-09-05 11:47:23,331] [WARNING] [discord.client] davey is not installed, voice will NOT be supported
-[2026-09-05 11:47:24] [Telegram] [INFO] [INIT] [StoreLimitless_bot] Bot is online. Logged in (id=8404712547)
-[2026-09-05 11:47:24] [Discord] [INFO] [MAIN] [] Starting Store Limitless Bot...
-[2026-09-05 11:47:24,979] [INFO] [discord.client] logging in using static token
-[2026-09-05 11:47:27,432] [INFO] [discord.gateway] Shard ID None has connected to Gateway (Session ID: f1389603866ade20e43b314610060569).
-[2026-09-05 11:47:29] [Discord] [INFO] [INIT] [StoreLimitless#1152] FILE_DUMP channel initialized: files-dump (id=1399311590616203284).
-[2026-09-05 11:47:29] [Discord] [INFO] [INIT] [StoreLimitless#1152] Bot online and ready (id=1399287140885725245).
-[2026-09-05 11:48:15] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 11:48:16] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 11:48:16] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
-[2026-09-05 11:48:16] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 11:48:16] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
-[2026-09-05 11:48:49] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 11:48:49] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
-[2026-09-05 11:48:49] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 11:48:49] [Database] [INFO] [INSERT FILES] [i_am_doom] File `.__folder__` saved to database with 0 part(s).
-[2026-09-05 11:48:49] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 11:48:49] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
-[2026-09-05 11:51:12] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 11:51:13] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 11:51:13] [Discord] [INFO] [UPLOAD] [i_am_doom] Got file: id=None directory='Phase_1' name='100MB.bin' type='application/octet-stream' size=104857600 modified_at=datetime.datetime(2026, 9, 5, 6, 21, 12, 871385, tzinfo=datetime.timezone.utc) data_center='Discord' links=[] username='i_am_doom'
-[2026-09-05 11:51:13] [Database] [INFO] [GET FILE] [] Select query executed for ('name', 'username')=('100MB.bin', 'i_am_doom').
-[2026-09-05 11:51:13] [Database] [INFO] [GET FILE] [] Select query executed for ('name', 'username')=('100MB.bin', 'i_am_doom').
-[2026-09-05 11:51:13] [Database] [INFO] [GET FILE] [] Select query executed for ('name', 'username')=('100MB(1).bin', 'i_am_doom').
-[2026-09-05 11:51:13] [Database] [ERROR] [GET FILE] [] No file found for ('name', 'username')=('100MB(1).bin', 'i_am_doom').
-[2026-09-05 11:51:13] [Discord] [ERROR] [UPLOAD] [i_am_doom] Local file not found: C:\Users\anwes\OneDrive\Desktop\Drive_Bot\transfer\i_am_doom\100MB(1).bin
-[2026-09-05 11:51:14] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 11:51:14] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
-[2026-09-05 11:51:14] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 11:51:14] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
-[2026-09-05 11:52:37] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 11:52:37] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 11:52:37] [Discord] [INFO] [UPLOAD] [i_am_doom] Got file: id=None directory='Phase_1' name="Marvel Studios' Avengers_ Infinity War Official Trailer.mp4" type='video/mp4' size=5575143 modified_at=datetime.datetime(2026, 9, 5, 6, 22, 37, 934687, tzinfo=datetime.timezone.utc) data_center='Discord' links=[] username='i_am_doom'
-[2026-09-05 11:52:37] [Database] [INFO] [GET FILE] [] Select query executed for ('name', 'username')=("Marvel Studios' Avengers_ Infinity War Official Trailer.mp4", 'i_am_doom').
-[2026-09-05 11:52:37] [Database] [ERROR] [GET FILE] [] No file found for ('name', 'username')=("Marvel Studios' Avengers_ Infinity War Official Trailer.mp4", 'i_am_doom').
-[2026-09-05 11:52:37] [Discord] [ERROR] [UPLOAD] [i_am_doom] Local file not found: C:\Users\anwes\OneDrive\Desktop\Drive_Bot\transfer\i_am_doom\Marvel Studios' Avengers_ Infinity War Official Trailer.mp4
-[2026-09-05 11:52:39] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 11:52:39] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
-[2026-09-05 11:52:39] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 11:52:39] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
-[2026-09-05 11:54:44] [Telegram] [INFO] [SHUTDOWN] [] Telegram client stopped.
-[2026-09-05 18:56:09,884] [WARNING] [discord.client] PyNaCl is not installed, voice will NOT be supported
-[2026-09-05 18:56:09,884] [WARNING] [discord.client] davey is not installed, voice will NOT be supported
-[2026-09-05 18:56:11] [Telegram] [INFO] [INIT] [StoreLimitless_bot] Bot is online. Logged in (id=8404712547)
-[2026-09-05 18:56:11] [Discord] [INFO] [MAIN] [] Starting Store Limitless Bot...
-[2026-09-05 18:56:11,857] [INFO] [discord.client] logging in using static token
-[2026-09-05 18:56:14,337] [INFO] [discord.gateway] Shard ID None has connected to Gateway (Session ID: a2aae14215021d5fb129138fd0f02349).
-[2026-09-05 18:56:16] [Discord] [INFO] [INIT] [StoreLimitless#1152] FILE_DUMP channel initialized: files-dump (id=1399311590616203284).
-[2026-09-05 18:56:16] [Discord] [INFO] [INIT] [StoreLimitless#1152] Bot online and ready (id=1399287140885725245).
-[2026-09-05 18:56:44] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 18:56:45] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 18:56:45] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
-[2026-09-05 18:56:45] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 18:56:45] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
-[2026-09-05 18:57:04] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 18:57:04] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 18:57:04] [Discord] [INFO] [UPLOAD] [i_am_doom] Got file: id=None directory='' name="Marvel Studios' Avengers_ Infinity War Official Trailer.mp4" type='video/mp4' size=5575143 modified_at=datetime.datetime(2026, 9, 5, 13, 27, 4, 422709, tzinfo=datetime.timezone.utc) data_center='Discord' links=[] username='i_am_doom'
-[2026-09-05 18:57:04] [Database] [INFO] [GET FILE] [] Select query executed for ('name', 'username')=("Marvel Studios' Avengers_ Infinity War Official Trailer.mp4", 'i_am_doom').
-[2026-09-05 18:57:04] [Database] [ERROR] [GET FILE] [] No file found for ('name', 'username')=("Marvel Studios' Avengers_ Infinity War Official Trailer.mp4", 'i_am_doom').
-[2026-09-05 18:57:04] [Discord] [INFO] [UPLOAD] [i_am_doom] Found local file: Marvel Studios' Avengers_ Infinity War Official Trailer.mp4
-[2026-09-05 18:57:04] [Discord] [INFO] [UPLOAD] [i_am_doom] Starting upload `Marvel Studios' Avengers_ Infinity War Official Trailer.mp4` (1 parts)
-[2026-09-05 18:57:12] [Discord] [INFO] [UPLOAD] [i_am_doom] Uploaded 1/1 (100.0%)
-[2026-09-05 18:57:12] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 18:57:12] [Database] [INFO] [INSERT FILES] [i_am_doom] File `Marvel Studios' Avengers_ Infinity War Official Trailer.mp4` saved to database with 1 part(s).
-[2026-09-05 18:57:12] [Discord] [INFO] [UPLOAD] [i_am_doom] Upload complete `Marvel Studios' Avengers_ Infinity War Official Trailer.mp4`
-[2026-09-05 18:57:13] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 18:57:13] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
-[2026-09-05 18:57:13] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 18:57:13] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
-[2026-09-05 18:57:52] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 18:57:52] [Database] [INFO] [GET FILE] [] Select query executed for id=3.
-[2026-09-05 18:57:52] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 18:57:52] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
-[2026-09-05 18:57:57] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 18:57:57] [Database] [INFO] [GET FILE] [] Select query executed for id=3.
-[2026-09-05 18:57:58] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 18:57:58] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
-[2026-09-05 18:58:09] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 18:58:09] [Database] [INFO] [GET FILE] [] Select query executed for id=8.
-[2026-09-05 18:58:09] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 18:58:09] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
-[2026-09-05 18:58:30] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 18:58:31] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 18:58:31] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
-[2026-09-05 18:58:31] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 18:58:31] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
-[2026-09-05 19:00:35] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 19:00:35] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
-[2026-09-05 19:00:35] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 19:00:35] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
-[2026-09-05 19:00:54] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 19:04:58] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 19:04:58] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
-[2026-09-05 19:05:00] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 19:05:00] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
-[2026-09-05 19:05:10] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 19:05:10] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
-[2026-09-05 19:05:14] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 19:05:14] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
-[2026-09-05 19:07:12] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 19:07:12] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
-[2026-09-05 19:07:15] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 19:07:15] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
-[2026-09-05 19:07:22] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 19:07:22] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
-[2026-09-05 19:07:22] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 19:07:22] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
-[2026-09-05 19:07:27] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 19:07:27] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
-[2026-09-05 19:07:27] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 19:07:27] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
-[2026-09-05 19:13:46] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 19:13:46] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
-[2026-09-05 19:13:47] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 19:13:47] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
-[2026-09-05 19:13:59] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 19:13:59] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
-[2026-09-05 19:14:09] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 19:14:09] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
-[2026-09-05 19:14:09] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 19:14:09] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
-[2026-09-05 19:14:31] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 19:16:01] [Telegram] [INFO] [SHUTDOWN] [] Telegram client stopped.
-[2026-09-05 19:16:09,084] [WARNING] [discord.client] PyNaCl is not installed, voice will NOT be supported
-[2026-09-05 19:16:09,084] [WARNING] [discord.client] davey is not installed, voice will NOT be supported
-[2026-09-05 19:16:10] [Telegram] [INFO] [INIT] [StoreLimitless_bot] Bot is online. Logged in (id=8404712547)
-[2026-09-05 19:16:10] [Discord] [INFO] [MAIN] [] Starting Store Limitless Bot...
-[2026-09-05 19:16:10,462] [INFO] [discord.client] logging in using static token
-[2026-09-05 19:16:13,402] [INFO] [discord.gateway] Shard ID None has connected to Gateway (Session ID: a80e033daabd11f97987b9d4c0e94703).
-[2026-09-05 19:16:15] [Discord] [INFO] [INIT] [StoreLimitless#1152] FILE_DUMP channel initialized: files-dump (id=1399311590616203284).
-[2026-09-05 19:16:15] [Discord] [INFO] [INIT] [StoreLimitless#1152] Bot online and ready (id=1399287140885725245).
-[2026-09-05 19:16:18] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 19:16:18] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
-[2026-09-05 19:16:18] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 19:16:18] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
-[2026-09-05 19:16:19] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 19:16:19] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
-[2026-09-05 19:16:19] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 19:16:19] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
-[2026-09-05 19:16:27] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 19:16:27] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
-[2026-09-05 19:16:27] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
-[2026-09-05 19:16:27] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 19:16:27] [Database] [INFO] [INSERT FILES] [i_am_doom] File `.__folder__` saved to database with 0 part(s).
-[2026-09-05 19:16:27] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 19:16:27] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
-[2026-09-05 19:18:04] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 19:18:04] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
-[2026-09-05 19:18:04] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 19:18:04] [Discord] [INFO] [UPLOAD] [i_am_doom] Got file: id=None directory='Phase_1/iron_man_1' name='ironman-1.bin' type='application/octet-stream' size=104857600 modified_at=datetime.datetime(2026, 9, 5, 13, 48, 4, 431694, tzinfo=datetime.timezone.utc) data_center='Discord' links=[] username='i_am_doom'
-[2026-09-05 19:18:04] [Database] [INFO] [GET FILE] [] Select query executed for ('name', 'username')=('ironman-1.bin', 'i_am_doom').
-[2026-09-05 19:18:04] [Database] [ERROR] [GET FILE] [] No file found for ('name', 'username')=('ironman-1.bin', 'i_am_doom').
-[2026-09-05 19:18:04] [Discord] [ERROR] [UPLOAD] [i_am_doom] Local file not found: C:\Users\anwes\OneDrive\Desktop\Drive_Bot\transfer\i_am_doom\ironman-1.bin
-[2026-09-05 19:18:05] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 19:18:05] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
-[2026-09-05 19:18:05] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 19:18:05] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
-[2026-09-05 19:18:46] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 19:18:46] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
-[2026-09-05 19:18:46] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 19:18:46] [Discord] [INFO] [UPLOAD] [i_am_doom] Got file: id=None directory='Phase_1/iron_man_1' name='Avengers_ Doomsday _ Official Trailer _ In Theaters December 18_1080p.mp4' type='video/mp4' size=46910974 modified_at=datetime.datetime(2026, 9, 5, 13, 48, 46, 232582, tzinfo=datetime.timezone.utc) data_center='Discord' links=[] username='i_am_doom'
-[2026-09-05 19:18:46] [Database] [INFO] [GET FILE] [] Select query executed for ('name', 'username')=('Avengers_ Doomsday _ Official Trailer _ In Theaters December 18_1080p.mp4', 'i_am_doom').
-[2026-09-05 19:18:46] [Database] [ERROR] [GET FILE] [] No file found for ('name', 'username')=('Avengers_ Doomsday _ Official Trailer _ In Theaters December 18_1080p.mp4', 'i_am_doom').
-[2026-09-05 19:18:46] [Discord] [ERROR] [UPLOAD] [i_am_doom] Local file not found: C:\Users\anwes\OneDrive\Desktop\Drive_Bot\transfer\i_am_doom\Avengers_ Doomsday _ Official Trailer _ In Theaters December 18_1080p.mp4
-[2026-09-05 19:18:47] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 19:18:47] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
-[2026-09-05 19:18:47] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 19:18:47] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
-[2026-09-05 19:26:36] [Telegram] [INFO] [SHUTDOWN] [] Telegram client stopped.
-[2026-09-05 19:26:43,507] [WARNING] [discord.client] PyNaCl is not installed, voice will NOT be supported
-[2026-09-05 19:26:43,507] [WARNING] [discord.client] davey is not installed, voice will NOT be supported
-[2026-09-05 19:26:44] [Telegram] [INFO] [INIT] [StoreLimitless_bot] Bot is online. Logged in (id=8404712547)
-[2026-09-05 19:26:44] [Discord] [INFO] [MAIN] [] Starting Store Limitless Bot...
-[2026-09-05 19:26:44,843] [INFO] [discord.client] logging in using static token
-[2026-09-05 19:26:45] [Telegram] [INFO] [SHUTDOWN] [] Telegram client stopped.
-[2026-09-05 19:26:46,957] [INFO] [discord.gateway] Shard ID None has connected to Gateway (Session ID: ee53cb75a089283fb59c65426f7bffaf).
-[2026-09-05 19:26:48] [Discord] [INFO] [INIT] [StoreLimitless#1152] FILE_DUMP channel initialized: files-dump (id=1399311590616203284).
-[2026-09-05 19:26:48] [Discord] [INFO] [INIT] [StoreLimitless#1152] Bot online and ready (id=1399287140885725245).
-[2026-09-05 19:29:54,740] [WARNING] [discord.client] PyNaCl is not installed, voice will NOT be supported
-[2026-09-05 19:29:54,740] [WARNING] [discord.client] davey is not installed, voice will NOT be supported
-[2026-09-05 19:29:56] [Telegram] [INFO] [INIT] [StoreLimitless_bot] Bot is online. Logged in (id=8404712547)
-[2026-09-05 19:29:56] [Discord] [INFO] [MAIN] [] Starting Store Limitless Bot...
-[2026-09-05 19:29:56,095] [INFO] [discord.client] logging in using static token
-[2026-09-05 19:29:58,322] [INFO] [discord.gateway] Shard ID None has connected to Gateway (Session ID: c443be648c223affbd141d76cc1dd076).
-[2026-09-05 19:30:00] [Discord] [INFO] [INIT] [StoreLimitless#1152] FILE_DUMP channel initialized: files-dump (id=1399311590616203284).
-[2026-09-05 19:30:00] [Discord] [INFO] [INIT] [StoreLimitless#1152] Bot online and ready (id=1399287140885725245).
-[2026-09-05 19:30:01] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 19:30:01] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
-[2026-09-05 19:30:01] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 19:30:01] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
-[2026-09-05 19:30:12] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 19:30:12] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
-[2026-09-05 19:30:12] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 19:30:12] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
-[2026-09-05 19:30:21] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 19:30:21] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
-[2026-09-05 19:30:21] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 19:30:21] [Discord] [INFO] [UPLOAD] [i_am_doom] Got file: id=None directory='Doom' name='Avengers_ Doomsday _ Official Trailer _ In Theaters December 18_1080p.mp4' type='video/mp4' size=46910974 modified_at=datetime.datetime(2026, 9, 5, 14, 0, 21, 224293, tzinfo=datetime.timezone.utc) data_center='Discord' links=[] username='i_am_doom'
-[2026-09-05 19:30:21] [Database] [INFO] [GET FILE] [] Select query executed for ('name', 'username')=('Avengers_ Doomsday _ Official Trailer _ In Theaters December 18_1080p.mp4', 'i_am_doom').
-[2026-09-05 19:30:21] [Database] [ERROR] [GET FILE] [] No file found for ('name', 'username')=('Avengers_ Doomsday _ Official Trailer _ In Theaters December 18_1080p.mp4', 'i_am_doom').
-[2026-09-05 19:30:21] [Discord] [INFO] [UPLOAD] [i_am_doom] Found local file: Avengers_ Doomsday _ Official Trailer _ In Theaters December 18_1080p.mp4
-[2026-09-05 19:30:21] [Discord] [INFO] [UPLOAD] [i_am_doom] Starting upload `Avengers_ Doomsday _ Official Trailer _ In Theaters December 18_1080p.mp4` (5 parts)
-[2026-09-05 19:30:39] [Discord] [INFO] [UPLOAD] [i_am_doom] Uploaded 1/5 (20.0%)
-[2026-09-05 19:31:03] [Discord] [INFO] [UPLOAD] [i_am_doom] Uploaded 2/5 (40.0%)
-[2026-09-05 19:31:07] [Discord] [INFO] [UPLOAD] [i_am_doom] Uploaded 3/5 (60.0%)
-[2026-09-05 19:31:13] [Discord] [INFO] [UPLOAD] [i_am_doom] Uploaded 4/5 (80.0%)
-[2026-09-05 19:31:18] [Discord] [INFO] [UPLOAD] [i_am_doom] Uploaded 5/5 (100.0%)
-[2026-09-05 19:31:18] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 19:31:18] [Database] [INFO] [INSERT FILES] [i_am_doom] File `Avengers_ Doomsday _ Official Trailer _ In Theaters December 18_1080p.mp4` saved to database with 5 part(s).
-[2026-09-05 19:31:18] [Discord] [INFO] [UPLOAD] [i_am_doom] Upload complete `Avengers_ Doomsday _ Official Trailer _ In Theaters December 18_1080p.mp4`
-[2026-09-05 19:31:19] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 19:31:19] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
-[2026-09-05 19:31:19] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 19:31:19] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
-[2026-09-05 19:31:55] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 19:31:55] [Database] [INFO] [GET FILE] [] Select query executed for id=3.
-[2026-09-05 19:31:55] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 19:31:55] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
-[2026-09-05 19:33:52,488] [INFO] [discord.gateway] Shard ID None has successfully RESUMED session c443be648c223affbd141d76cc1dd076.
-[2026-09-05 19:48:40] [Telegram] [INFO] [SHUTDOWN] [] Telegram client stopped.
-[2026-09-05 20:12:58,900] [WARNING] [discord.client] PyNaCl is not installed, voice will NOT be supported
-[2026-09-05 20:12:58,900] [WARNING] [discord.client] davey is not installed, voice will NOT be supported
-[2026-09-05 20:13:00] [Telegram] [INFO] [INIT] [StoreLimitless_bot] Bot is online. Logged in (id=8404712547)
-[2026-09-05 20:13:00] [Discord] [INFO] [MAIN] [] Starting Store Limitless Bot...
-[2026-09-05 20:13:00,460] [INFO] [discord.client] logging in using static token
-[2026-09-05 20:13:03,600] [INFO] [discord.gateway] Shard ID None has connected to Gateway (Session ID: 11a3bc3157fb60cfb773ec261968ed5e).
-[2026-09-05 20:13:05] [Discord] [INFO] [INIT] [StoreLimitless#1152] FILE_DUMP channel initialized: files-dump (id=1399311590616203284).
-[2026-09-05 20:13:05] [Discord] [INFO] [INIT] [StoreLimitless#1152] Bot online and ready (id=1399287140885725245).
-[2026-09-05 20:13:25] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 20:13:25] [Database] [ERROR] [GET USER] [] User not found in the database
-[2026-09-05 20:13:55] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 20:13:55] [Database] [ERROR] [GET USER] [] User not found in the database
-[2026-09-05 20:13:55] [Database] [INFO] [SET USER] [i_am_doom] User successfully inserted into database.
-[2026-09-05 20:13:58] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 20:13:58] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 20:13:58] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
-[2026-09-05 20:13:58] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 20:13:58] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
-[2026-09-05 20:14:29] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 20:14:30] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 20:14:30] [Discord] [INFO] [UPLOAD] [i_am_doom] Got file: id=None directory='' name='ironman-1.bin' type='application/octet-stream' size=104857600 modified_at=datetime.datetime(2026, 9, 5, 14, 44, 29, 992306, tzinfo=datetime.timezone.utc) data_center='Discord' links=[] deleted_at=None username='i_am_doom'
-[2026-09-05 20:14:30] [Database] [INFO] [GET FILE] [] Select query executed for ('name', 'username')=('ironman-1.bin', 'i_am_doom').
-[2026-09-05 20:14:30] [Database] [ERROR] [GET FILE] [] No file found for ('name', 'username')=('ironman-1.bin', 'i_am_doom').
-[2026-09-05 20:14:30] [Discord] [INFO] [UPLOAD] [i_am_doom] Found local file: ironman-1.bin
-[2026-09-05 20:14:30] [Discord] [INFO] [UPLOAD] [i_am_doom] Starting upload `ironman-1.bin` (10 parts)
-[2026-09-05 20:14:40] [Discord] [INFO] [UPLOAD] [i_am_doom] Uploaded 1/10 (10.0%)
-[2026-09-05 20:14:50] [Discord] [INFO] [UPLOAD] [i_am_doom] Uploaded 2/10 (20.0%)
-[2026-09-05 20:14:53] [Discord] [INFO] [UPLOAD] [i_am_doom] Uploaded 3/10 (30.0%)
-[2026-09-05 20:14:54] [Discord] [INFO] [UPLOAD] [i_am_doom] Uploaded 4/10 (40.0%)
-[2026-09-05 20:14:56] [Discord] [INFO] [UPLOAD] [i_am_doom] Uploaded 5/10 (50.0%)
-[2026-09-05 20:14:58] [Discord] [INFO] [UPLOAD] [i_am_doom] Uploaded 6/10 (60.0%)
-[2026-09-05 20:14:58] [Discord] [INFO] [UPLOAD] [i_am_doom] Uploaded 7/10 (70.0%)
-[2026-09-05 20:15:06] [Discord] [INFO] [UPLOAD] [i_am_doom] Uploaded 8/10 (80.0%)
-[2026-09-05 20:15:06] [Discord] [INFO] [UPLOAD] [i_am_doom] Uploaded 9/10 (90.0%)
-[2026-09-05 20:15:12] [Discord] [INFO] [UPLOAD] [i_am_doom] Uploaded 10/10 (100.0%)
-[2026-09-05 20:15:12] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 20:15:12] [Database] [INFO] [INSERT FILES] [i_am_doom] File `ironman-1.bin` saved to database with 10 part(s).
-[2026-09-05 20:15:12] [Discord] [INFO] [UPLOAD] [i_am_doom] Upload complete `ironman-1.bin`
-[2026-09-05 20:15:13] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 20:15:13] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
-[2026-09-05 20:15:14] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 20:15:14] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
-[2026-09-05 20:16:54] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 20:16:54] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
-[2026-09-05 20:16:54] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
-[2026-09-05 20:16:54] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 20:16:54] [Database] [INFO] [INSERT FILES] [i_am_doom] File `.__folder__` saved to database with 0 part(s).
-[2026-09-05 20:16:54] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 20:16:54] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
-[2026-09-05 20:17:13] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 20:17:13] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
-[2026-09-05 20:17:13] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 20:17:13] [Discord] [INFO] [UPLOAD] [i_am_doom] Got file: id=None directory='phase_6' name='Avengers_ Doomsday _ Official Trailer _ In Theaters December 18_1080p.mp4' type='video/mp4' size=46910974 modified_at=datetime.datetime(2026, 9, 5, 14, 47, 13, 723151, tzinfo=datetime.timezone.utc) data_center='Discord' links=[] deleted_at=None username='i_am_doom'
-[2026-09-05 20:17:13] [Database] [INFO] [GET FILE] [] Select query executed for ('name', 'username')=('Avengers_ Doomsday _ Official Trailer _ In Theaters December 18_1080p.mp4', 'i_am_doom').
-[2026-09-05 20:17:13] [Database] [ERROR] [GET FILE] [] No file found for ('name', 'username')=('Avengers_ Doomsday _ Official Trailer _ In Theaters December 18_1080p.mp4', 'i_am_doom').
-[2026-09-05 20:17:13] [Discord] [INFO] [UPLOAD] [i_am_doom] Found local file: Avengers_ Doomsday _ Official Trailer _ In Theaters December 18_1080p.mp4
-[2026-09-05 20:17:13] [Discord] [INFO] [UPLOAD] [i_am_doom] Starting upload `Avengers_ Doomsday _ Official Trailer _ In Theaters December 18_1080p.mp4` (5 parts)
-[2026-09-05 20:17:44] [Discord] [INFO] [UPLOAD] [i_am_doom] Uploaded 1/5 (20.0%)
-[2026-09-05 20:17:54] [Discord] [INFO] [UPLOAD] [i_am_doom] Uploaded 2/5 (40.0%)
-[2026-09-05 20:17:57] [Discord] [INFO] [UPLOAD] [i_am_doom] Uploaded 3/5 (60.0%)
-[2026-09-05 20:17:57] [Discord] [INFO] [UPLOAD] [i_am_doom] Uploaded 4/5 (80.0%)
-[2026-09-05 20:17:57] [Discord] [INFO] [UPLOAD] [i_am_doom] Uploaded 5/5 (100.0%)
-[2026-09-05 20:17:57] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 20:17:57] [Database] [INFO] [INSERT FILES] [i_am_doom] File `Avengers_ Doomsday _ Official Trailer _ In Theaters December 18_1080p.mp4` saved to database with 5 part(s).
-[2026-09-05 20:17:57] [Discord] [INFO] [UPLOAD] [i_am_doom] Upload complete `Avengers_ Doomsday _ Official Trailer _ In Theaters December 18_1080p.mp4`
-[2026-09-05 20:17:59] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 20:17:59] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
-[2026-09-05 20:17:59] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 20:17:59] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
-[2026-09-05 20:25:25] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 20:25:25] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
-[2026-09-05 20:25:34] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 20:25:34] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
-[2026-09-05 20:26:00] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 20:26:00] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
-[2026-09-05 20:26:04] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 20:26:05] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
-[2026-09-05 20:26:57] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 20:26:57] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
-[2026-09-05 20:26:59] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 20:26:59] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
-[2026-09-05 20:27:45] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 20:27:45] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
-[2026-09-05 20:27:45] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 20:27:45] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
-[2026-09-05 20:28:48] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 20:28:48] [Database] [INFO] [GET FILE] [] Select query executed for id=3.
-[2026-09-05 20:28:48] [Database] [INFO] [UPDATE FILE] [i_am_doom] File `Avengers_ Doomsday _ Official Trailer _ In Theaters December 18_1080p.mp4` successfully updated.
-[2026-09-05 20:28:52] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 20:28:52] [Database] [INFO] [GET FILE] [] Select query executed for id=2.
-[2026-09-05 20:28:52] [Database] [INFO] [UPDATE FILE] [i_am_doom] File `.__folder__` successfully updated.
-[2026-09-05 20:28:52] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 20:28:52] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
-[2026-09-05 20:29:49] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 20:29:49] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
-[2026-09-05 20:29:49] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 20:29:49] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
-[2026-09-05 20:29:50] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 20:29:50] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
-[2026-09-05 20:29:50] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 20:29:50] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
-[2026-09-05 20:29:51] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 20:29:51] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
-[2026-09-05 20:29:51] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
-[2026-09-05 20:29:51] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
-[2026-09-05 20:30:01] [Telegram] [INFO] [SHUTDOWN] [] Telegram client stopped.
-[2026-09-06 18:58:01,303] [WARNING] [discord.client] PyNaCl is not installed, voice will NOT be supported
-[2026-09-06 18:58:01,303] [WARNING] [discord.client] davey is not installed, voice will NOT be supported
-[2026-09-06 18:58:02] [Telegram] [INFO] [INIT] [StoreLimitless_bot] Bot is online. Logged in (id=8404712547)
-[2026-09-06 18:58:02] [Discord] [INFO] [MAIN] [] Starting Store Limitless Bot...
-[2026-09-06 18:58:02,988] [INFO] [discord.client] logging in using static token
-[2026-09-06 18:58:05,130] [INFO] [discord.gateway] Shard ID None has connected to Gateway (Session ID: 3b3c0d2191f23d5183013f4cdd94ad05).
-[2026-09-06 18:58:07] [Discord] [INFO] [INIT] [StoreLimitless#1152] FILE_DUMP channel initialized: files-dump (id=1399311590616203284).
-[2026-09-06 18:58:07] [Discord] [INFO] [INIT] [StoreLimitless#1152] Bot online and ready (id=1399287140885725245).
-[2026-09-06 19:04:11] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
-[2026-09-06 19:04:11] [Database] [ERROR] [GET USER] [] User not found in the database
-[2026-09-06 19:04:11] [Database] [INFO] [SET USER] [Harry_Potter] User successfully inserted into database.
-[2026-09-06 19:04:18] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
-[2026-09-06 19:04:18] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
-[2026-09-06 19:04:18] [Database] [INFO] [GET FILES] [] Select query executed for username=Harry_Potter.
-[2026-09-06 19:04:18] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
-[2026-09-06 19:04:18] [Database] [INFO] [GET FILES] [] Select query executed for username=Harry_Potter.
-[2026-09-06 19:04:35] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
-[2026-09-06 19:04:35] [Database] [INFO] [GET FILES] [] Select query executed for username=Harry_Potter.
-[2026-09-06 19:04:35] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
-[2026-09-06 19:04:35] [Database] [INFO] [GET FILES] [] Select query executed for username=Harry_Potter.
-[2026-09-06 19:04:43] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
-[2026-09-06 19:04:43] [Database] [INFO] [GET FILES] [] Select query executed for username=Harry_Potter.
-[2026-09-06 19:04:43] [Database] [INFO] [GET FILES] [] Select query executed for username=Harry_Potter.
-[2026-09-06 19:04:43] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
-[2026-09-06 19:04:43] [Database] [INFO] [INSERT FILES] [Harry_Potter] File `.__folder__` saved to database with 0 part(s).
-[2026-09-06 19:04:43] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
-[2026-09-06 19:04:43] [Database] [INFO] [GET FILES] [] Select query executed for username=Harry_Potter.
-[2026-09-06 19:11:22] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
-[2026-09-06 19:11:22] [Database] [INFO] [GET FILES] [] Select query executed for username=Harry_Potter.
-[2026-09-06 19:11:22] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
-[2026-09-06 19:11:22] [Database] [INFO] [GET FILES] [] Select query executed for username=Harry_Potter.
-[2026-09-06 19:11:23] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
-[2026-09-06 19:11:23] [Database] [INFO] [GET FILES] [] Select query executed for username=Harry_Potter.
-[2026-09-06 19:11:23] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
-[2026-09-06 19:11:23] [Database] [INFO] [GET FILES] [] Select query executed for username=Harry_Potter.
-[2026-09-06 19:11:23] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
-[2026-09-06 19:11:23] [Database] [INFO] [GET FILES] [] Select query executed for username=Harry_Potter.
-[2026-09-06 19:11:23] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
-[2026-09-06 19:11:23] [Database] [INFO] [GET FILES] [] Select query executed for username=Harry_Potter.
-[2026-09-06 19:11:25] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
-[2026-09-06 19:11:25] [Database] [INFO] [GET FILES] [] Select query executed for username=Harry_Potter.
-[2026-09-06 19:11:25] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
-[2026-09-06 19:11:25] [Database] [INFO] [GET FILES] [] Select query executed for username=Harry_Potter.
-[2026-09-06 19:13:04] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
-[2026-09-06 19:13:04] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
-[2026-09-06 19:13:04] [Database] [INFO] [GET FILES] [] Select query executed for username=Harry_Potter.
-[2026-09-06 19:13:04] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
-[2026-09-06 19:13:04] [Database] [INFO] [GET FILES] [] Select query executed for username=Harry_Potter.
-[2026-09-06 19:13:20] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
-[2026-09-06 19:13:20] [Database] [INFO] [GET FILES] [] Select query executed for username=Harry_Potter.
-[2026-09-06 19:13:20] [Database] [INFO] [GET FILES] [] Select query executed for username=Harry_Potter.
-[2026-09-06 19:13:20] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
-[2026-09-06 19:13:20] [Database] [INFO] [INSERT FILES] [Harry_Potter] File `.__folder__` saved to database with 0 part(s).
-[2026-09-06 19:13:20] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
-[2026-09-06 19:13:20] [Database] [INFO] [GET FILES] [] Select query executed for username=Harry_Potter.
-[2026-09-06 19:14:11] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
-[2026-09-06 19:14:11] [Database] [INFO] [GET FILES] [] Select query executed for username=Harry_Potter.
-[2026-09-06 19:14:11] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
-[2026-09-06 19:14:11] [Database] [INFO] [GET FILES] [] Select query executed for username=Harry_Potter.
-[2026-09-06 19:14:15] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
-[2026-09-06 19:14:15] [Database] [INFO] [GET FILE] [] Select query executed for id=4.
-[2026-09-06 19:14:15] [Database] [INFO] [UPDATE FILE] [Harry_Potter] File `.__folder__` successfully updated.
-[2026-09-06 19:14:15] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
-[2026-09-06 19:14:15] [Database] [INFO] [GET FILES] [] Select query executed for username=Harry_Potter.
-[2026-09-06 19:14:17] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
-[2026-09-06 19:14:17] [Database] [INFO] [GET FILE] [] Select query executed for id=5.
-[2026-09-06 19:14:17] [Database] [INFO] [UPDATE FILE] [Harry_Potter] File `.__folder__` successfully updated.
-[2026-09-06 19:14:17] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
-[2026-09-06 19:14:17] [Database] [INFO] [GET FILES] [] Select query executed for username=Harry_Potter.
-[2026-09-06 19:16:00] [Database] [INFO] [GET USER] [Harry_potter] Select query executed for Harry_potter.
-[2026-09-06 19:16:00] [Database] [ERROR] [GET USER] [] User not found in the database
-[2026-09-06 19:16:11] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
-[2026-09-06 19:16:11] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
-[2026-09-06 19:16:11] [Database] [INFO] [GET FILES] [] Select query executed for username=Harry_Potter.
-[2026-09-06 19:16:11] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
-[2026-09-06 19:16:11] [Database] [INFO] [GET FILES] [] Select query executed for username=Harry_Potter.
-[2026-09-06 19:16:27] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
-[2026-09-06 19:16:27] [Database] [INFO] [GET FILES] [] Select query executed for username=Harry_Potter.
-[2026-09-06 19:16:27] [Database] [INFO] [GET FILES] [] Select query executed for username=Harry_Potter.
-[2026-09-06 19:16:27] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
-[2026-09-06 19:16:27] [Database] [INFO] [INSERT FILES] [Harry_Potter] File `.__folder__` saved to database with 0 part(s).
-[2026-09-06 19:16:27] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
-[2026-09-06 19:16:27] [Database] [INFO] [GET FILES] [] Select query executed for username=Harry_Potter.
-[2026-09-06 19:16:49] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
-[2026-09-06 19:16:49] [Database] [INFO] [GET FILES] [] Select query executed for username=Harry_Potter.
-[2026-09-06 19:16:49] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
-[2026-09-06 19:16:49] [Database] [INFO] [GET FILES] [] Select query executed for username=Harry_Potter.
-[2026-09-06 19:17:12] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
-[2026-09-06 19:17:13] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
-[2026-09-06 19:17:13] [Database] [INFO] [GET FILES] [] Select query executed for username=Harry_Potter.
-[2026-09-06 19:17:13] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
-[2026-09-06 19:17:13] [Database] [INFO] [GET FILES] [] Select query executed for username=Harry_Potter.
-[2026-09-06 19:22:02] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
-[2026-09-06 19:22:03] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
-[2026-09-06 19:22:03] [Database] [INFO] [GET FILES] [] Select query executed for username=Harry_Potter.
-[2026-09-06 19:22:03] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
-[2026-09-06 19:22:03] [Database] [INFO] [GET FILES] [] Select query executed for username=Harry_Potter.
-[2026-09-06 19:22:13] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
-[2026-09-06 19:22:13] [Database] [INFO] [GET FILES] [] Select query executed for username=Harry_Potter.
-[2026-09-06 19:22:13] [Database] [INFO] [GET FILES] [] Select query executed for username=Harry_Potter.
-[2026-09-06 19:22:13] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
-[2026-09-06 19:22:13] [Database] [INFO] [INSERT FILES] [Harry_Potter] File `.__folder__` saved to database with 0 part(s).
-[2026-09-06 19:22:13] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
-[2026-09-06 19:22:13] [Database] [INFO] [GET FILES] [] Select query executed for username=Harry_Potter.
-[2026-09-06 19:23:01] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
-[2026-09-06 19:23:01] [Database] [INFO] [GET FILES] [] Select query executed for username=Harry_Potter.
-[2026-09-06 19:23:02] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
-[2026-09-06 19:23:02] [Discord] [INFO] [UPLOAD] [Harry_Potter] Got file: id=None directory='Marvel' name='Robert Downey Jr.  Shocks Fans as Doctor Doom at Comic Con.mp4' type='video/mp4' size=4808884 modified_at=datetime.datetime(2026, 9, 6, 13, 53, 1, 883988, tzinfo=datetime.timezone.utc) data_center='Discord' links=[] deleted_at=None username='Harry_Potter'
-[2026-09-06 19:23:02] [Database] [INFO] [GET FILE] [] Select query executed for ('name', 'username')=('Robert Downey Jr.  Shocks Fans as Doctor Doom at Comic Con.mp4', 'Harry_Potter').
-[2026-09-06 19:23:02] [Database] [ERROR] [GET FILE] [] No file found for ('name', 'username')=('Robert Downey Jr.  Shocks Fans as Doctor Doom at Comic Con.mp4', 'Harry_Potter').
-[2026-09-06 19:23:02] [Discord] [INFO] [UPLOAD] [Harry_Potter] Found local file: Robert Downey Jr.  Shocks Fans as Doctor Doom at Comic Con.mp4
-[2026-09-06 19:23:02] [Discord] [INFO] [UPLOAD] [Harry_Potter] Starting upload `Robert Downey Jr.  Shocks Fans as Doctor Doom at Comic Con.mp4` (1 parts)
-[2026-09-06 19:23:10] [Discord] [INFO] [UPLOAD] [Harry_Potter] Uploaded 1/1 (100.0%)
-[2026-09-06 19:23:10] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
-[2026-09-06 19:23:10] [Database] [INFO] [INSERT FILES] [Harry_Potter] File `Robert Downey Jr.  Shocks Fans as Doctor Doom at Comic Con.mp4` saved to database with 1 part(s).
-[2026-09-06 19:23:10] [Discord] [INFO] [UPLOAD] [Harry_Potter] Upload complete `Robert Downey Jr.  Shocks Fans as Doctor Doom at Comic Con.mp4`
-[2026-09-06 19:23:11] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
-[2026-09-06 19:23:11] [Database] [INFO] [GET FILES] [] Select query executed for username=Harry_Potter.
-[2026-09-06 19:23:11] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
-[2026-09-06 19:23:11] [Database] [INFO] [GET FILES] [] Select query executed for username=Harry_Potter.
-[2026-09-06 19:23:23] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
-[2026-09-06 19:23:23] [Database] [INFO] [GET FILE] [] Select query executed for id=7.
-[2026-09-06 19:23:23] [Database] [INFO] [UPDATE FILE] [Harry_Potter] File `.__folder__` successfully updated.
-[2026-09-06 19:23:23] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
-[2026-09-06 19:23:23] [Database] [INFO] [GET FILES] [] Select query executed for username=Harry_Potter.
-[2026-09-06 19:23:48] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
-[2026-09-06 19:23:48] [Database] [INFO] [GET FILE] [] Select query executed for id=8.
-[2026-09-06 19:23:48] [Database] [INFO] [UPDATE FILE] [Harry_Potter] File `Robert Downey Jr.  Shocks Fans as Doctor Doom at Comic Con.mp4` successfully updated.
-[2026-09-06 19:23:52] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
-[2026-09-06 19:23:52] [Database] [INFO] [GET FILE] [] Select query executed for id=6.
-[2026-09-06 19:23:52] [Database] [INFO] [UPDATE FILE] [Harry_Potter] File `.__folder__` successfully updated.
-[2026-09-06 19:23:52] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
-[2026-09-06 19:23:52] [Database] [INFO] [GET FILES] [] Select query executed for username=Harry_Potter.
-[2026-09-06 19:23:55] [Telegram] [INFO] [SHUTDOWN] [] Telegram client stopped.
+[2026-09-07 19:03:50,597] [WARNING] [discord.client] PyNaCl is not installed, voice will NOT be supported
+[2026-09-07 19:03:50,597] [WARNING] [discord.client] davey is not installed, voice will NOT be supported
+[2026-09-07 19:03:52] [Telegram] [INFO] [INIT] [StoreLimitless_bot] Bot is online. Logged in (id=8404712547)
+[2026-09-07 19:03:52] [Discord] [INFO] [MAIN] [] Starting Store Limitless Bot...
+[2026-09-07 19:03:52,128] [INFO] [discord.client] logging in using static token
+[2026-09-07 19:03:57,319] [INFO] [discord.gateway] Shard ID None has connected to Gateway (Session ID: 6b1ec32b93de845b49047c946d846d27).
+[2026-09-07 19:03:59] [Discord] [INFO] [INIT] [StoreLimitless#1152] FILE_DUMP channel initialized: files-dump (id=1399311590616203284).
+[2026-09-07 19:03:59] [Discord] [INFO] [INIT] [StoreLimitless#1152] Bot online and ready (id=1399287140885725245).
+[2026-09-07 19:04:48] [Database] [ERROR] [GET USER] [] User not found in the database
+[2026-09-07 19:13:15] [Discord] [INFO] [UPLOAD] [Harry_Potter] Got file: id=None directory='' name='IC-SIT-2026-Student-Research-Symposium-Template.doc' type='application/msword' size=459264 modified_at=datetime.datetime(2026, 9, 7, 13, 43, 14, 962584, tzinfo=datetime.timezone.utc) deleted_at=None data_center='Discord' links=[] username='Harry_Potter'
+[2026-09-07 19:13:15] [Discord] [INFO] [UPLOAD] [Harry_Potter] Found local file: IC-SIT-2026-Student-Research-Symposium-Template.doc
+[2026-09-07 19:13:15] [Discord] [INFO] [UPLOAD] [Harry_Potter] Starting upload `IC-SIT-2026-Student-Research-Symposium-Template.doc` (1 parts)
+[2026-09-07 19:13:17] [Discord] [INFO] [UPLOAD] [Harry_Potter] Uploaded 1/1 (100.0%)
+[2026-09-07 19:13:17] [Discord] [INFO] [UPLOAD] [Harry_Potter] Upload complete `IC-SIT-2026-Student-Research-Symposium-Template.doc`
+[2026-09-07 19:18:35] [Database] [INFO] [PURGE TRASH] [Harry_Potter] Purged 0 expired trash item(s).
+[2026-09-07 19:18:35] [Database] [INFO] [PURGE TRASH] [Harry_Potter] Purged 0 expired trash item(s).
+[2026-09-07 19:18:35] [Database] [INFO] [GET TRASHED FILES] [Harry_Potter] Select query executed for trashed files.
+[2026-09-07 19:18:46] [Database] [ERROR] [GET USER] [] User not found in the database
+[2026-09-07 19:18:51] [Database] [ERROR] [GET USER] [] User not found in the database
+[2026-09-07 19:18:52] [Database] [INFO] [PURGE TRASH] [Harry_Potter] Purged 0 expired trash item(s).
+[2026-09-07 19:18:52] [Database] [INFO] [GET TRASHED FILES] [Harry_Potter] Select query executed for trashed files.
+[2026-09-07 19:18:52] [Database] [INFO] [PURGE TRASH] [Harry_Potter] Purged 0 expired trash item(s).
+[2026-09-07 19:18:52] [Database] [INFO] [GET TRASHED FILES] [Harry_Potter] Select query executed for trashed files.
+[2026-09-07 19:18:56] [Database] [INFO] [PURGE TRASH] [Harry_Potter] Purged 0 expired trash item(s).
+[2026-09-07 19:18:56] [Database] [INFO] [GET TRASHED FILES] [Harry_Potter] Select query executed for trashed files.
+[2026-09-07 19:18:56] [Database] [INFO] [PURGE TRASH] [Harry_Potter] Purged 0 expired trash item(s).
+[2026-09-07 19:18:56] [Database] [INFO] [GET TRASHED FILES] [Harry_Potter] Select query executed for trashed files.
+[2026-09-07 19:21:23] [Database] [INFO] [PURGE TRASH] [Harry_Potter] Purged 0 expired trash item(s).
+[2026-09-07 19:21:23] [Database] [INFO] [GET TRASHED FILES] [Harry_Potter] Select query executed for trashed files.
+[2026-09-07 19:21:53,236] [WARNING] [discord.client] PyNaCl is not installed, voice will NOT be supported
+[2026-09-07 19:21:53,236] [WARNING] [discord.client] davey is not installed, voice will NOT be supported
+[2026-09-07 19:21:54] [Telegram] [INFO] [INIT] [StoreLimitless_bot] Bot is online. Logged in (id=8404712547)
+[2026-09-07 19:21:54] [Discord] [INFO] [MAIN] [] Starting Store Limitless Bot...
+[2026-09-07 19:21:54,538] [INFO] [discord.client] logging in using static token
+[2026-09-07 19:21:57,156] [INFO] [discord.gateway] Shard ID None has connected to Gateway (Session ID: f91af7ada494a1e84c9ee05988c41c6e).
+[2026-09-07 19:21:58] [Database] [ERROR] [PURGE TRASH] [Harry_Potter] Failed to purge trash: Recursive use of cursors not allowed.
+[2026-09-07 19:22:02] [Discord] [INFO] [INIT] [StoreLimitless#1152] FILE_DUMP channel initialized: files-dump (id=1399311590616203284).
+[2026-09-07 19:22:02] [Discord] [INFO] [INIT] [StoreLimitless#1152] Bot online and ready (id=1399287140885725245).
+[2026-09-07 19:25:42,406] [WARNING] [discord.client] PyNaCl is not installed, voice will NOT be supported
+[2026-09-07 19:25:42,406] [WARNING] [discord.client] davey is not installed, voice will NOT be supported
+[2026-09-07 19:25:43] [Telegram] [INFO] [INIT] [StoreLimitless_bot] Bot is online. Logged in (id=8404712547)
+[2026-09-07 19:25:43] [Discord] [INFO] [MAIN] [] Starting Store Limitless Bot...
+[2026-09-07 19:25:43,904] [INFO] [discord.client] logging in using static token
+[2026-09-07 19:25:47,407] [INFO] [discord.gateway] Shard ID None has connected to Gateway (Session ID: c2269f92fd2b2163c32f0ab1d02cabbe).
+[2026-09-07 19:25:49] [Discord] [INFO] [INIT] [StoreLimitless#1152] FILE_DUMP channel initialized: files-dump (id=1399311590616203284).
+[2026-09-07 19:25:49] [Discord] [INFO] [INIT] [StoreLimitless#1152] Bot online and ready (id=1399287140885725245).
+[2026-09-07 19:27:06,486] [WARNING] [discord.client] PyNaCl is not installed, voice will NOT be supported
+[2026-09-07 19:27:06,488] [WARNING] [discord.client] davey is not installed, voice will NOT be supported
+[2026-09-07 19:27:07] [Telegram] [INFO] [INIT] [StoreLimitless_bot] Bot is online. Logged in (id=8404712547)
+[2026-09-07 19:27:07] [Discord] [INFO] [MAIN] [] Starting Store Limitless Bot...
+[2026-09-07 19:27:07,855] [INFO] [discord.client] logging in using static token
+[2026-09-07 19:27:11,032] [INFO] [discord.gateway] Shard ID None has connected to Gateway (Session ID: 33cc0b5fc45c25cef91f6a4cef000c8e).
+[2026-09-07 19:27:13] [Discord] [INFO] [INIT] [StoreLimitless#1152] FILE_DUMP channel initialized: files-dump (id=1399311590616203284).
+[2026-09-07 19:27:13] [Discord] [INFO] [INIT] [StoreLimitless#1152] Bot online and ready (id=1399287140885725245).
+[2026-09-07 19:27:16] [Discord] [INFO] [UPLOAD] [Harry_Potter] Got file: id=None directory='' name='ironman-1.bin' type='application/octet-stream' size=104857600 modified_at=datetime.datetime(2026, 9, 7, 13, 57, 16, 816158, tzinfo=datetime.timezone.utc) deleted_at=None data_center='Discord' links=[] username='Harry_Potter'
+[2026-09-07 19:27:16] [Discord] [INFO] [UPLOAD] [Harry_Potter] Found local file: ironman-1.bin
+[2026-09-07 19:27:16] [Discord] [INFO] [UPLOAD] [Harry_Potter] Starting upload `ironman-1.bin` (10 parts)
+[2026-09-07 19:27:25] [Discord] [INFO] [UPLOAD] [Harry_Potter] Uploaded 1/10 (10.0%)
+[2026-09-07 19:27:35] [Discord] [INFO] [UPLOAD] [Harry_Potter] Uploaded 2/10 (20.0%)
+[2026-09-07 19:27:42] [Discord] [INFO] [UPLOAD] [Harry_Potter] Uploaded 3/10 (30.0%)
+[2026-09-07 19:27:43] [Discord] [INFO] [UPLOAD] [Harry_Potter] Uploaded 4/10 (40.0%)
+[2026-09-07 19:27:45] [Discord] [INFO] [UPLOAD] [Harry_Potter] Uploaded 5/10 (50.0%)
+[2026-09-07 19:27:46] [Discord] [INFO] [UPLOAD] [Harry_Potter] Uploaded 6/10 (60.0%)
+[2026-09-07 19:27:48] [Discord] [INFO] [UPLOAD] [Harry_Potter] Uploaded 7/10 (70.0%)
+[2026-09-07 19:27:53] [Discord] [INFO] [UPLOAD] [Harry_Potter] Uploaded 8/10 (80.0%)
+[2026-09-07 19:27:54] [Discord] [INFO] [UPLOAD] [Harry_Potter] Uploaded 9/10 (90.0%)
+[2026-09-07 19:27:57] [Discord] [INFO] [UPLOAD] [Harry_Potter] Uploaded 10/10 (100.0%)
+[2026-09-07 19:27:57] [Discord] [INFO] [UPLOAD] [Harry_Potter] Upload complete `ironman-1.bin`
+[2026-09-07 19:27:59] [Database] [ERROR] [PURGE TRASH] [Harry_Potter] Failed to purge trash: Recursive use of cursors not allowed.
+[2026-09-07 19:27:59] [Database] [ERROR] [GET USER] [] User not found in the database
+[2026-09-07 19:30:50,193] [WARNING] [discord.client] PyNaCl is not installed, voice will NOT be supported
+[2026-09-07 19:30:50,193] [WARNING] [discord.client] davey is not installed, voice will NOT be supported
+[2026-09-07 19:30:51] [Telegram] [INFO] [INIT] [StoreLimitless_bot] Bot is online. Logged in (id=8404712547)
+[2026-09-07 19:30:51] [Discord] [INFO] [MAIN] [] Starting Store Limitless Bot...
+[2026-09-07 19:30:51,606] [INFO] [discord.client] logging in using static token
+[2026-09-07 19:30:56] [Database] [INFO] [PURGE TRASH] [Harry_Potter] Purged 0 expired trash item(s).
+[2026-09-07 19:30:56] [Database] [INFO] [GET TRASHED FILES] [Harry_Potter] Select query executed for trashed files.
+[2026-09-07 19:30:56] [Database] [INFO] [PURGE TRASH] [Harry_Potter] Purged 0 expired trash item(s).
+[2026-09-07 19:30:56] [Database] [INFO] [GET TRASHED FILES] [Harry_Potter] Select query executed for trashed files.
+[2026-09-07 19:30:56,588] [INFO] [discord.gateway] Shard ID None has connected to Gateway (Session ID: 471f44eed9021305d894e741729d90d3).
+[2026-09-07 19:30:58] [Discord] [INFO] [INIT] [StoreLimitless#1152] FILE_DUMP channel initialized: files-dump (id=1399311590616203284).
+[2026-09-07 19:30:58] [Discord] [INFO] [INIT] [StoreLimitless#1152] Bot online and ready (id=1399287140885725245).
+[2026-09-07 19:41:39] [Telegram] [INFO] [SHUTDOWN] [] Telegram client stopped.
+[2026-09-07 19:47:32,084] [WARNING] [discord.client] PyNaCl is not installed, voice will NOT be supported
+[2026-09-07 19:47:32,085] [WARNING] [discord.client] davey is not installed, voice will NOT be supported
+[2026-09-07 19:47:33] [Telegram] [INFO] [INIT] [StoreLimitless_bot] Bot is online. Logged in (id=8404712547)
+[2026-09-07 19:47:33] [Discord] [INFO] [MAIN] [] Starting Store Limitless Bot...
+[2026-09-07 19:47:33,500] [INFO] [discord.client] logging in using static token
+[2026-09-07 19:47:37,074] [INFO] [discord.gateway] Shard ID None has connected to Gateway (Session ID: 4b614f13e3d8f0992742bb4846e4112d).
+[2026-09-07 19:47:39] [Discord] [INFO] [INIT] [StoreLimitless#1152] FILE_DUMP channel initialized: files-dump (id=1399311590616203284).
+[2026-09-07 19:47:39] [Discord] [INFO] [INIT] [StoreLimitless#1152] Bot online and ready (id=1399287140885725245).
+[2026-09-07 19:47:48] [Database] [INFO] [PURGE TRASH] [Harry_Potter] Purged 0 expired trash item(s).
+[2026-09-07 19:47:48] [Database] [INFO] [GET TRASHED FILES] [Harry_Potter] Select query executed for trashed files.
+[2026-09-07 19:47:48] [Database] [INFO] [PURGE TRASH] [Harry_Potter] Purged 0 expired trash item(s).
+[2026-09-07 19:47:48] [Database] [INFO] [GET TRASHED FILES] [Harry_Potter] Select query executed for trashed files.
+[2026-09-07 19:48:03] [Database] [INFO] [PURGE TRASH] [Harry_Potter] Purged 0 expired trash item(s).
+[2026-09-07 19:48:03] [Database] [INFO] [GET TRASHED FILES] [Harry_Potter] Select query executed for trashed files.
+[2026-09-07 19:49:14] [Database] [INFO] [PURGE TRASH] [Harry_Potter] Purged 0 expired trash item(s).
+[2026-09-07 19:49:14] [Database] [INFO] [GET TRASHED FILES] [Harry_Potter] Select query executed for trashed files.
+[2026-09-07 19:49:17] [Database] [INFO] [PURGE TRASH] [Harry_Potter] Purged 0 expired trash item(s).
+[2026-09-07 19:49:17] [Database] [INFO] [GET TRASHED FILES] [Harry_Potter] Select query executed for trashed files.
+[2026-09-07 19:49:26] [Database] [INFO] [PURGE TRASH] [Harry_Potter] Purged 0 expired trash item(s).
+[2026-09-07 19:49:26] [Database] [INFO] [GET TRASHED FILES] [Harry_Potter] Select query executed for trashed files.
+[2026-09-07 19:49:26] [Database] [INFO] [PURGE TRASH] [Harry_Potter] Purged 0 expired trash item(s).
+[2026-09-07 19:49:26] [Database] [INFO] [GET TRASHED FILES] [Harry_Potter] Select query executed for trashed files.
+[2026-09-07 19:49:30] [Database] [INFO] [GET TRASHED FILES] [Harry_Potter] Select query executed for trashed files.
+[2026-09-07 19:49:30] [Database] [INFO] [PURGE TRASH] [Harry_Potter] Purged 0 expired trash item(s).
+[2026-09-07 19:49:30] [Database] [INFO] [GET TRASHED FILES] [Harry_Potter] Select query executed for trashed files.
+[2026-09-07 19:57:47] [Telegram] [INFO] [SHUTDOWN] [] Telegram client stopped.
+[2026-09-07 19:57:55,002] [WARNING] [discord.client] PyNaCl is not installed, voice will NOT be supported
+[2026-09-07 19:57:55,002] [WARNING] [discord.client] davey is not installed, voice will NOT be supported
+[2026-09-07 19:57:56] [Telegram] [INFO] [INIT] [StoreLimitless_bot] Bot is online. Logged in (id=8404712547)
+[2026-09-07 19:57:56] [Discord] [INFO] [MAIN] [] Starting Store Limitless Bot...
+[2026-09-07 19:57:56,803] [INFO] [discord.client] logging in using static token
+[2026-09-07 19:58:00,846] [INFO] [discord.gateway] Shard ID None has connected to Gateway (Session ID: bfc417a7449174de3536f4d415f53328).
+[2026-09-07 19:58:02] [Discord] [INFO] [INIT] [StoreLimitless#1152] FILE_DUMP channel initialized: files-dump (id=1399311590616203284).
+[2026-09-07 19:58:02] [Discord] [INFO] [INIT] [StoreLimitless#1152] Bot online and ready (id=1399287140885725245).
+[2026-09-07 20:01:45,536] [ERROR] [discord.client] Attempting a reconnect in 0.14s
+Traceback (most recent call last):
+  File "C:\Users\anwes\OneDrive\Desktop\Drive_Bot\.venv\Lib\site-packages\aiohttp\connector.py", line 1571, in _create_direct_connection
+    hosts = await self._resolve_host(host, port, traces=traces)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\anwes\OneDrive\Desktop\Drive_Bot\.venv\Lib\site-packages\aiohttp\connector.py", line 1181, in _resolve_host
+    return await asyncio.shield(resolved_host_task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\anwes\OneDrive\Desktop\Drive_Bot\.venv\Lib\site-packages\aiohttp\connector.py", line 1212, in _resolve_host_with_throttle
+    addrs = await self._resolver.resolve(host, port, family=self._family)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\anwes\OneDrive\Desktop\Drive_Bot\.venv\Lib\site-packages\aiohttp\resolver.py", line 47, in resolve
+    infos = await self._loop.getaddrinfo(
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\anwes\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py", line 901, in getaddrinfo
+    return await self.run_in_executor(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\anwes\AppData\Local\Programs\Python\Python312\Lib\concurrent\futures\thread.py", line 58, in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\anwes\AppData\Local\Programs\Python\Python312\Lib\socket.py", line 976, in getaddrinfo
+    for res in _socket.getaddrinfo(host, port, family, type, proto, flags):
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+socket.gaierror: [Errno 11004] getaddrinfo failed
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Users\anwes\OneDrive\Desktop\Drive_Bot\.venv\Lib\site-packages\discord\client.py", line 728, in connect
+    self.ws = await asyncio.wait_for(coro, timeout=60.0)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\anwes\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py", line 520, in wait_for
+    return await fut
+           ^^^^^^^^^
+  File "C:\Users\anwes\OneDrive\Desktop\Drive_Bot\.venv\Lib\site-packages\discord\gateway.py", line 392, in from_client
+    socket = await client.http.ws_connect(str(url))
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\anwes\OneDrive\Desktop\Drive_Bot\.venv\Lib\site-packages\discord\http.py", line 571, in ws_connect
+    return await self.__session.ws_connect(url, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\anwes\OneDrive\Desktop\Drive_Bot\.venv\Lib\site-packages\aiohttp\client.py", line 1249, in _ws_connect
+    resp = await self.request(
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\anwes\OneDrive\Desktop\Drive_Bot\.venv\Lib\site-packages\aiohttp\client.py", line 858, in _request
+    resp = await handler(req)
+           ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\anwes\OneDrive\Desktop\Drive_Bot\.venv\Lib\site-packages\aiohttp\client.py", line 812, in _connect_and_send_request
+    conn = await self._connector.connect(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\anwes\OneDrive\Desktop\Drive_Bot\.venv\Lib\site-packages\aiohttp\connector.py", line 657, in connect
+    proto = await self._create_connection(req, traces, timeout)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\anwes\OneDrive\Desktop\Drive_Bot\.venv\Lib\site-packages\aiohttp\connector.py", line 1242, in _create_connection
+    _, proto = await self._create_direct_connection(req, traces, timeout)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\anwes\OneDrive\Desktop\Drive_Bot\.venv\Lib\site-packages\aiohttp\connector.py", line 1577, in _create_direct_connection
+    raise ClientConnectorDNSError(req.connection_key, exc) from exc
+aiohttp.client_exceptions.ClientConnectorDNSError: Cannot connect to host gateway-us-east1-d.discord.gg:443 ssl:default [getaddrinfo failed]
+[2026-09-07 20:01:45,863] [ERROR] [discord.client] Attempting a reconnect in 1.61s
+Traceback (most recent call last):
+  File "C:\Users\anwes\OneDrive\Desktop\Drive_Bot\.venv\Lib\site-packages\aiohttp\connector.py", line 1571, in _create_direct_connection
+    hosts = await self._resolve_host(host, port, traces=traces)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\anwes\OneDrive\Desktop\Drive_Bot\.venv\Lib\site-packages\aiohttp\connector.py", line 1181, in _resolve_host
+    return await asyncio.shield(resolved_host_task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\anwes\OneDrive\Desktop\Drive_Bot\.venv\Lib\site-packages\aiohttp\connector.py", line 1212, in _resolve_host_with_throttle
+    addrs = await self._resolver.resolve(host, port, family=self._family)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\anwes\OneDrive\Desktop\Drive_Bot\.venv\Lib\site-packages\aiohttp\resolver.py", line 47, in resolve
+    infos = await self._loop.getaddrinfo(
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\anwes\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py", line 901, in getaddrinfo
+    return await self.run_in_executor(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\anwes\AppData\Local\Programs\Python\Python312\Lib\concurrent\futures\thread.py", line 58, in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\anwes\AppData\Local\Programs\Python\Python312\Lib\socket.py", line 976, in getaddrinfo
+    for res in _socket.getaddrinfo(host, port, family, type, proto, flags):
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+socket.gaierror: [Errno 11004] getaddrinfo failed
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Users\anwes\OneDrive\Desktop\Drive_Bot\.venv\Lib\site-packages\discord\client.py", line 728, in connect
+    self.ws = await asyncio.wait_for(coro, timeout=60.0)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\anwes\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py", line 520, in wait_for
+    return await fut
+           ^^^^^^^^^
+  File "C:\Users\anwes\OneDrive\Desktop\Drive_Bot\.venv\Lib\site-packages\discord\gateway.py", line 392, in from_client
+    socket = await client.http.ws_connect(str(url))
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\anwes\OneDrive\Desktop\Drive_Bot\.venv\Lib\site-packages\discord\http.py", line 571, in ws_connect
+    return await self.__session.ws_connect(url, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\anwes\OneDrive\Desktop\Drive_Bot\.venv\Lib\site-packages\aiohttp\client.py", line 1249, in _ws_connect
+    resp = await self.request(
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\anwes\OneDrive\Desktop\Drive_Bot\.venv\Lib\site-packages\aiohttp\client.py", line 858, in _request
+    resp = await handler(req)
+           ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\anwes\OneDrive\Desktop\Drive_Bot\.venv\Lib\site-packages\aiohttp\client.py", line 812, in _connect_and_send_request
+    conn = await self._connector.connect(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\anwes\OneDrive\Desktop\Drive_Bot\.venv\Lib\site-packages\aiohttp\connector.py", line 657, in connect
+    proto = await self._create_connection(req, traces, timeout)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\anwes\OneDrive\Desktop\Drive_Bot\.venv\Lib\site-packages\aiohttp\connector.py", line 1242, in _create_connection
+    _, proto = await self._create_direct_connection(req, traces, timeout)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\anwes\OneDrive\Desktop\Drive_Bot\.venv\Lib\site-packages\aiohttp\connector.py", line 1577, in _create_direct_connection
+    raise ClientConnectorDNSError(req.connection_key, exc) from exc
+aiohttp.client_exceptions.ClientConnectorDNSError: Cannot connect to host gateway-us-east1-d.discord.gg:443 ssl:default [getaddrinfo failed]
+[2026-09-07 20:01:47,481] [ERROR] [discord.client] Attempting a reconnect in 7.05s
+Traceback (most recent call last):
+  File "C:\Users\anwes\OneDrive\Desktop\Drive_Bot\.venv\Lib\site-packages\aiohttp\connector.py", line 1571, in _create_direct_connection
+    hosts = await self._resolve_host(host, port, traces=traces)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\anwes\OneDrive\Desktop\Drive_Bot\.venv\Lib\site-packages\aiohttp\connector.py", line 1181, in _resolve_host
+    return await asyncio.shield(resolved_host_task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\anwes\OneDrive\Desktop\Drive_Bot\.venv\Lib\site-packages\aiohttp\connector.py", line 1212, in _resolve_host_with_throttle
+    addrs = await self._resolver.resolve(host, port, family=self._family)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\anwes\OneDrive\Desktop\Drive_Bot\.venv\Lib\site-packages\aiohttp\resolver.py", line 47, in resolve
+    infos = await self._loop.getaddrinfo(
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\anwes\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py", line 901, in getaddrinfo
+    return await self.run_in_executor(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\anwes\AppData\Local\Programs\Python\Python312\Lib\concurrent\futures\thread.py", line 58, in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\anwes\AppData\Local\Programs\Python\Python312\Lib\socket.py", line 976, in getaddrinfo
+    for res in _socket.getaddrinfo(host, port, family, type, proto, flags):
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+socket.gaierror: [Errno 11004] getaddrinfo failed
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Users\anwes\OneDrive\Desktop\Drive_Bot\.venv\Lib\site-packages\discord\client.py", line 728, in connect
+    self.ws = await asyncio.wait_for(coro, timeout=60.0)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\anwes\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py", line 520, in wait_for
+    return await fut
+           ^^^^^^^^^
+  File "C:\Users\anwes\OneDrive\Desktop\Drive_Bot\.venv\Lib\site-packages\discord\gateway.py", line 392, in from_client
+    socket = await client.http.ws_connect(str(url))
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\anwes\OneDrive\Desktop\Drive_Bot\.venv\Lib\site-packages\discord\http.py", line 571, in ws_connect
+    return await self.__session.ws_connect(url, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\anwes\OneDrive\Desktop\Drive_Bot\.venv\Lib\site-packages\aiohttp\client.py", line 1249, in _ws_connect
+    resp = await self.request(
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\anwes\OneDrive\Desktop\Drive_Bot\.venv\Lib\site-packages\aiohttp\client.py", line 858, in _request
+    resp = await handler(req)
+           ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\anwes\OneDrive\Desktop\Drive_Bot\.venv\Lib\site-packages\aiohttp\client.py", line 812, in _connect_and_send_request
+    conn = await self._connector.connect(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\anwes\OneDrive\Desktop\Drive_Bot\.venv\Lib\site-packages\aiohttp\connector.py", line 657, in connect
+    proto = await self._create_connection(req, traces, timeout)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\anwes\OneDrive\Desktop\Drive_Bot\.venv\Lib\site-packages\aiohttp\connector.py", line 1242, in _create_connection
+    _, proto = await self._create_direct_connection(req, traces, timeout)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\anwes\OneDrive\Desktop\Drive_Bot\.venv\Lib\site-packages\aiohttp\connector.py", line 1577, in _create_direct_connection
+    raise ClientConnectorDNSError(req.connection_key, exc) from exc
+aiohttp.client_exceptions.ClientConnectorDNSError: Cannot connect to host gateway-us-east1-d.discord.gg:443 ssl:default [getaddrinfo failed]
+[2026-09-07 20:01:54,540] [ERROR] [discord.client] Attempting a reconnect in 8.56s
+Traceback (most recent call last):
+  File "C:\Users\anwes\OneDrive\Desktop\Drive_Bot\.venv\Lib\site-packages\aiohttp\connector.py", line 1571, in _create_direct_connection
+    hosts = await self._resolve_host(host, port, traces=traces)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\anwes\OneDrive\Desktop\Drive_Bot\.venv\Lib\site-packages\aiohttp\connector.py", line 1181, in _resolve_host
+    return await asyncio.shield(resolved_host_task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\anwes\OneDrive\Desktop\Drive_Bot\.venv\Lib\site-packages\aiohttp\connector.py", line 1212, in _resolve_host_with_throttle
+    addrs = await self._resolver.resolve(host, port, family=self._family)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\anwes\OneDrive\Desktop\Drive_Bot\.venv\Lib\site-packages\aiohttp\resolver.py", line 47, in resolve
+    infos = await self._loop.getaddrinfo(
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\anwes\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py", line 901, in getaddrinfo
+    return await self.run_in_executor(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\anwes\AppData\Local\Programs\Python\Python312\Lib\concurrent\futures\thread.py", line 58, in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\anwes\AppData\Local\Programs\Python\Python312\Lib\socket.py", line 976, in getaddrinfo
+    for res in _socket.getaddrinfo(host, port, family, type, proto, flags):
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+socket.gaierror: [Errno 11004] getaddrinfo failed
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Users\anwes\OneDrive\Desktop\Drive_Bot\.venv\Lib\site-packages\discord\client.py", line 728, in connect
+    self.ws = await asyncio.wait_for(coro, timeout=60.0)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\anwes\AppData\Local\Programs\Python\Python312\Lib\asyncio\tasks.py", line 520, in wait_for
+    return await fut
+           ^^^^^^^^^
+  File "C:\Users\anwes\OneDrive\Desktop\Drive_Bot\.venv\Lib\site-packages\discord\gateway.py", line 392, in from_client
+    socket = await client.http.ws_connect(str(url))
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\anwes\OneDrive\Desktop\Drive_Bot\.venv\Lib\site-packages\discord\http.py", line 571, in ws_connect
+    return await self.__session.ws_connect(url, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\anwes\OneDrive\Desktop\Drive_Bot\.venv\Lib\site-packages\aiohttp\client.py", line 1249, in _ws_connect
+    resp = await self.request(
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\anwes\OneDrive\Desktop\Drive_Bot\.venv\Lib\site-packages\aiohttp\client.py", line 858, in _request
+    resp = await handler(req)
+           ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\anwes\OneDrive\Desktop\Drive_Bot\.venv\Lib\site-packages\aiohttp\client.py", line 812, in _connect_and_send_request
+    conn = await self._connector.connect(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\anwes\OneDrive\Desktop\Drive_Bot\.venv\Lib\site-packages\aiohttp\connector.py", line 657, in connect
+    proto = await self._create_connection(req, traces, timeout)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\anwes\OneDrive\Desktop\Drive_Bot\.venv\Lib\site-packages\aiohttp\connector.py", line 1242, in _create_connection
+    _, proto = await self._create_direct_connection(req, traces, timeout)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\anwes\OneDrive\Desktop\Drive_Bot\.venv\Lib\site-packages\aiohttp\connector.py", line 1577, in _create_direct_connection
+    raise ClientConnectorDNSError(req.connection_key, exc) from exc
+aiohttp.client_exceptions.ClientConnectorDNSError: Cannot connect to host gateway-us-east1-d.discord.gg:443 ssl:default [getaddrinfo failed]
+[2026-09-07 20:02:04,129] [INFO] [discord.gateway] Shard ID None has successfully RESUMED session bfc417a7449174de3536f4d415f53328.
+[2026-09-07 20:07:46] [Database] [INFO] [PURGE TRASH] [Harry_Potter] Purged 0 expired trash item(s).
+[2026-09-07 20:07:46] [Database] [INFO] [GET TRASHED FILES] [Harry_Potter] Select query executed for trashed files.
+[2026-09-07 20:07:46] [Database] [INFO] [PURGE TRASH] [Harry_Potter] Purged 0 expired trash item(s).
+[2026-09-07 20:07:46] [Database] [INFO] [GET TRASHED FILES] [Harry_Potter] Select query executed for trashed files.
+[2026-09-07 20:07:48] [Database] [INFO] [PURGE TRASH] [Harry_Potter] Purged 0 expired trash item(s).
+[2026-09-07 20:07:48] [Database] [INFO] [GET TRASHED FILES] [Harry_Potter] Select query executed for trashed files.
+[2026-09-07 20:07:48] [Database] [INFO] [PURGE TRASH] [Harry_Potter] Purged 0 expired trash item(s).
+[2026-09-07 20:07:48] [Database] [INFO] [GET TRASHED FILES] [Harry_Potter] Select query executed for trashed files.
+[2026-09-07 20:07:54] [Database] [INFO] [PURGE TRASH] [Harry_Potter] Purged 0 expired trash item(s).
+[2026-09-07 20:07:54] [Database] [INFO] [GET TRASHED FILES] [Harry_Potter] Select query executed for trashed files.
+[2026-09-07 20:07:54] [Database] [INFO] [PURGE TRASH] [Harry_Potter] Purged 0 expired trash item(s).
+[2026-09-07 20:07:54] [Database] [INFO] [GET TRASHED FILES] [Harry_Potter] Select query executed for trashed files.
+[2026-09-07 20:08:03] [Database] [INFO] [PURGE TRASH] [Harry_Potter] Purged 0 expired trash item(s).
+[2026-09-07 20:08:03] [Database] [INFO] [GET TRASHED FILES] [Harry_Potter] Select query executed for trashed files.
+[2026-09-07 20:08:24] [Discord] [INFO] [UPLOAD] [Harry_Potter] Got file: id=None directory='Infinity_war' name="Marvel Studios' Avengers_ Infinity War Official Trailer.mp4" type='video/mp4' size=5575143 modified_at=datetime.datetime(2026, 9, 7, 14, 38, 24, 324249, tzinfo=datetime.timezone.utc) deleted_at=None data_center='Discord' links=[] username='Harry_Potter'
+[2026-09-07 20:08:24] [Discord] [INFO] [UPLOAD] [Harry_Potter] Found local file: Marvel Studios' Avengers_ Infinity War Official Trailer.mp4
+[2026-09-07 20:08:24] [Discord] [INFO] [UPLOAD] [Harry_Potter] Starting upload `Marvel Studios' Avengers_ Infinity War Official Trailer.mp4` (1 parts)
+[2026-09-07 20:08:31] [Discord] [INFO] [UPLOAD] [Harry_Potter] Uploaded 1/1 (100.0%)
+[2026-09-07 20:08:31] [Discord] [INFO] [UPLOAD] [Harry_Potter] Upload complete `Marvel Studios' Avengers_ Infinity War Official Trailer.mp4`
+[2026-09-07 20:08:33] [Database] [INFO] [PURGE TRASH] [Harry_Potter] Purged 0 expired trash item(s).
+[2026-09-07 20:08:33] [Database] [INFO] [GET TRASHED FILES] [Harry_Potter] Select query executed for trashed files.
+[2026-09-07 20:08:33] [Database] [INFO] [PURGE TRASH] [Harry_Potter] Purged 0 expired trash item(s).
+[2026-09-07 20:08:33] [Database] [INFO] [GET TRASHED FILES] [Harry_Potter] Select query executed for trashed files.
+[2026-09-07 20:11:38] [Telegram] [INFO] [SHUTDOWN] [] Telegram client stopped.
+[2026-09-07 20:12:13,569] [WARNING] [discord.client] PyNaCl is not installed, voice will NOT be supported
+[2026-09-07 20:12:13,570] [WARNING] [discord.client] davey is not installed, voice will NOT be supported
+[2026-09-07 20:12:15] [Telegram] [INFO] [INIT] [StoreLimitless_bot] Bot is online. Logged in (id=8404712547)
+[2026-09-07 20:12:15] [Discord] [INFO] [MAIN] [] Starting Store Limitless Bot...
+[2026-09-07 20:12:15,072] [INFO] [discord.client] logging in using static token
+[2026-09-07 20:12:18,553] [INFO] [discord.gateway] Shard ID None has connected to Gateway (Session ID: e163e700e9c9a2c605f5d0ceed21df86).
+[2026-09-07 20:12:20] [Discord] [INFO] [INIT] [StoreLimitless#1152] FILE_DUMP channel initialized: files-dump (id=1399311590616203284).
+[2026-09-07 20:12:20] [Discord] [INFO] [INIT] [StoreLimitless#1152] Bot online and ready (id=1399287140885725245).
+[2026-09-07 20:13:30] [Database] [ERROR] [GET USER] [] User not found in the database
+[2026-09-07 20:13:48] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
+[2026-09-07 20:13:48] [Database] [INFO] [GET TRASHED FILES] [iamloki] Select query executed for trashed files.
+[2026-09-07 20:13:48] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
+[2026-09-07 20:13:48] [Database] [INFO] [GET TRASHED FILES] [iamloki] Select query executed for trashed files.
+[2026-09-07 20:14:49,248] [ERROR] [asyncio] Exception in callback _ProactorBasePipeTransport._call_connection_lost(None)
+handle: <Handle _ProactorBasePipeTransport._call_connection_lost(None)>
+Traceback (most recent call last):
+  File "C:\Users\anwes\AppData\Local\Programs\Python\Python312\Lib\asyncio\events.py", line 88, in _run
+    self._context.run(self._callback, *self._args)
+  File "C:\Users\anwes\AppData\Local\Programs\Python\Python312\Lib\asyncio\proactor_events.py", line 165, in _call_connection_lost
+    self._sock.shutdown(socket.SHUT_RDWR)
+ConnectionResetError: [WinError 10054] An existing connection was forcibly closed by the remote host
+[2026-09-07 20:26:16,294] [WARNING] [discord.client] PyNaCl is not installed, voice will NOT be supported
+[2026-09-07 20:26:16,294] [WARNING] [discord.client] davey is not installed, voice will NOT be supported
+[2026-09-07 20:26:18] [Telegram] [INFO] [INIT] [StoreLimitless_bot] Bot is online. Logged in (id=8404712547)
+[2026-09-07 20:26:18] [Discord] [INFO] [MAIN] [] Starting Store Limitless Bot...
+[2026-09-07 20:26:18,074] [INFO] [discord.client] logging in using static token
+[2026-09-07 20:26:22,134] [INFO] [discord.gateway] Shard ID None has connected to Gateway (Session ID: b0b8515a6521a6a8147fb17dabe99a6a).
+[2026-09-07 20:26:24] [Discord] [INFO] [INIT] [StoreLimitless#1152] FILE_DUMP channel initialized: files-dump (id=1399311590616203284).
+[2026-09-07 20:26:24] [Discord] [INFO] [INIT] [StoreLimitless#1152] Bot online and ready (id=1399287140885725245).
+[2026-09-07 20:26:28] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
+[2026-09-07 20:26:28] [Database] [INFO] [GET TRASHED FILES] [iamloki] Select query executed for trashed files.
+[2026-09-07 20:26:28] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
+[2026-09-07 20:26:28] [Database] [INFO] [GET TRASHED FILES] [iamloki] Select query executed for trashed files.
+[2026-09-07 20:28:15] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
+[2026-09-07 20:28:15] [Database] [INFO] [GET TRASHED FILES] [iamloki] Select query executed for trashed files.
+[2026-09-07 20:28:25] [Database] [INFO] [GET TRASHED FILES] [iamloki] Select query executed for trashed files.
+[2026-09-07 20:28:25] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
+[2026-09-07 20:28:25] [Database] [INFO] [GET TRASHED FILES] [iamloki] Select query executed for trashed files.
+[2026-09-07 20:28:33] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
+[2026-09-07 20:28:33] [Database] [INFO] [GET TRASHED FILES] [iamloki] Select query executed for trashed files.
+[2026-09-07 20:28:33] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
+[2026-09-07 20:28:33] [Database] [INFO] [GET TRASHED FILES] [iamloki] Select query executed for trashed files.
+[2026-09-07 20:34:31] [Telegram] [INFO] [SHUTDOWN] [] Telegram client stopped.
+[2026-09-07 20:49:13,022] [WARNING] [discord.client] PyNaCl is not installed, voice will NOT be supported
+[2026-09-07 20:49:13,022] [WARNING] [discord.client] davey is not installed, voice will NOT be supported
+[2026-09-07 20:49:14] [Telegram] [INFO] [INIT] [StoreLimitless_bot] Bot is online. Logged in (id=8404712547)
+[2026-09-07 20:49:14] [Discord] [INFO] [MAIN] [] Starting Store Limitless Bot...
+[2026-09-07 20:49:14,926] [INFO] [discord.client] logging in using static token
+[2026-09-07 20:49:19,365] [INFO] [discord.gateway] Shard ID None has connected to Gateway (Session ID: 1fefe0ee62d12b2d992f7df172f44de2).
+[2026-09-07 20:49:21] [Discord] [INFO] [INIT] [StoreLimitless#1152] FILE_DUMP channel initialized: files-dump (id=1399311590616203284).
+[2026-09-07 20:49:21] [Discord] [INFO] [INIT] [StoreLimitless#1152] Bot online and ready (id=1399287140885725245).
+[2026-09-07 20:50:06] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
+[2026-09-07 20:50:06] [Database] [INFO] [GET TRASHED FILES] [iamloki] Select query executed for trashed files.
+[2026-09-07 20:50:06] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
+[2026-09-07 20:50:06] [Database] [INFO] [GET TRASHED FILES] [iamloki] Select query executed for trashed files.
+[2026-09-07 20:50:42,460] [INFO] [discord.gateway] Shard ID None has successfully RESUMED session 1fefe0ee62d12b2d992f7df172f44de2.
+[2026-09-07 20:51:11] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
+[2026-09-07 20:51:11] [Database] [INFO] [GET TRASHED FILES] [iamloki] Select query executed for trashed files.
+[2026-09-07 20:53:54] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
+[2026-09-07 20:53:54] [Database] [INFO] [GET TRASHED FILES] [iamloki] Select query executed for trashed files.
+[2026-09-07 20:53:54] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
+[2026-09-07 20:53:54] [Database] [INFO] [GET TRASHED FILES] [iamloki] Select query executed for trashed files.
+[2026-09-07 20:55:11] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
+[2026-09-07 20:55:11] [Database] [INFO] [GET TRASHED FILES] [iamloki] Select query executed for trashed files.
+[2026-09-07 20:55:13] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
+[2026-09-07 20:55:13] [Database] [INFO] [GET TRASHED FILES] [iamloki] Select query executed for trashed files.
+[2026-09-07 20:55:20] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
+[2026-09-07 20:55:20] [Database] [INFO] [GET TRASHED FILES] [iamloki] Select query executed for trashed files.
+[2026-09-07 20:55:24] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
+[2026-09-07 20:55:24] [Database] [INFO] [GET TRASHED FILES] [iamloki] Select query executed for trashed files.
+[2026-09-07 20:55:24] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
+[2026-09-07 20:55:24] [Database] [INFO] [GET TRASHED FILES] [iamloki] Select query executed for trashed files.
+[2026-09-07 20:55:50] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
+[2026-09-07 20:55:50] [Database] [INFO] [GET TRASHED FILES] [iamloki] Select query executed for trashed files.
+[2026-09-07 20:55:57] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
+[2026-09-07 20:55:57] [Database] [INFO] [GET TRASHED FILES] [iamloki] Select query executed for trashed files.
+[2026-09-07 20:55:59] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
+[2026-09-07 20:55:59] [Database] [INFO] [GET TRASHED FILES] [iamloki] Select query executed for trashed files.
+[2026-09-07 20:56:12] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
+[2026-09-07 20:56:12] [Database] [INFO] [GET TRASHED FILES] [iamloki] Select query executed for trashed files.
+[2026-09-07 20:56:12] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
+[2026-09-07 20:56:12] [Database] [INFO] [GET TRASHED FILES] [iamloki] Select query executed for trashed files.
+[2026-09-07 20:57:51] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
+[2026-09-07 20:57:51] [Database] [INFO] [GET TRASHED FILES] [iamloki] Select query executed for trashed files.
+[2026-09-07 20:57:55] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
+[2026-09-07 20:57:55] [Database] [INFO] [GET TRASHED FILES] [iamloki] Select query executed for trashed files.
+[2026-09-07 20:58:05] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
+[2026-09-07 20:58:05] [Database] [INFO] [GET TRASHED FILES] [iamloki] Select query executed for trashed files.
+[2026-09-07 20:58:08] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
+[2026-09-07 20:58:08] [Database] [INFO] [GET TRASHED FILES] [iamloki] Select query executed for trashed files.
+[2026-09-07 20:58:17] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
+[2026-09-07 20:58:17] [Database] [INFO] [GET TRASHED FILES] [iamloki] Select query executed for trashed files.
+[2026-09-07 20:58:17] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
+[2026-09-07 20:58:17] [Database] [INFO] [GET TRASHED FILES] [iamloki] Select query executed for trashed files.
+[2026-09-07 21:00:09] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
+[2026-09-07 21:00:09] [Database] [INFO] [GET TRASHED FILES] [iamloki] Select query executed for trashed files.
+[2026-09-07 21:00:13] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
+[2026-09-07 21:00:13] [Database] [INFO] [GET TRASHED FILES] [iamloki] Select query executed for trashed files.
+[2026-09-07 21:00:13] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
+[2026-09-07 21:00:13] [Database] [INFO] [GET TRASHED FILES] [iamloki] Select query executed for trashed files.
+[2026-09-07 21:00:33] [Telegram] [INFO] [SHUTDOWN] [] Telegram client stopped.
