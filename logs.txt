@@ -325,3 +325,137 @@
 [2026-09-05 20:29:51] [Database] [INFO] [GET USER] [i_am_doom] Select query executed for i_am_doom.
 [2026-09-05 20:29:51] [Database] [INFO] [GET FILES] [] Select query executed for username=i_am_doom.
 [2026-09-05 20:30:01] [Telegram] [INFO] [SHUTDOWN] [] Telegram client stopped.
+[2026-09-06 18:58:01,303] [WARNING] [discord.client] PyNaCl is not installed, voice will NOT be supported
+[2026-09-06 18:58:01,303] [WARNING] [discord.client] davey is not installed, voice will NOT be supported
+[2026-09-06 18:58:02] [Telegram] [INFO] [INIT] [StoreLimitless_bot] Bot is online. Logged in (id=8404712547)
+[2026-09-06 18:58:02] [Discord] [INFO] [MAIN] [] Starting Store Limitless Bot...
+[2026-09-06 18:58:02,988] [INFO] [discord.client] logging in using static token
+[2026-09-06 18:58:05,130] [INFO] [discord.gateway] Shard ID None has connected to Gateway (Session ID: 3b3c0d2191f23d5183013f4cdd94ad05).
+[2026-09-06 18:58:07] [Discord] [INFO] [INIT] [StoreLimitless#1152] FILE_DUMP channel initialized: files-dump (id=1399311590616203284).
+[2026-09-06 18:58:07] [Discord] [INFO] [INIT] [StoreLimitless#1152] Bot online and ready (id=1399287140885725245).
+[2026-09-06 19:04:11] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
+[2026-09-06 19:04:11] [Database] [ERROR] [GET USER] [] User not found in the database
+[2026-09-06 19:04:11] [Database] [INFO] [SET USER] [Harry_Potter] User successfully inserted into database.
+[2026-09-06 19:04:18] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
+[2026-09-06 19:04:18] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
+[2026-09-06 19:04:18] [Database] [INFO] [GET FILES] [] Select query executed for username=Harry_Potter.
+[2026-09-06 19:04:18] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
+[2026-09-06 19:04:18] [Database] [INFO] [GET FILES] [] Select query executed for username=Harry_Potter.
+[2026-09-06 19:04:35] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
+[2026-09-06 19:04:35] [Database] [INFO] [GET FILES] [] Select query executed for username=Harry_Potter.
+[2026-09-06 19:04:35] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
+[2026-09-06 19:04:35] [Database] [INFO] [GET FILES] [] Select query executed for username=Harry_Potter.
+[2026-09-06 19:04:43] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
+[2026-09-06 19:04:43] [Database] [INFO] [GET FILES] [] Select query executed for username=Harry_Potter.
+[2026-09-06 19:04:43] [Database] [INFO] [GET FILES] [] Select query executed for username=Harry_Potter.
+[2026-09-06 19:04:43] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
+[2026-09-06 19:04:43] [Database] [INFO] [INSERT FILES] [Harry_Potter] File `.__folder__` saved to database with 0 part(s).
+[2026-09-06 19:04:43] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
+[2026-09-06 19:04:43] [Database] [INFO] [GET FILES] [] Select query executed for username=Harry_Potter.
+[2026-09-06 19:11:22] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
+[2026-09-06 19:11:22] [Database] [INFO] [GET FILES] [] Select query executed for username=Harry_Potter.
+[2026-09-06 19:11:22] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
+[2026-09-06 19:11:22] [Database] [INFO] [GET FILES] [] Select query executed for username=Harry_Potter.
+[2026-09-06 19:11:23] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
+[2026-09-06 19:11:23] [Database] [INFO] [GET FILES] [] Select query executed for username=Harry_Potter.
+[2026-09-06 19:11:23] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
+[2026-09-06 19:11:23] [Database] [INFO] [GET FILES] [] Select query executed for username=Harry_Potter.
+[2026-09-06 19:11:23] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
+[2026-09-06 19:11:23] [Database] [INFO] [GET FILES] [] Select query executed for username=Harry_Potter.
+[2026-09-06 19:11:23] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
+[2026-09-06 19:11:23] [Database] [INFO] [GET FILES] [] Select query executed for username=Harry_Potter.
+[2026-09-06 19:11:25] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
+[2026-09-06 19:11:25] [Database] [INFO] [GET FILES] [] Select query executed for username=Harry_Potter.
+[2026-09-06 19:11:25] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
+[2026-09-06 19:11:25] [Database] [INFO] [GET FILES] [] Select query executed for username=Harry_Potter.
+[2026-09-06 19:13:04] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
+[2026-09-06 19:13:04] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
+[2026-09-06 19:13:04] [Database] [INFO] [GET FILES] [] Select query executed for username=Harry_Potter.
+[2026-09-06 19:13:04] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
+[2026-09-06 19:13:04] [Database] [INFO] [GET FILES] [] Select query executed for username=Harry_Potter.
+[2026-09-06 19:13:20] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
+[2026-09-06 19:13:20] [Database] [INFO] [GET FILES] [] Select query executed for username=Harry_Potter.
+[2026-09-06 19:13:20] [Database] [INFO] [GET FILES] [] Select query executed for username=Harry_Potter.
+[2026-09-06 19:13:20] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
+[2026-09-06 19:13:20] [Database] [INFO] [INSERT FILES] [Harry_Potter] File `.__folder__` saved to database with 0 part(s).
+[2026-09-06 19:13:20] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
+[2026-09-06 19:13:20] [Database] [INFO] [GET FILES] [] Select query executed for username=Harry_Potter.
+[2026-09-06 19:14:11] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
+[2026-09-06 19:14:11] [Database] [INFO] [GET FILES] [] Select query executed for username=Harry_Potter.
+[2026-09-06 19:14:11] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
+[2026-09-06 19:14:11] [Database] [INFO] [GET FILES] [] Select query executed for username=Harry_Potter.
+[2026-09-06 19:14:15] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
+[2026-09-06 19:14:15] [Database] [INFO] [GET FILE] [] Select query executed for id=4.
+[2026-09-06 19:14:15] [Database] [INFO] [UPDATE FILE] [Harry_Potter] File `.__folder__` successfully updated.
+[2026-09-06 19:14:15] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
+[2026-09-06 19:14:15] [Database] [INFO] [GET FILES] [] Select query executed for username=Harry_Potter.
+[2026-09-06 19:14:17] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
+[2026-09-06 19:14:17] [Database] [INFO] [GET FILE] [] Select query executed for id=5.
+[2026-09-06 19:14:17] [Database] [INFO] [UPDATE FILE] [Harry_Potter] File `.__folder__` successfully updated.
+[2026-09-06 19:14:17] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
+[2026-09-06 19:14:17] [Database] [INFO] [GET FILES] [] Select query executed for username=Harry_Potter.
+[2026-09-06 19:16:00] [Database] [INFO] [GET USER] [Harry_potter] Select query executed for Harry_potter.
+[2026-09-06 19:16:00] [Database] [ERROR] [GET USER] [] User not found in the database
+[2026-09-06 19:16:11] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
+[2026-09-06 19:16:11] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
+[2026-09-06 19:16:11] [Database] [INFO] [GET FILES] [] Select query executed for username=Harry_Potter.
+[2026-09-06 19:16:11] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
+[2026-09-06 19:16:11] [Database] [INFO] [GET FILES] [] Select query executed for username=Harry_Potter.
+[2026-09-06 19:16:27] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
+[2026-09-06 19:16:27] [Database] [INFO] [GET FILES] [] Select query executed for username=Harry_Potter.
+[2026-09-06 19:16:27] [Database] [INFO] [GET FILES] [] Select query executed for username=Harry_Potter.
+[2026-09-06 19:16:27] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
+[2026-09-06 19:16:27] [Database] [INFO] [INSERT FILES] [Harry_Potter] File `.__folder__` saved to database with 0 part(s).
+[2026-09-06 19:16:27] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
+[2026-09-06 19:16:27] [Database] [INFO] [GET FILES] [] Select query executed for username=Harry_Potter.
+[2026-09-06 19:16:49] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
+[2026-09-06 19:16:49] [Database] [INFO] [GET FILES] [] Select query executed for username=Harry_Potter.
+[2026-09-06 19:16:49] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
+[2026-09-06 19:16:49] [Database] [INFO] [GET FILES] [] Select query executed for username=Harry_Potter.
+[2026-09-06 19:17:12] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
+[2026-09-06 19:17:13] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
+[2026-09-06 19:17:13] [Database] [INFO] [GET FILES] [] Select query executed for username=Harry_Potter.
+[2026-09-06 19:17:13] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
+[2026-09-06 19:17:13] [Database] [INFO] [GET FILES] [] Select query executed for username=Harry_Potter.
+[2026-09-06 19:22:02] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
+[2026-09-06 19:22:03] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
+[2026-09-06 19:22:03] [Database] [INFO] [GET FILES] [] Select query executed for username=Harry_Potter.
+[2026-09-06 19:22:03] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
+[2026-09-06 19:22:03] [Database] [INFO] [GET FILES] [] Select query executed for username=Harry_Potter.
+[2026-09-06 19:22:13] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
+[2026-09-06 19:22:13] [Database] [INFO] [GET FILES] [] Select query executed for username=Harry_Potter.
+[2026-09-06 19:22:13] [Database] [INFO] [GET FILES] [] Select query executed for username=Harry_Potter.
+[2026-09-06 19:22:13] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
+[2026-09-06 19:22:13] [Database] [INFO] [INSERT FILES] [Harry_Potter] File `.__folder__` saved to database with 0 part(s).
+[2026-09-06 19:22:13] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
+[2026-09-06 19:22:13] [Database] [INFO] [GET FILES] [] Select query executed for username=Harry_Potter.
+[2026-09-06 19:23:01] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
+[2026-09-06 19:23:01] [Database] [INFO] [GET FILES] [] Select query executed for username=Harry_Potter.
+[2026-09-06 19:23:02] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
+[2026-09-06 19:23:02] [Discord] [INFO] [UPLOAD] [Harry_Potter] Got file: id=None directory='Marvel' name='Robert Downey Jr.  Shocks Fans as Doctor Doom at Comic Con.mp4' type='video/mp4' size=4808884 modified_at=datetime.datetime(2026, 9, 6, 13, 53, 1, 883988, tzinfo=datetime.timezone.utc) data_center='Discord' links=[] deleted_at=None username='Harry_Potter'
+[2026-09-06 19:23:02] [Database] [INFO] [GET FILE] [] Select query executed for ('name', 'username')=('Robert Downey Jr.  Shocks Fans as Doctor Doom at Comic Con.mp4', 'Harry_Potter').
+[2026-09-06 19:23:02] [Database] [ERROR] [GET FILE] [] No file found for ('name', 'username')=('Robert Downey Jr.  Shocks Fans as Doctor Doom at Comic Con.mp4', 'Harry_Potter').
+[2026-09-06 19:23:02] [Discord] [INFO] [UPLOAD] [Harry_Potter] Found local file: Robert Downey Jr.  Shocks Fans as Doctor Doom at Comic Con.mp4
+[2026-09-06 19:23:02] [Discord] [INFO] [UPLOAD] [Harry_Potter] Starting upload `Robert Downey Jr.  Shocks Fans as Doctor Doom at Comic Con.mp4` (1 parts)
+[2026-09-06 19:23:10] [Discord] [INFO] [UPLOAD] [Harry_Potter] Uploaded 1/1 (100.0%)
+[2026-09-06 19:23:10] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
+[2026-09-06 19:23:10] [Database] [INFO] [INSERT FILES] [Harry_Potter] File `Robert Downey Jr.  Shocks Fans as Doctor Doom at Comic Con.mp4` saved to database with 1 part(s).
+[2026-09-06 19:23:10] [Discord] [INFO] [UPLOAD] [Harry_Potter] Upload complete `Robert Downey Jr.  Shocks Fans as Doctor Doom at Comic Con.mp4`
+[2026-09-06 19:23:11] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
+[2026-09-06 19:23:11] [Database] [INFO] [GET FILES] [] Select query executed for username=Harry_Potter.
+[2026-09-06 19:23:11] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
+[2026-09-06 19:23:11] [Database] [INFO] [GET FILES] [] Select query executed for username=Harry_Potter.
+[2026-09-06 19:23:23] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
+[2026-09-06 19:23:23] [Database] [INFO] [GET FILE] [] Select query executed for id=7.
+[2026-09-06 19:23:23] [Database] [INFO] [UPDATE FILE] [Harry_Potter] File `.__folder__` successfully updated.
+[2026-09-06 19:23:23] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
+[2026-09-06 19:23:23] [Database] [INFO] [GET FILES] [] Select query executed for username=Harry_Potter.
+[2026-09-06 19:23:48] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
+[2026-09-06 19:23:48] [Database] [INFO] [GET FILE] [] Select query executed for id=8.
+[2026-09-06 19:23:48] [Database] [INFO] [UPDATE FILE] [Harry_Potter] File `Robert Downey Jr.  Shocks Fans as Doctor Doom at Comic Con.mp4` successfully updated.
+[2026-09-06 19:23:52] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
+[2026-09-06 19:23:52] [Database] [INFO] [GET FILE] [] Select query executed for id=6.
+[2026-09-06 19:23:52] [Database] [INFO] [UPDATE FILE] [Harry_Potter] File `.__folder__` successfully updated.
+[2026-09-06 19:23:52] [Database] [INFO] [GET USER] [Harry_Potter] Select query executed for Harry_Potter.
+[2026-09-06 19:23:52] [Database] [INFO] [GET FILES] [] Select query executed for username=Harry_Potter.
+[2026-09-06 19:23:55] [Telegram] [INFO] [SHUTDOWN] [] Telegram client stopped.
