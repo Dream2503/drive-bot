@@ -13,8 +13,9 @@ import inspect
 from backend.database import (add_user, File, get_files, get_user, LoginRequest, User, get_file,add_file, update_file, purge_expired_trash, get_trashed_files, delete_file)
 from backend.server.jwt_handler import create_access_token, get_current_user
 from backend.server.security import hash_password, verify_password, create_public_stream_token, verify_public_stream_token
-from core import (TRANSFER_PATH, get_transfer_path, BackEnd, download_link, ChunkCache,
-                  get_chunks, parse_range, stream_range, ByteRange, upload, FileChunk)
+from core import (TRANSFER_PATH, get_transfer_path, BackEnd, ChunkCache,
+                  get_chunks, parse_range, stream_range, ByteRange, FileChunk)
+from core.transfer import upload, download_link
 
 auth: APIRouter = APIRouter(prefix="/auth")
 

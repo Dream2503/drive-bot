@@ -9,26 +9,46 @@ const DCS = [
 export default function UploadPage() {
   const navigate = useNavigate();
   const [file, setFile]           = useState(null);
+  const [link, setLink]           = useState("");
   const [dc, setDc]               = useState("");
   const [progress, setProgress]   = useState(0);
   const [status, setStatus]       = useState("idle"); // idle | uploading | done | error
   const [drag, setDrag]           = useState(false);
+  const [uploadMode, setUploadMode] = useState("file"); // file | link
 
   const handleUpload = async () => {
-    if (!file || !dc) return;
+    if (uploadMode === "file") {
+      if (!file || !dc) return;
+    } else {
+      if (!link || !dc) return;
+    }
+    
     setStatus("uploading");
     setProgress(0);
 
-    const form = new FormData();
-    form.append("file", file);
-    form.append("data_center", dc);
-
     try {
-      const res = await fetch("http://127.0.0.1:8000/auth/upload", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
-        body: form,
-      });
+      let res;
+      if (uploadMode === "file") {
+        const form = new FormData();
+        form.append("file", file);
+        form.append("data_center", dc);
+        
+        res = await fetch("http://127.0.0.1:8000/auth/upload", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+          body: form,
+        });
+      } else {
+        res = await fetch("http://127.0.0.1:8000/auth/upload-from-link", {
+          method: "POST",
+          headers: { 
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ link, data_center: dc }),
+        });
+      }
+      
       if (!res.ok || !res.body) { setStatus("error"); return; }
 
       const reader = res.body.getReader();
@@ -38,8 +58,14 @@ export default function UploadPage() {
         if (done) break;
         for (const line of dec.decode(value).split("\n")) {
           if (!line.trim()) continue;
-          try { setProgress((p) => Math.max(p, JSON.parse(line).progress)); }
-          catch {}
+          try { 
+            const data = JSON.parse(line);
+            setProgress((p) => Math.max(p, data.progress || 0));
+            if (data.status === "error") {
+              setStatus("error");
+              return;
+            }
+          } catch {}
         }
       }
       setProgress(100);
@@ -56,7 +82,7 @@ export default function UploadPage() {
     if (f) setFile(f);
   };
 
-  const ready  = file && dc && status !== "uploading";
+  const ready  = ((uploadMode === "file" && file) || (uploadMode === "link" && link)) && dc && status !== "uploading";
   const isIdle = status === "idle";
 
   return (
@@ -82,13 +108,54 @@ export default function UploadPage() {
           {/* Page title */}
           <h1 className="text-20 font-medium text-sb-text mb-0.5">Upload a file</h1>
           <p className="text-13 text-sb-text-3 mb-8">
-            Select a storage backend and choose the file to upload.
+            Select a storage backend and upload a file or import from a link.
           </p>
 
-          {/* Step 1 — Data center */}
+          {/* Upload mode toggle */}
           <section className="mb-6">
             <p className="text-11 font-mono uppercase tracking-wider text-sb-text-3 mb-3">
-              1. Storage backend
+              Upload method
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={() => { setUploadMode("file"); setLink(""); }}
+                className={`text-left p-3 rounded-md border transition-colors focus-green
+                  ${uploadMode === "file"
+                    ? "border-sb-green bg-sb-green-dim"
+                    : "border-sb-border bg-sb-surface hover:border-sb-border-hi"
+                  }`}
+              >
+                <p className={`text-13 font-medium mb-0.5 ${uploadMode === "file" ? "text-sb-green" : "text-sb-text"}`}>
+                  File Upload
+                  {uploadMode === "file" && (
+                    <span className="ml-1.5 text-11">✓</span>
+                  )}
+                </p>
+                <p className="text-12 text-sb-text-3">Upload from your device</p>
+              </button>
+              <button
+                onClick={() => { setUploadMode("link"); setFile(null); }}
+                className={`text-left p-3 rounded-md border transition-colors focus-green
+                  ${uploadMode === "link"
+                    ? "border-sb-green bg-sb-green-dim"
+                    : "border-sb-border bg-sb-surface hover:border-sb-border-hi"
+                  }`}
+              >
+                <p className={`text-13 font-medium mb-0.5 ${uploadMode === "link" ? "text-sb-green" : "text-sb-text"}`}>
+                  Link Import
+                  {uploadMode === "link" && (
+                    <span className="ml-1.5 text-11">✓</span>
+                  )}
+                </p>
+                <p className="text-12 text-sb-text-3">Import from URL</p>
+              </button>
+            </div>
+          </section>
+
+          {/* Step 2 — Data center */}
+          <section className="mb-6">
+            <p className="text-11 font-mono uppercase tracking-wider text-sb-text-3 mb-3">
+              2. Storage backend
             </p>
             <div className="grid grid-cols-2 gap-3">
               {DCS.map(({ id, label, desc }) => (
@@ -113,56 +180,80 @@ export default function UploadPage() {
             </div>
           </section>
 
-          {/* Step 2 — File drop zone */}
+          {/* Step 3 — File drop zone or Link input */}
           <section className="mb-6">
             <p className="text-11 font-mono uppercase tracking-wider text-sb-text-3 mb-3">
-              2. Select file
+              3. {uploadMode === "file" ? "Select file" : "Enter link"}
             </p>
-            <label
-              htmlFor="file-input"
-              onDragOver={(e) => { e.preventDefault(); setDrag(true); }}
-              onDragLeave={() => setDrag(false)}
-              onDrop={onDrop}
-              className={`flex flex-col items-center justify-center w-full h-36 rounded-md
-                          border border-dashed cursor-pointer transition-colors
-                          ${drag
-                            ? "border-sb-green bg-sb-green-dim"
-                            : file
-                            ? "border-sb-green/40 bg-sb-green-dim/50"
-                            : "border-sb-border bg-sb-surface hover:border-sb-border-hi"
-                          }`}
-            >
-              {file ? (
-                <div className="text-center px-4">
-                  <p className="text-13 text-sb-text truncate max-w-xs">{file.name}</p>
-                  <p className="text-12 text-sb-text-3 mt-1">
-                    {(file.size / 1024).toFixed(1)} KB
-                    <button
-                      onClick={(e) => { e.preventDefault(); setFile(null); }}
-                      className="ml-3 text-sb-text-3 hover:text-sb-red transition-colors focus-green rounded-sm"
-                    >
-                      Remove
-                    </button>
-                  </p>
-                </div>
-              ) : (
-                <div className="text-center">
-                  <UploadIcon />
-                  <p className="text-13 text-sb-text-2 mt-2">
-                    Drop file here or{" "}
-                    <span className="text-sb-green">browse</span>
-                  </p>
-                  <p className="text-12 text-sb-text-3 mt-0.5">Any file type</p>
-                </div>
-              )}
-              <input
-                id="file-input"
-                type="file"
-                className="hidden"
-                disabled={status === "uploading"}
-                onChange={(e) => { if (e.target.files[0]) setFile(e.target.files[0]); }}
-              />
-            </label>
+            
+            {uploadMode === "file" ? (
+              <label
+                htmlFor="file-input"
+                onDragOver={(e) => { e.preventDefault(); setDrag(true); }}
+                onDragLeave={() => setDrag(false)}
+                onDrop={onDrop}
+                className={`flex flex-col items-center justify-center w-full h-36 rounded-md
+                            border border-dashed cursor-pointer transition-colors
+                            ${drag
+                              ? "border-sb-green bg-sb-green-dim"
+                              : file
+                              ? "border-sb-green/40 bg-sb-green-dim/50"
+                              : "border-sb-border bg-sb-surface hover:border-sb-border-hi"
+                            }`}
+              >
+                {file ? (
+                  <div className="text-center px-4">
+                    <p className="text-13 text-sb-text truncate max-w-xs">{file.name}</p>
+                    <p className="text-12 text-sb-text-3 mt-1">
+                      {(file.size / 1024).toFixed(1)} KB
+                      <button
+                        onClick={(e) => { e.preventDefault(); setFile(null); }}
+                        className="ml-3 text-sb-text-3 hover:text-sb-red transition-colors focus-green rounded-sm"
+                      >
+                        Remove
+                      </button>
+                    </p>
+                  </div>
+                ) : (
+                  <div className="text-center">
+                    <UploadIcon />
+                    <p className="text-13 text-sb-text-2 mt-2">
+                      Drop file here or{" "}
+                      <span className="text-sb-green">browse</span>
+                    </p>
+                    <p className="text-12 text-sb-text-3 mt-0.5">Any file type</p>
+                  </div>
+                )}
+                <input
+                  id="file-input"
+                  type="file"
+                  className="hidden"
+                  disabled={status === "uploading"}
+                  onChange={(e) => { if (e.target.files[0]) setFile(e.target.files[0]); }}
+                />
+              </label>
+            ) : (
+              <div className="flex flex-col gap-3">
+                <input
+                  type="text"
+                  value={link}
+                  onChange={(e) => setLink(e.target.value)}
+                  placeholder="Enter file URL (e.g., https://example.com/file.pdf)"
+                  disabled={status === "uploading"}
+                  className="w-full h-12 px-4 rounded-md border border-sb-border bg-sb-surface text-sb-text text-13
+                             placeholder:text-sb-text-3 focus:outline-none focus:border-sb-green
+                             disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                />
+                {link && (
+                  <button
+                    onClick={() => setLink("")}
+                    className="text-12 text-sb-text-3 hover:text-sb-red transition-colors focus-green rounded-sm self-start"
+                  >
+                    Clear link
+                  </button>
+                )}
+              </div>
+            )}
           </section>
 
           {/* Upload button */}
@@ -174,7 +265,7 @@ export default function UploadPage() {
                        disabled:opacity-40 disabled:cursor-not-allowed
                        flex items-center justify-center gap-2"
           >
-            {status === "uploading" ? "Uploading…" : "Upload file"}
+            {status === "uploading" ? "Uploading…" : uploadMode === "file" ? "Upload file" : "Import from link"}
           </button>
 
           {/* Progress */}
@@ -182,7 +273,7 @@ export default function UploadPage() {
             <div className="mt-5 bg-sb-surface border border-sb-border rounded-md p-4">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-12 font-mono text-sb-text-3">
-                  {status === "uploading" && "Uploading"}
+                  {status === "uploading" && (uploadMode === "file" ? "Uploading" : "Importing")}
                   {status === "done"      && "Complete"}
                   {status === "error"     && "Failed"}
                 </span>
@@ -197,12 +288,12 @@ export default function UploadPage() {
               </div>
               {status === "done" && (
                 <p className="text-12 text-sb-green mt-2">
-                  Upload complete. Redirecting…
+                  {uploadMode === "file" ? "Upload complete" : "Import complete"}. Redirecting…
                 </p>
               )}
               {status === "error" && (
                 <p className="text-12 text-sb-red mt-2">
-                  Upload failed. Check your connection and try again.
+                  {uploadMode === "file" ? "Upload failed" : "Import failed"}. Check your connection and try again.
                 </p>
               )}
             </div>
