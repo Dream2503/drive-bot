@@ -74,6 +74,8 @@ async def upload(file: File) -> AsyncGenerator[float | int, None]:
             tasks: list[Task[tuple[int, str]]] = [create_task(upload_part(i, chunk, filename)) for i, chunk, filename in chunks]
             results: dict[int, str] = {}
 
+
+
             for task in as_completed(tasks):
                 i, msg_id = await task
                 results[i] = msg_id
