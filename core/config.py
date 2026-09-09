@@ -7,23 +7,13 @@ BASE_DIR: Path = Path(__file__).resolve().parent.parent
 
 DATABASE_PATH: Path = BASE_DIR / "backend" / "database" / "database.db"
 LOG_PATH: Path = BASE_DIR / "logs.txt"
+LOG_LOCK_PATH: Path = BASE_DIR / "logs.lock"
+TELEGRAM_SESSION: Path = BASE_DIR / "telegram_bot"
 TRANSFER_PATH: Path = BASE_DIR / "transfer"
 TRANSFER_PATH.mkdir(exist_ok=True)
 
-SUPPORTED_DOMAIN: list[str] = ["drive.google.com", ]
-
-
-def get_transfer_path(username: str, directory: str, filename: str) -> Path:
-    path: Path = TRANSFER_PATH / username
-
-    if directory:
-        path = path / directory
-
-    return path / filename
-
-
 load_dotenv()
-
+SUPPORTED_DOMAIN: list[str] = ["drive.google.com", "youtube.com", "youtu.be", "m.youtube.com"]
 LOG_HANDLER: TextIO = open(LOG_PATH, 'a')
 
 

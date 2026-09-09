@@ -3,6 +3,21 @@ import {useNavigate, useSearchParams} from "react-router-dom";
 
 const DATA_CENTERS = ["Discord", "Telegram"];
 
+const formatBytes = (bytes) => {
+    if (bytes < 1024) return `${bytes} B`;
+
+    const units = ["KB", "MB", "GB", "TB"];
+    let value = bytes;
+    let unit = -1;
+
+    do {
+        value /= 1024;
+        unit++;
+    } while (value >= 1024 && unit < units.length - 1);
+
+    return `${value.toFixed(1)} ${units[unit]}`;
+};
+
 export default function UploadPage() {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
@@ -18,6 +33,9 @@ export default function UploadPage() {
     // Other states
     const [dataCenter, setDataCenter] = useState("Discord");
     const [progress, setProgress] = useState(0);
+    const [message, setMessage] = useState("");
+    const [transfer, setTransfer] = useState(0);
+    const [total, setTotal] = useState(0);
     const [status, setStatus] = useState("idle");
     const [dragOver, setDragOver] = useState(false);
 
@@ -35,6 +53,9 @@ export default function UploadPage() {
 
         setStatus("uploading");
         setProgress(0);
+        setMessage("");
+        setTransfer(0);
+        setTotal(0);
 
         try {
             let res;
@@ -140,8 +161,11 @@ export default function UploadPage() {
                         // ==========================================
                         // PROGRESS UPDATE
                         // ==========================================
-                        if (data.progress !== undefined) {
-                            setProgress((previousProgress) => Math.max(previousProgress, Number(data.progress)));
+                        if (data.message !== undefined && data.transfer !== undefined && data.total !== undefined) {
+                            setMessage(data.message);
+                            setTransfer(data.transfer);
+                            setTotal(data.total);
+                            setProgress((data.transfer / data.total) * 100);
                         }
 
                     } catch (error) {
@@ -171,6 +195,13 @@ export default function UploadPage() {
                     if (data.status === "completed") {
                         uploadCompleted = true;
                         setProgress(100);
+                    }
+
+                    if (data.message !== undefined && data.transfer !== undefined && data.total !== undefined) {
+                        setMessage(data.message);
+                        setTransfer(data.transfer);
+                        setTotal(data.total);
+                        setProgress((data.transfer / data.total) * 100);
                     }
 
                 } catch (error) {
@@ -390,8 +421,8 @@ export default function UploadPage() {
                             <p className="text-sm text-on-surface-variant">
                                 Drop file here or{" "}
                                 <span className="text-primary">
-                                            browse
-                                        </span>
+                                    browse
+                                </span>
                             </p>
                             <p className="text-xs text-on-surface-variant/50 mt-1">
                                 Any file type supported
@@ -422,9 +453,9 @@ export default function UploadPage() {
                     <div className="bg-surface-container-low border border-outline-variant/30 rounded-2xl p-4">
                         <div className="flex items-center gap-3 mb-4">
                             <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                                    <span className="material-symbols-outlined text-primary">
-                                        link
-                                    </span>
+                                <span className="material-symbols-outlined text-primary">
+                                    link
+                                </span>
                             </div>
                             <div>
                                 <p className="text-sm font-medium text-on-surface">
@@ -438,9 +469,9 @@ export default function UploadPage() {
 
                         {/* LINK INPUT */}
                         <div className="relative">
-                                <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant">
-                                    link
-                                </span>
+                            <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant">
+                                link
+                            </span>
                             <input
                                 type="url"
                                 value={link}
@@ -453,9 +484,9 @@ export default function UploadPage() {
 
                         {/* LINK DETECTED */}
                         {link.trim() && (<div className="flex items-center gap-2 mt-3 text-primary">
-                                    <span className="material-symbols-outlined text-[16px]">
-                                        check_circle
-                                    </span>
+                            <span className="material-symbols-outlined text-[16px]">
+                                check_circle
+                            </span>
                             <p className="text-xs">
                                 Link added
                             </p>
@@ -475,14 +506,14 @@ export default function UploadPage() {
                     className="w-full bg-primary text-on-primary py-3 rounded-xl font-medium text-sm hover:bg-primary/90 transition-colors shadow-[0_0_20px_rgba(192,193,255,0.2)] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
                     {status === "uploading" ? (<>
-                            <span className="material-symbols-outlined text-[18px] animate-spin">
-                                autorenew
-                            </span>
+                        <span className="material-symbols-outlined text-[18px] animate-spin">
+                            autorenew
+                        </span>
                         {uploadMode === "link" ? "Importing..." : "Uploading..."}
                     </>) : (<>
-                            <span className="material-symbols-outlined text-[18px]">
-                                cloud_upload
-                            </span>
+                        <span className="material-symbols-outlined text-[18px]">
+                            cloud_upload
+                        </span>
                         {uploadMode === "link" ? "Import File" : "Upload File"}
                     </>)}
                 </button>
@@ -492,14 +523,14 @@ export default function UploadPage() {
                 ========================================== */}
                 {status !== "idle" && (<div className="mt-6 glass-panel rounded-2xl p-4 border border-outline-variant/10">
                     <div className="flex justify-between text-xs text-on-surface-variant mb-2">
-                            <span className="font-geist uppercase tracking-widest">
-                                {status === "uploading" && (uploadMode === "link" ? "Importing" : "Uploading")}
-                                {status === "done" && "✓ Completed"}
-                                {status === "error" && "✗ Failed"}
-                            </span>
+                        <span className="font-geist uppercase tracking-widest">
+                            {status === "uploading" && `${message || (uploadMode === "link" ? "Importing" : "Uploading")}:`}
+                            {status === "done" && "✓ Completed:"}
+                            {status === "error" && "✗ Failed:"}
+                        </span>
                         <span>
-                                {progress}%
-                            </span>
+                            {total > 0 ? `${formatBytes(transfer)} / ${formatBytes(total)}    ${progress.toFixed(1)}%` : `${progress.toFixed(1)}%`}
+                        </span>
                     </div>
 
                     {/* PROGRESS BAR */}
