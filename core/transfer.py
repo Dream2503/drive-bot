@@ -77,8 +77,8 @@ async def upload(file: File) -> AsyncGenerator[float | int, None]:
             for task in as_completed(tasks):
                 i, msg_id = await task
                 results[i] = msg_id
+                # write_log("INFO", data_center, "UPLOAD", user.username, f"Uploaded {len(results)}/{total_parts} ({progress:.1f}%)")
                 progress: float | int = ((i*data_center.MAX_SIZE),(total_parts*data_center.MAX_SIZE))
-                write_log("INFO", data_center, "UPLOAD", user.username, f"Uploaded {len(results)}/{total_parts} ({progress:.1f}%)")
                 yield progress
 
             file.links = [results[i] for i in range(1, total_parts + 1)]
