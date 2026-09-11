@@ -5,7 +5,7 @@ from fastapi.security import OAuth2PasswordBearer
 from jose import jwt, JWTError
 
 from backend.database import get_user, User
-from core.config import getenv
+from core.utils import getenv
 
 OAuth2_scheme: OAuth2PasswordBearer = OAuth2PasswordBearer(tokenUrl="/login")
 SECRET_KEY: str = getenv("SECRET_KEY")

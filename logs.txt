@@ -1,800 +1,136 @@
-[2026-09-09 21:15:00,412] [WARNING] [discord.client] PyNaCl is not installed, voice will NOT be supported
-[2026-09-09 21:15:00,412] [WARNING] [discord.client] davey is not installed, voice will NOT be supported
-[2026-09-09 21:15:00,672] [INFO] [telethon.crypto.aes] libssl detected, it will be used for encryption
-[2026-09-09 21:15:00,770] [INFO] [telethon.network.mtprotosender] Connecting to 91.108.56.126:443/TcpFull...
-[2026-09-09 21:15:00,872] [INFO] [telethon.network.mtprotosender] Connection to 91.108.56.126:443/TcpFull complete!
-[2026-09-09 21:15:01] [Telegram] [INFO] [INIT] [StoreLimitless_bot] Bot is online. Logged in (id=8404712547)
-[2026-09-09 21:15:01] [Discord] [INFO] [MAIN] [] Starting Store Limitless Bot...
-[2026-09-09 21:15:01,856] [INFO] [discord.client] logging in using static token
-[2026-09-09 21:15:04,258] [INFO] [discord.gateway] Shard ID None has connected to Gateway (Session ID: 20b06d8c8d57e9283b55279b6ea8f54c).
-[2026-09-09 21:15:04] [Discord] [INFO] [DOWNLOAD] [iamloki] Starting download: https://drive.google.com/file/d/1OP5AkfKzvugzV-dCb-HSN9o--FeloyaC/view?usp=drive_link
-[2026-09-09 21:15:04] [Database] [ERROR] [GET FILE] [] Invalid search parameters provided by caller.
-[2026-09-09 21:15:04] [Discord] [ERROR] [DOWNLOAD] [iamloki] Unhandled exception: Set of Tasks/Futures is empty.
-Traceback (most recent call last):
-  File "/home/dream/github/drive-bot/core/transfer.py", line 112, in download_link
-    async for progress in downloader(file, link):
-  File "/home/dream/github/drive-bot/core/utils/download_.py", line 108, in download_google_drive
-    done, upload_tasks = await wait(upload_tasks, timeout=0)
-                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/lib/python3.12/asyncio/tasks.py", line 454, in wait
-    raise ValueError('Set of Tasks/Futures is empty.')
-ValueError: Set of Tasks/Futures is empty.
-
-[2026-09-09 21:15:06] [Discord] [INFO] [INIT] [StoreLimitless#1152] FILE_DUMP channel initialized: files-dump (id=1399311590616203284).
-[2026-09-09 21:15:06] [Discord] [INFO] [INIT] [StoreLimitless#1152] Bot online and ready (id=1399287140885725245).
-[2026-09-09 21:15:09,762] [INFO] [telethon.network.mtprotosender] Disconnecting from 91.108.56.126:443/TcpFull...
-[2026-09-09 21:15:09,764] [INFO] [telethon.network.mtprotosender] Disconnection from 91.108.56.126:443/TcpFull complete!
-[2026-09-09 21:15:09] [Telegram] [INFO] [SHUTDOWN] [] Telegram client stopped.
-[2026-09-09 21:18:07,497] [WARNING] [discord.client] PyNaCl is not installed, voice will NOT be supported
-[2026-09-09 21:18:07,497] [WARNING] [discord.client] davey is not installed, voice will NOT be supported
-[2026-09-09 21:18:07,733] [INFO] [telethon.crypto.aes] libssl detected, it will be used for encryption
-[2026-09-09 21:18:07,803] [INFO] [telethon.network.mtprotosender] Connecting to 91.108.56.126:443/TcpFull...
-[2026-09-09 21:18:07,927] [INFO] [telethon.network.mtprotosender] Connection to 91.108.56.126:443/TcpFull complete!
-[2026-09-09 21:18:08] [Telegram] [INFO] [INIT] [StoreLimitless_bot] Bot is online. Logged in (id=8404712547)
-[2026-09-09 21:18:08] [Discord] [INFO] [MAIN] [] Starting Store Limitless Bot...
-[2026-09-09 21:18:08,660] [INFO] [discord.client] logging in using static token
-[2026-09-09 21:18:11,556] [INFO] [discord.gateway] Shard ID None has connected to Gateway (Session ID: a1b556d3a0a8d70859381bdf44f6bbe0).
-[2026-09-09 21:18:13] [Discord] [INFO] [INIT] [StoreLimitless#1152] FILE_DUMP channel initialized: files-dump (id=1399311590616203284).
-[2026-09-09 21:18:13] [Discord] [INFO] [INIT] [StoreLimitless#1152] Bot online and ready (id=1399287140885725245).
-[2026-09-09 21:18:16] [Discord] [INFO] [DOWNLOAD] [iamloki] Starting download: https://drive.google.com/file/d/1OP5AkfKzvugzV-dCb-HSN9o--FeloyaC/view?usp=drive_link
-[2026-09-09 21:18:17] [Database] [ERROR] [GET FILE] [] Invalid search parameters provided by caller.
-[2026-09-09 21:18:37] [Discord] [INFO] [UPLOAD] [iamloki] Uploaded part 1/10
-[2026-09-09 21:18:58] [Discord] [INFO] [UPLOAD] [iamloki] Uploaded part 2/10
-[2026-09-09 21:19:02] [Discord] [INFO] [UPLOAD] [iamloki] Uploaded part 4/10
-[2026-09-09 21:21:01,815] [WARNING] [discord.client] PyNaCl is not installed, voice will NOT be supported
-[2026-09-09 21:21:01,815] [WARNING] [discord.client] davey is not installed, voice will NOT be supported
-[2026-09-09 21:21:02,116] [INFO] [telethon.crypto.aes] libssl detected, it will be used for encryption
-[2026-09-09 21:21:02,236] [INFO] [telethon.network.mtprotosender] Connecting to 91.108.56.126:443/TcpFull...
-[2026-09-09 21:21:02,320] [INFO] [telethon.network.mtprotosender] Connection to 91.108.56.126:443/TcpFull complete!
-[2026-09-09 21:21:03] [Telegram] [INFO] [INIT] [StoreLimitless_bot] Bot is online. Logged in (id=8404712547)
-[2026-09-09 21:21:03] [Discord] [INFO] [MAIN] [] Starting Store Limitless Bot...
-[2026-09-09 21:21:03,064] [INFO] [discord.client] logging in using static token
-[2026-09-09 21:21:05,490] [INFO] [discord.gateway] Shard ID None has connected to Gateway (Session ID: e0b062bee6f8ff6d6bd02312c815ab7f).
-[2026-09-09 21:21:07] [Discord] [INFO] [INIT] [StoreLimitless#1152] FILE_DUMP channel initialized: files-dump (id=1399311590616203284).
-[2026-09-09 21:21:07] [Discord] [INFO] [INIT] [StoreLimitless#1152] Bot online and ready (id=1399287140885725245).
-[2026-09-09 21:21:07] [Discord] [INFO] [DOWNLOAD] [iamloki] Starting download: https://drive.google.com/file/d/1OP5AkfKzvugzV-dCb-HSN9o--FeloyaC/view?usp=drive_link
-[2026-09-09 21:21:08] [Database] [ERROR] [GET FILE] [] Invalid search parameters provided by caller.
-[2026-09-09 21:21:27] [Discord] [INFO] [UPLOAD] [iamloki] Uploaded part 1/10
-[2026-09-09 21:21:41] [Discord] [INFO] [UPLOAD] [iamloki] Uploaded part 2/10
-[2026-09-09 21:23:02,792] [WARNING] [discord.client] PyNaCl is not installed, voice will NOT be supported
-[2026-09-09 21:23:02,793] [WARNING] [discord.client] davey is not installed, voice will NOT be supported
-[2026-09-09 21:23:03,083] [INFO] [telethon.crypto.aes] libssl detected, it will be used for encryption
-[2026-09-09 21:23:03,175] [INFO] [telethon.network.mtprotosender] Connecting to 91.108.56.126:443/TcpFull...
-[2026-09-09 21:23:03,285] [INFO] [telethon.network.mtprotosender] Connection to 91.108.56.126:443/TcpFull complete!
-[2026-09-09 21:23:04] [Telegram] [INFO] [INIT] [StoreLimitless_bot] Bot is online. Logged in (id=8404712547)
-[2026-09-09 21:23:04] [Discord] [INFO] [MAIN] [] Starting Store Limitless Bot...
-[2026-09-09 21:23:04,126] [INFO] [discord.client] logging in using static token
-[2026-09-09 21:23:07,041] [INFO] [discord.gateway] Shard ID None has connected to Gateway (Session ID: 11763f643afb486016574f745a615c39).
-[2026-09-09 21:23:09] [Discord] [INFO] [INIT] [StoreLimitless#1152] FILE_DUMP channel initialized: files-dump (id=1399311590616203284).
-[2026-09-09 21:23:09] [Discord] [INFO] [INIT] [StoreLimitless#1152] Bot online and ready (id=1399287140885725245).
-[2026-09-09 21:23:09] [Discord] [INFO] [DOWNLOAD] [iamloki] Starting download: https://drive.google.com/file/d/1OP5AkfKzvugzV-dCb-HSN9o--FeloyaC/view?usp=drive_link
-[2026-09-09 21:23:10] [Database] [ERROR] [GET FILE] [] Invalid search parameters provided by caller.
-[2026-09-09 21:23:26] [Discord] [INFO] [UPLOAD] [iamloki] Uploaded part 1/10
-[2026-09-09 21:23:42] [Discord] [INFO] [UPLOAD] [iamloki] Uploaded part 2/10
-[2026-09-09 21:23:44] [Discord] [INFO] [UPLOAD] [iamloki] Uploaded part 4/10
-[2026-09-09 21:23:45] [Discord] [INFO] [UPLOAD] [iamloki] Uploaded part 5/10
-[2026-09-09 21:23:46] [Discord] [INFO] [UPLOAD] [iamloki] Uploaded part 3/10
-[2026-09-09 21:23:49] [Discord] [INFO] [UPLOAD] [iamloki] Uploaded part 6/10
-[2026-09-09 21:23:58] [Discord] [INFO] [UPLOAD] [iamloki] Uploaded part 7/10
-[2026-09-09 21:24:01] [Discord] [INFO] [UPLOAD] [iamloki] Uploaded part 9/10
-[2026-09-09 21:24:02] [Discord] [INFO] [UPLOAD] [iamloki] Uploaded part 8/10
-[2026-09-09 21:24:02] [Discord] [INFO] [UPLOAD] [iamloki] Uploaded part 10/10
-[2026-09-09 21:24:04] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
-[2026-09-09 21:24:04] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
-[2026-09-09 21:24:08] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
-[2026-09-09 21:24:08] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
-[2026-09-09 21:24:18] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
-[2026-09-09 21:24:18] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
-[2026-09-09 21:25:36] [Telegram] [INFO] [DOWNLOAD] [iamloki] Starting download: https://drive.google.com/file/d/1OP5AkfKzvugzV-dCb-HSN9o--FeloyaC/view?usp=drive_link
-[2026-09-09 21:25:36] [Database] [ERROR] [GET FILE] [] Invalid search parameters provided by caller.
-[2026-09-09 21:25:44,994] [INFO] [telethon.client.uploads] Uploading file of 10485760 bytes in 80 chunks of 131072
-[2026-09-09 21:25:48,291] [INFO] [telethon.client.uploads] Uploading file of 10485760 bytes in 80 chunks of 131072
-[2026-09-09 21:25:51,462] [INFO] [telethon.client.uploads] Uploading file of 10485760 bytes in 80 chunks of 131072
-[2026-09-09 21:25:54,490] [INFO] [telethon.client.uploads] Uploading file of 10485760 bytes in 80 chunks of 131072
-[2026-09-09 21:25:57,607] [INFO] [telethon.client.uploads] Uploading file of 10485760 bytes in 80 chunks of 131072
-[2026-09-09 21:26:00,598] [INFO] [telethon.client.uploads] Uploading file of 10485760 bytes in 80 chunks of 131072
-[2026-09-09 21:26:03,773] [INFO] [telethon.client.uploads] Uploading file of 10485760 bytes in 80 chunks of 131072
-[2026-09-09 21:26:06] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded part 1/10
-[2026-09-09 21:26:06,838] [INFO] [telethon.client.uploads] Uploading file of 10485760 bytes in 80 chunks of 131072
-[2026-09-09 21:26:08] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded part 2/10
-[2026-09-09 21:26:10,009] [INFO] [telethon.client.uploads] Uploading file of 10485760 bytes in 80 chunks of 131072
-[2026-09-09 21:26:12] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded part 3/10
-[2026-09-09 21:26:13,193] [INFO] [telethon.client.uploads] Uploading file of 10485760 bytes in 80 chunks of 131072
-[2026-09-09 21:26:16] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded part 4/10
-[2026-09-09 21:26:19] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded part 5/10
-[2026-09-09 21:26:22] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded part 6/10
-[2026-09-09 21:26:25] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded part 7/10
-[2026-09-09 21:26:26] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded part 8/10
-[2026-09-09 21:26:29] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded part 9/10
-[2026-09-09 21:26:31] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded part 10/10
-[2026-09-09 21:26:32] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
-[2026-09-09 21:26:32] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
-[2026-09-09 21:27:00,807] [INFO] [telethon.network.mtprotosender] Disconnecting from 91.108.56.126:443/TcpFull...
-[2026-09-09 21:27:00,808] [INFO] [telethon.network.mtprotosender] Disconnection from 91.108.56.126:443/TcpFull complete!
-[2026-09-09 21:27:00] [Telegram] [INFO] [SHUTDOWN] [] Telegram client stopped.
-[2026-09-09 21:27:07,226] [WARNING] [discord.client] PyNaCl is not installed, voice will NOT be supported
-[2026-09-09 21:27:07,226] [WARNING] [discord.client] davey is not installed, voice will NOT be supported
-[2026-09-09 21:27:07,529] [INFO] [telethon.crypto.aes] libssl detected, it will be used for encryption
-[2026-09-09 21:27:07,636] [INFO] [telethon.network.mtprotosender] Connecting to 91.108.56.126:443/TcpFull...
-[2026-09-09 21:27:07,726] [INFO] [telethon.network.mtprotosender] Connection to 91.108.56.126:443/TcpFull complete!
-[2026-09-09 21:27:08] [Telegram] [INFO] [INIT] [StoreLimitless_bot] Bot is online. Logged in (id=8404712547)
-[2026-09-09 21:27:08] [Discord] [INFO] [MAIN] [] Starting Store Limitless Bot...
-[2026-09-09 21:27:08,515] [INFO] [discord.client] logging in using static token
-[2026-09-09 21:27:10,978] [INFO] [discord.gateway] Shard ID None has connected to Gateway (Session ID: 472a1ad5e0bd70f0853281c977a8b193).
-[2026-09-09 21:27:12] [Discord] [INFO] [INIT] [StoreLimitless#1152] FILE_DUMP channel initialized: files-dump (id=1399311590616203284).
-[2026-09-09 21:27:12] [Discord] [INFO] [INIT] [StoreLimitless#1152] Bot online and ready (id=1399287140885725245).
-[2026-09-09 21:27:30] [Telegram] [INFO] [DOWNLOAD] [iamloki] Starting download: https://drive.google.com/file/d/1OP5AkfKzvugzV-dCb-HSN9o--FeloyaC/view?usp=drive_link
-[2026-09-09 21:27:30] [Database] [ERROR] [GET FILE] [] Invalid search parameters provided by caller.
-[2026-09-09 21:27:37,104] [INFO] [telethon.client.uploads] Uploading file of 10485760 bytes in 80 chunks of 131072
-[2026-09-09 21:27:40,429] [INFO] [telethon.client.uploads] Uploading file of 10485760 bytes in 80 chunks of 131072
-[2026-09-09 21:27:43,936] [INFO] [telethon.client.uploads] Uploading file of 10485760 bytes in 80 chunks of 131072
-[2026-09-09 21:27:48,323] [INFO] [telethon.client.uploads] Uploading file of 10485760 bytes in 80 chunks of 131072
-[2026-09-09 21:27:51,478] [INFO] [telethon.client.uploads] Uploading file of 10485760 bytes in 80 chunks of 131072
-[2026-09-09 21:27:54,371] [INFO] [telethon.client.uploads] Uploading file of 10485760 bytes in 80 chunks of 131072
-[2026-09-09 21:27:57,947] [INFO] [telethon.client.uploads] Uploading file of 10485760 bytes in 80 chunks of 131072
-[2026-09-09 21:27:59] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded part 1/10
-[2026-09-09 21:28:00,975] [INFO] [telethon.client.uploads] Uploading file of 10485760 bytes in 80 chunks of 131072
-[2026-09-09 21:28:01] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded part 2/10
-[2026-09-09 21:28:05] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded part 3/10
-[2026-09-09 21:28:05,806] [INFO] [telethon.client.uploads] Uploading file of 10485760 bytes in 80 chunks of 131072
-[2026-09-09 21:28:09,375] [INFO] [telethon.client.uploads] Uploading file of 10485760 bytes in 80 chunks of 131072
-[2026-09-09 21:28:18] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded part 4/10
-[2026-09-09 21:28:43] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded part 5/10
-[2026-09-09 21:28:46] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded part 6/10
-[2026-09-09 21:28:51] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded part 7/10
-[2026-09-09 21:28:55] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded part 8/10
-[2026-09-09 21:29:02] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded part 9/10
-[2026-09-09 21:29:03] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded part 10/10
-[2026-09-09 21:29:05] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
-[2026-09-09 21:29:05] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
-[2026-09-09 21:31:51,191] [INFO] [telethon.network.mtprotosender] Disconnecting from 91.108.56.126:443/TcpFull...
-[2026-09-09 21:31:51,192] [INFO] [telethon.network.mtprotosender] Disconnection from 91.108.56.126:443/TcpFull complete!
-[2026-09-09 21:31:51] [Telegram] [INFO] [SHUTDOWN] [] Telegram client stopped.
-[2026-09-09 21:32:02,904] [WARNING] [discord.client] PyNaCl is not installed, voice will NOT be supported
-[2026-09-09 21:32:02,905] [WARNING] [discord.client] davey is not installed, voice will NOT be supported
-[2026-09-09 21:32:03,186] [INFO] [telethon.crypto.aes] libssl detected, it will be used for encryption
-[2026-09-09 21:32:03,270] [INFO] [telethon.network.mtprotosender] Connecting to 91.108.56.126:443/TcpFull...
-[2026-09-09 21:32:03,400] [INFO] [telethon.network.mtprotosender] Connection to 91.108.56.126:443/TcpFull complete!
-[2026-09-09 21:32:04] [Telegram] [INFO] [INIT] [StoreLimitless_bot] Bot is online. Logged in (id=8404712547)
-[2026-09-09 21:32:04] [Discord] [INFO] [MAIN] [] Starting Store Limitless Bot...
-[2026-09-09 21:32:04,594] [INFO] [discord.client] logging in using static token
-[2026-09-09 21:32:08,284] [INFO] [discord.gateway] Shard ID None has connected to Gateway (Session ID: 6ccdffaab0fdcbc6b427ac61bb63cafb).
-[2026-09-09 21:32:10] [Discord] [INFO] [INIT] [StoreLimitless#1152] FILE_DUMP channel initialized: files-dump (id=1399311590616203284).
-[2026-09-09 21:32:10] [Discord] [INFO] [INIT] [StoreLimitless#1152] Bot online and ready (id=1399287140885725245).
-[2026-09-09 21:33:46] [Discord] [INFO] [DOWNLOAD] [iamloki] Got link: https://drive.google.com/file/d/1OP5AkfKzvugzV-dCb-HSN9o--FeloyaC/view?usp=drive_link
-[2026-09-09 21:33:46] [Discord] [INFO] [DOWNLOAD] [iamloki] Starting download from `https://drive.google.com/file/d/1OP5AkfKzvugzV-dCb-HSN9o--FeloyaC/view?usp=drive_link`
-[2026-09-09 21:33:47] [Database] [ERROR] [GET FILE] [] Invalid search parameters provided by caller.
-[2026-09-09 21:34:04] [Discord] [INFO] [UPLOAD] [iamloki] Uploaded part 1/10
-[2026-09-09 21:34:19] [Discord] [INFO] [UPLOAD] [iamloki] Uploaded part 2/10
-[2026-09-09 21:34:21] [Discord] [INFO] [UPLOAD] [iamloki] Uploaded part 3/10
-[2026-09-09 21:34:23] [Discord] [INFO] [UPLOAD] [iamloki] Uploaded part 4/10
-[2026-09-09 21:34:25] [Discord] [INFO] [UPLOAD] [iamloki] Uploaded part 5/10
-[2026-09-09 21:34:27] [Discord] [INFO] [UPLOAD] [iamloki] Uploaded part 6/10
-[2026-09-09 21:34:30] [Discord] [INFO] [UPLOAD] [iamloki] Uploaded part 8/10
-[2026-09-09 21:34:37] [Discord] [INFO] [UPLOAD] [iamloki] Uploaded part 7/10
-[2026-09-09 21:34:39] [Discord] [INFO] [UPLOAD] [iamloki] Uploaded part 10/10
-[2026-09-09 21:34:39] [Discord] [INFO] [UPLOAD] [iamloki] Uploaded part 9/10
-[2026-09-09 21:34:39] [Discord] [INFO] [DOWNLOAD] [iamloki] Download and upload complete `100MB.bin`
-[2026-09-09 21:34:39] [Discord] [ERROR] [DOWNLOAD] [iamloki] Unhandled exception: [Errno 2] No such file or directory: '/home/dream/github/drive-bot/transfer/iamloki/link_file'
-Traceback (most recent call last):
-  File "/home/dream/github/drive-bot/core/transfer.py", line 134, in download_link
-    file_path.unlink()
-  File "/usr/lib/python3.12/pathlib.py", line 1344, in unlink
-    os.unlink(self)
-FileNotFoundError: [Errno 2] No such file or directory: '/home/dream/github/drive-bot/transfer/iamloki/link_file'
-
-[2026-09-09 21:34:54,941] [WARNING] [discord.client] PyNaCl is not installed, voice will NOT be supported
-[2026-09-09 21:34:54,942] [WARNING] [discord.client] davey is not installed, voice will NOT be supported
-[2026-09-09 21:34:55,223] [INFO] [telethon.crypto.aes] libssl detected, it will be used for encryption
-[2026-09-09 21:34:55,336] [INFO] [telethon.network.mtprotosender] Connecting to 91.108.56.126:443/TcpFull...
-[2026-09-09 21:34:55,447] [INFO] [telethon.network.mtprotosender] Connection to 91.108.56.126:443/TcpFull complete!
-[2026-09-09 21:34:56] [Telegram] [INFO] [INIT] [StoreLimitless_bot] Bot is online. Logged in (id=8404712547)
-[2026-09-09 21:34:56] [Discord] [INFO] [MAIN] [] Starting Store Limitless Bot...
-[2026-09-09 21:34:56,496] [INFO] [discord.client] logging in using static token
-[2026-09-09 21:34:58] [Telegram] [INFO] [DOWNLOAD] [iamloki] Got link: https://drive.google.com/file/d/1OP5AkfKzvugzV-dCb-HSN9o--FeloyaC/view?usp=drive_link
-[2026-09-09 21:34:58] [Telegram] [INFO] [DOWNLOAD] [iamloki] Starting download from `https://drive.google.com/file/d/1OP5AkfKzvugzV-dCb-HSN9o--FeloyaC/view?usp=drive_link`
-[2026-09-09 21:34:59] [Database] [ERROR] [GET FILE] [] Invalid search parameters provided by caller.
-[2026-09-09 21:34:59,839] [INFO] [discord.gateway] Shard ID None has connected to Gateway (Session ID: 9d350a99c6aef10babed481664c49bd7).
-[2026-09-09 21:35:01] [Discord] [INFO] [INIT] [StoreLimitless#1152] FILE_DUMP channel initialized: files-dump (id=1399311590616203284).
-[2026-09-09 21:35:01] [Discord] [INFO] [INIT] [StoreLimitless#1152] Bot online and ready (id=1399287140885725245).
-[2026-09-09 21:35:06,045] [INFO] [telethon.client.uploads] Uploading file of 10485760 bytes in 80 chunks of 131072
-[2026-09-09 21:35:09,056] [INFO] [telethon.client.uploads] Uploading file of 10485760 bytes in 80 chunks of 131072
-[2026-09-09 21:35:12,275] [INFO] [telethon.client.uploads] Uploading file of 10485760 bytes in 80 chunks of 131072
-[2026-09-09 21:35:15,222] [INFO] [telethon.client.uploads] Uploading file of 10485760 bytes in 80 chunks of 131072
-[2026-09-09 21:35:20,273] [INFO] [telethon.client.uploads] Uploading file of 10485760 bytes in 80 chunks of 131072
-[2026-09-09 21:35:22,997] [INFO] [telethon.client.uploads] Uploading file of 10485760 bytes in 80 chunks of 131072
-[2026-09-09 21:35:23] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded part 1/10
-[2026-09-09 21:35:25] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded part 2/10
-[2026-09-09 21:35:25,976] [INFO] [telethon.client.uploads] Uploading file of 10485760 bytes in 80 chunks of 131072
-[2026-09-09 21:35:28] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded part 3/10
-[2026-09-09 21:35:28,977] [INFO] [telethon.client.uploads] Uploading file of 10485760 bytes in 80 chunks of 131072
-[2026-09-09 21:35:31] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded part 4/10
-[2026-09-09 21:35:32,233] [INFO] [telethon.client.uploads] Uploading file of 10485760 bytes in 80 chunks of 131072
-[2026-09-09 21:35:35,571] [INFO] [telethon.client.uploads] Uploading file of 10485760 bytes in 80 chunks of 131072
-[2026-09-09 21:35:37] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded part 5/10
-[2026-09-09 21:35:40] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded part 6/10
-[2026-09-09 21:35:43] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded part 7/10
-[2026-09-09 21:35:46] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded part 8/10
-[2026-09-09 21:35:49] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded part 9/10
-[2026-09-09 21:35:51] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded part 10/10
-[2026-09-09 21:35:51] [Telegram] [INFO] [DOWNLOAD] [iamloki] Download and upload complete `100MB.bin`
-[2026-09-09 21:35:53] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
-[2026-09-09 21:35:53] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
-[2026-09-09 21:36:03] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
-[2026-09-09 21:36:05] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
-[2026-09-09 21:36:08] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
-[2026-09-09 21:36:10] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
-[2026-09-09 21:39:25,046] [WARNING] [discord.client] PyNaCl is not installed, voice will NOT be supported
-[2026-09-09 21:39:25,046] [WARNING] [discord.client] davey is not installed, voice will NOT be supported
-[2026-09-09 21:39:25,329] [INFO] [telethon.crypto.aes] libssl detected, it will be used for encryption
-[2026-09-09 21:39:25,429] [INFO] [telethon.network.mtprotosender] Connecting to 91.108.56.126:443/TcpFull...
-[2026-09-09 21:39:25,506] [INFO] [telethon.network.mtprotosender] Connection to 91.108.56.126:443/TcpFull complete!
-[2026-09-09 21:39:26] [Telegram] [INFO] [INIT] [StoreLimitless_bot] Bot is online. Logged in (id=8404712547)
-[2026-09-09 21:39:26] [Discord] [INFO] [MAIN] [] Starting Store Limitless Bot...
-[2026-09-09 21:39:26,235] [INFO] [discord.client] logging in using static token
-[2026-09-09 21:39:29,130] [INFO] [discord.gateway] Shard ID None has connected to Gateway (Session ID: 33dc59b7201f22f9bcf49fc5b538d166).
-[2026-09-09 21:39:31] [Discord] [INFO] [INIT] [StoreLimitless#1152] FILE_DUMP channel initialized: files-dump (id=1399311590616203284).
-[2026-09-09 21:39:31] [Discord] [INFO] [INIT] [StoreLimitless#1152] Bot online and ready (id=1399287140885725245).
-[2026-09-09 21:39:44] [Telegram] [INFO] [DOWNLOAD] [iamloki] Got link: https://drive.google.com/file/d/1OP5AkfKzvugzV-dCb-HSN9o--FeloyaC/view?usp=drive_link
-[2026-09-09 21:39:44] [Telegram] [INFO] [DOWNLOAD] [iamloki] Starting download from `https://drive.google.com/file/d/1OP5AkfKzvugzV-dCb-HSN9o--FeloyaC/view?usp=drive_link`
-[2026-09-09 21:39:45] [Database] [ERROR] [GET FILE] [] Invalid search parameters provided by caller.
-[2026-09-09 21:39:52,970] [INFO] [telethon.client.uploads] Uploading file of 10485760 bytes in 80 chunks of 131072
-[2026-09-09 21:39:55,837] [INFO] [telethon.client.uploads] Uploading file of 10485760 bytes in 80 chunks of 131072
-[2026-09-09 21:39:58,972] [INFO] [telethon.client.uploads] Uploading file of 10485760 bytes in 80 chunks of 131072
-[2026-09-09 21:40:02,030] [INFO] [telethon.client.uploads] Uploading file of 10485760 bytes in 80 chunks of 131072
-[2026-09-09 21:40:05,108] [INFO] [telethon.client.uploads] Uploading file of 10485760 bytes in 80 chunks of 131072
-[2026-09-09 21:40:08,079] [INFO] [telethon.client.uploads] Uploading file of 10485760 bytes in 80 chunks of 131072
-[2026-09-09 21:40:11] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded part 1/10
-[2026-09-09 21:40:11,296] [INFO] [telethon.client.uploads] Uploading file of 10485760 bytes in 80 chunks of 131072
-[2026-09-09 21:40:14] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded part 2/10
-[2026-09-09 21:40:14,118] [INFO] [telethon.client.uploads] Uploading file of 10485760 bytes in 80 chunks of 131072
-[2026-09-09 21:40:17,421] [INFO] [telethon.client.uploads] Uploading file of 10485760 bytes in 80 chunks of 131072
-[2026-09-09 21:40:18] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded part 3/10
-[2026-09-09 21:40:21,470] [INFO] [telethon.client.uploads] Uploading file of 10485760 bytes in 80 chunks of 131072
-[2026-09-09 21:40:22] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded part 4/10
-[2026-09-09 21:40:26] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded part 5/10
-[2026-09-09 21:40:28] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded part 6/10
-[2026-09-09 21:40:31] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded part 7/10
-[2026-09-09 21:40:33] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded part 8/10
-[2026-09-09 21:40:35] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded part 9/10
-[2026-09-09 21:40:38] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded part 10/10
-[2026-09-09 21:40:38] [Telegram] [INFO] [DOWNLOAD] [iamloki] Download and upload complete `100MB.bin`
-[2026-09-09 21:40:39] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
-[2026-09-09 21:40:39] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
-[2026-09-09 21:40:49] [Telegram] [INFO] [DOWNLOAD] [iamloki] Got link: https://drive.google.com/file/d/1OP5AkfKzvugzV-dCb-HSN9o--FeloyaC/view?usp=drive_link
-[2026-09-09 21:40:49] [Telegram] [INFO] [DOWNLOAD] [iamloki] Starting download from `https://drive.google.com/file/d/1OP5AkfKzvugzV-dCb-HSN9o--FeloyaC/view?usp=drive_link`
-[2026-09-09 21:40:49] [Database] [ERROR] [GET FILE] [] Invalid search parameters provided by caller.
-[2026-09-09 21:41:00,215] [INFO] [telethon.client.uploads] Uploading file of 10485760 bytes in 80 chunks of 131072
-[2026-09-09 21:41:03,268] [INFO] [telethon.client.uploads] Uploading file of 10485760 bytes in 80 chunks of 131072
-[2026-09-09 21:41:06,527] [INFO] [telethon.client.uploads] Uploading file of 10485760 bytes in 80 chunks of 131072
-[2026-09-09 21:41:10,388] [INFO] [telethon.client.uploads] Uploading file of 10485760 bytes in 80 chunks of 131072
-[2026-09-09 21:41:13,474] [INFO] [telethon.client.uploads] Uploading file of 10485760 bytes in 80 chunks of 131072
-[2026-09-09 21:41:16,966] [INFO] [telethon.client.uploads] Uploading file of 10485760 bytes in 80 chunks of 131072
-[2026-09-09 21:41:22,571] [INFO] [telethon.client.uploads] Uploading file of 10485760 bytes in 80 chunks of 131072
-[2026-09-09 21:41:26,666] [INFO] [telethon.client.uploads] Uploading file of 10485760 bytes in 80 chunks of 131072
-[2026-09-09 21:41:30,431] [INFO] [telethon.client.uploads] Uploading file of 10485760 bytes in 80 chunks of 131072
-[2026-09-09 21:41:33,167] [INFO] [telethon.client.uploads] Uploading file of 10485760 bytes in 80 chunks of 131072
-[2026-09-09 21:41:33] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded part 1/10
-[2026-09-09 21:41:36] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded part 2/10
-[2026-09-09 21:41:38] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded part 3/10
-[2026-09-09 21:41:41] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded part 4/10
-[2026-09-09 21:41:43] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded part 5/10
-[2026-09-09 21:41:45] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded part 6/10
-[2026-09-09 21:41:47] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded part 7/10
-[2026-09-09 21:41:49] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded part 8/10
-[2026-09-09 21:41:50] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded part 9/10
-[2026-09-09 21:41:51] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded part 10/10
-[2026-09-09 21:41:51] [Telegram] [INFO] [DOWNLOAD] [iamloki] Download and upload complete `100MB.bin`
-[2026-09-09 21:41:53] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
-[2026-09-09 21:41:53] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
-[2026-09-09 21:45:05] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
-[2026-09-09 21:45:07] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
-[2026-09-09 21:45:12] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
-[2026-09-09 21:45:13] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
-[2026-09-09 21:45:19,347] [WARNING] [discord.client] PyNaCl is not installed, voice will NOT be supported
-[2026-09-09 21:45:19,347] [WARNING] [discord.client] davey is not installed, voice will NOT be supported
-[2026-09-09 21:45:19,638] [INFO] [telethon.crypto.aes] libssl detected, it will be used for encryption
-[2026-09-09 21:45:19,732] [INFO] [telethon.network.mtprotosender] Connecting to 91.108.56.126:443/TcpFull...
-[2026-09-09 21:45:19,828] [INFO] [telethon.network.mtprotosender] Connection to 91.108.56.126:443/TcpFull complete!
-[2026-09-09 21:45:20] [Telegram] [INFO] [INIT] [StoreLimitless_bot] Bot is online. Logged in (id=8404712547)
-[2026-09-09 21:45:20] [Discord] [INFO] [MAIN] [] Starting Store Limitless Bot...
-[2026-09-09 21:45:20,722] [INFO] [discord.client] logging in using static token
-[2026-09-09 21:45:23,343] [INFO] [discord.gateway] Shard ID None has connected to Gateway (Session ID: 22164203a465c4ab0c4890b8dab1b4b5).
-[2026-09-09 21:45:25] [Discord] [INFO] [INIT] [StoreLimitless#1152] FILE_DUMP channel initialized: files-dump (id=1399311590616203284).
-[2026-09-09 21:45:25] [Discord] [INFO] [INIT] [StoreLimitless#1152] Bot online and ready (id=1399287140885725245).
-[2026-09-09 21:46:05] [Discord] [INFO] [DOWNLOAD] [iamloki] Got link: https://drive.google.com/file/d/1OP5AkfKzvugzV-dCb-HSN9o--FeloyaC/view?usp=drive_link
-[2026-09-09 21:46:05] [Discord] [INFO] [DOWNLOAD] [iamloki] Starting download from `https://drive.google.com/file/d/1OP5AkfKzvugzV-dCb-HSN9o--FeloyaC/view?usp=drive_link`
-[2026-09-09 21:46:23] [Discord] [INFO] [UPLOAD] [iamloki] Uploaded part 1/10
-[2026-09-09 21:46:39] [Discord] [INFO] [UPLOAD] [iamloki] Uploaded part 3/10
-[2026-09-09 21:46:43] [Discord] [INFO] [UPLOAD] [iamloki] Uploaded part 4/10
-[2026-09-09 21:46:43] [Discord] [INFO] [UPLOAD] [iamloki] Uploaded part 2/10
-[2026-09-09 21:46:45] [Discord] [INFO] [UPLOAD] [iamloki] Uploaded part 5/10
-[2026-09-09 21:46:47] [Discord] [INFO] [UPLOAD] [iamloki] Uploaded part 6/10
-[2026-09-09 21:47:04] [Discord] [INFO] [UPLOAD] [iamloki] Uploaded part 9/10
-[2026-09-09 21:47:07] [Discord] [INFO] [UPLOAD] [iamloki] Uploaded part 7/10
-[2026-09-09 21:47:07] [Discord] [INFO] [UPLOAD] [iamloki] Uploaded part 10/10
-[2026-09-09 21:47:09] [Discord] [INFO] [UPLOAD] [iamloki] Uploaded part 8/10
-[2026-09-09 21:47:09] [Discord] [INFO] [DOWNLOAD] [iamloki] Download and upload complete `100MB.bin`
-[2026-09-09 21:47:11] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
-[2026-09-09 21:47:11] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
-[2026-09-09 21:47:19] [Telegram] [INFO] [DOWNLOAD] [iamloki] Got link: https://drive.google.com/file/d/1OP5AkfKzvugzV-dCb-HSN9o--FeloyaC/view?usp=drive_link
-[2026-09-09 21:47:19] [Telegram] [INFO] [DOWNLOAD] [iamloki] Starting download from `https://drive.google.com/file/d/1OP5AkfKzvugzV-dCb-HSN9o--FeloyaC/view?usp=drive_link`
-[2026-09-09 21:47:20] [Database] [ERROR] [GET FILE] [] Invalid search parameters provided by caller.
-[2026-09-09 21:47:26,759] [INFO] [telethon.client.uploads] Uploading file of 10485760 bytes in 80 chunks of 131072
-[2026-09-09 21:47:29,690] [INFO] [telethon.client.uploads] Uploading file of 10485760 bytes in 80 chunks of 131072
-[2026-09-09 21:47:32,926] [INFO] [telethon.client.uploads] Uploading file of 10485760 bytes in 80 chunks of 131072
-[2026-09-09 21:47:37,049] [INFO] [telethon.client.uploads] Uploading file of 10485760 bytes in 80 chunks of 131072
-[2026-09-09 21:47:40,984] [INFO] [telethon.client.uploads] Uploading file of 10485760 bytes in 80 chunks of 131072
-[2026-09-09 21:47:44,948] [INFO] [telethon.client.uploads] Uploading file of 10485760 bytes in 80 chunks of 131072
-[2026-09-09 21:47:48,999] [INFO] [telethon.client.uploads] Uploading file of 10485760 bytes in 80 chunks of 131072
-[2026-09-09 21:47:54,774] [INFO] [telethon.client.uploads] Uploading file of 10485760 bytes in 80 chunks of 131072
-[2026-09-09 21:47:58,089] [INFO] [telethon.client.uploads] Uploading file of 10485760 bytes in 80 chunks of 131072
-[2026-09-09 21:48:02,564] [INFO] [telethon.client.uploads] Uploading file of 10485760 bytes in 80 chunks of 131072
-[2026-09-09 21:48:02] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded part 1/10
-[2026-09-09 21:48:11] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded part 2/10
-[2026-09-09 21:48:19] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded part 3/10
-[2026-09-09 21:48:22] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded part 4/10
-[2026-09-09 21:48:24] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded part 5/10
-[2026-09-09 21:48:25] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded part 6/10
-[2026-09-09 21:48:27] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded part 7/10
-[2026-09-09 21:48:28] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded part 8/10
-[2026-09-09 21:48:29] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded part 9/10
-[2026-09-09 21:48:30] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded part 10/10
-[2026-09-09 21:48:30] [Telegram] [INFO] [DOWNLOAD] [iamloki] Download and upload complete `100MB(1).bin`
-[2026-09-09 21:48:31] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
-[2026-09-09 21:48:31] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
-[2026-09-09 22:00:12,868] [INFO] [telethon.network.mtprotosender] Disconnecting from 91.108.56.126:443/TcpFull...
-[2026-09-09 22:00:12,869] [INFO] [telethon.network.mtprotosender] Disconnection from 91.108.56.126:443/TcpFull complete!
-[2026-09-09 22:00:12] [Telegram] [INFO] [SHUTDOWN] [] Telegram client stopped.
-[2026-09-09 22:15:05,131] [WARNING] [discord.client] PyNaCl is not installed, voice will NOT be supported
-[2026-09-09 22:15:05,133] [WARNING] [discord.client] davey is not installed, voice will NOT be supported
-[2026-09-09 22:15:05,419] [INFO] [telethon.crypto.aes] libssl detected, it will be used for encryption
-[2026-09-09 22:15:05,521] [INFO] [telethon.network.mtprotosender] Connecting to 91.108.56.126:443/TcpFull...
-[2026-09-09 22:15:05,635] [INFO] [telethon.network.mtprotosender] Connection to 91.108.56.126:443/TcpFull complete!
-[2026-09-09 22:15:06] [Telegram] [INFO] [INIT] [StoreLimitless_bot] Bot is online. Logged in (id=8404712547)
-[2026-09-09 22:15:06] [Discord] [INFO] [MAIN] [] Starting Store Limitless Bot...
-[2026-09-09 22:15:06,391] [INFO] [discord.client] logging in using static token
-[2026-09-09 22:15:07,627] [INFO] [telethon.network.mtprotosender] Disconnecting from 91.108.56.126:443/TcpFull...
-[2026-09-09 22:15:07,628] [INFO] [telethon.network.mtprotosender] Disconnection from 91.108.56.126:443/TcpFull complete!
-[2026-09-09 22:15:07] [Telegram] [INFO] [SHUTDOWN] [] Telegram client stopped.
-[2026-09-09 22:15:09,678] [INFO] [discord.gateway] Shard ID None has connected to Gateway (Session ID: dd6f8d30e3194ae9daa99dacb6e5763f).
-[2026-09-09 22:15:11] [Discord] [INFO] [INIT] [StoreLimitless#1152] FILE_DUMP channel initialized: files-dump (id=1399311590616203284).
-[2026-09-09 22:15:11] [Discord] [INFO] [INIT] [StoreLimitless#1152] Bot online and ready (id=1399287140885725245).
-[2026-09-09 22:15:34,961] [WARNING] [discord.client] PyNaCl is not installed, voice will NOT be supported
-[2026-09-09 22:15:34,961] [WARNING] [discord.client] davey is not installed, voice will NOT be supported
-[2026-09-09 22:15:35,240] [INFO] [telethon.crypto.aes] libssl detected, it will be used for encryption
-[2026-09-09 22:15:35,315] [INFO] [telethon.network.mtprotosender] Connecting to 91.108.56.126:443/TcpFull...
-[2026-09-09 22:15:35,407] [INFO] [telethon.network.mtprotosender] Connection to 91.108.56.126:443/TcpFull complete!
-[2026-09-09 22:15:36] [Telegram] [INFO] [INIT] [StoreLimitless_bot] Bot is online. Logged in (id=8404712547)
-[2026-09-09 22:15:36] [Discord] [INFO] [MAIN] [] Starting Store Limitless Bot...
-[2026-09-09 22:15:36,059] [INFO] [discord.client] logging in using static token
-[2026-09-09 22:15:40,771] [INFO] [discord.gateway] Shard ID None has connected to Gateway (Session ID: 598ced04dbc170a5d2d6ec98e0e43a53).
-[2026-09-09 22:15:42] [Discord] [INFO] [INIT] [StoreLimitless#1152] FILE_DUMP channel initialized: files-dump (id=1399311590616203284).
-[2026-09-09 22:15:42] [Discord] [INFO] [INIT] [StoreLimitless#1152] Bot online and ready (id=1399287140885725245).
-[2026-09-09 22:15:46] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
-[2026-09-09 22:15:46] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
-[2026-09-09 22:15:49] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
-[2026-09-09 22:15:51] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
-[2026-09-09 22:15:54] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
-[2026-09-09 22:15:56] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
-[2026-09-09 22:16:30] [Telegram] [INFO] [DOWNLOAD] [iamloki] Got link: https://youtu.be/u83QjBSaD-A?si=YbJBUWRIJkZ0PByQ
-[2026-09-09 22:16:30] [Telegram] [INFO] [DOWNLOAD] [iamloki] Starting download from `https://youtu.be/u83QjBSaD-A?si=YbJBUWRIJkZ0PByQ`
-[2026-09-09 22:18:30,740] [WARNING] [discord.client] PyNaCl is not installed, voice will NOT be supported
-[2026-09-09 22:18:30,741] [WARNING] [discord.client] davey is not installed, voice will NOT be supported
-[2026-09-09 22:18:30,998] [INFO] [telethon.crypto.aes] libssl detected, it will be used for encryption
-[2026-09-09 22:18:31,091] [INFO] [telethon.network.mtprotosender] Connecting to 91.108.56.126:443/TcpFull...
-[2026-09-09 22:18:31,182] [INFO] [telethon.network.mtprotosender] Connection to 91.108.56.126:443/TcpFull complete!
-[2026-09-09 22:18:31] [Telegram] [INFO] [INIT] [StoreLimitless_bot] Bot is online. Logged in (id=8404712547)
-[2026-09-09 22:18:31] [Discord] [INFO] [MAIN] [] Starting Store Limitless Bot...
-[2026-09-09 22:18:31,909] [INFO] [discord.client] logging in using static token
-[2026-09-09 22:18:34,475] [INFO] [discord.gateway] Shard ID None has connected to Gateway (Session ID: 3a3932bbbd6acf1a7095a2e8c39b0ac9).
-[2026-09-09 22:18:36] [Discord] [INFO] [INIT] [StoreLimitless#1152] FILE_DUMP channel initialized: files-dump (id=1399311590616203284).
-[2026-09-09 22:18:36] [Discord] [INFO] [INIT] [StoreLimitless#1152] Bot online and ready (id=1399287140885725245).
-[2026-09-09 22:18:39] [Telegram] [INFO] [DOWNLOAD] [iamloki] Got link: https://youtu.be/u83QjBSaD-A?si=YbJBUWRIJkZ0PByQ
-[2026-09-09 22:18:39] [Telegram] [INFO] [DOWNLOAD] [iamloki] Starting download from `https://youtu.be/u83QjBSaD-A?si=YbJBUWRIJkZ0PByQ`
-[2026-09-09 22:18:39] [Telegram] [ERROR] [DOWNLOAD] [iamloki] Unhandled exception: name 'urlparse' is not defined
-Traceback (most recent call last):
-  File "/home/dream/github/drive-bot/core/transfer.py", line 114, in download_link
-    async for progress in downloader(file, link):
-  File "/home/dream/github/drive-bot/core/utils/download_.py", line 167, in download_youtube
-    parsed: ParseResult = urlparse(link)
-                          ^^^^^^^^
-NameError: name 'urlparse' is not defined
-
-[2026-09-09 22:18:55,696] [INFO] [telethon.network.mtprotosender] Disconnecting from 91.108.56.126:443/TcpFull...
-[2026-09-09 22:18:55,696] [INFO] [telethon.network.mtprotosender] Disconnection from 91.108.56.126:443/TcpFull complete!
-[2026-09-09 22:18:55] [Telegram] [INFO] [SHUTDOWN] [] Telegram client stopped.
-[2026-09-09 22:19:01,977] [WARNING] [discord.client] PyNaCl is not installed, voice will NOT be supported
-[2026-09-09 22:19:01,977] [WARNING] [discord.client] davey is not installed, voice will NOT be supported
-[2026-09-09 22:19:02,226] [INFO] [telethon.crypto.aes] libssl detected, it will be used for encryption
-[2026-09-09 22:19:02,294] [INFO] [telethon.network.mtprotosender] Connecting to 91.108.56.126:443/TcpFull...
-[2026-09-09 22:19:02,376] [INFO] [telethon.network.mtprotosender] Connection to 91.108.56.126:443/TcpFull complete!
-[2026-09-09 22:19:03] [Telegram] [INFO] [INIT] [StoreLimitless_bot] Bot is online. Logged in (id=8404712547)
-[2026-09-09 22:19:03] [Discord] [INFO] [MAIN] [] Starting Store Limitless Bot...
-[2026-09-09 22:19:03,127] [INFO] [discord.client] logging in using static token
-[2026-09-09 22:19:06,490] [INFO] [discord.gateway] Shard ID None has connected to Gateway (Session ID: 869abb668d3b4353ab8939c577a627bd).
-[2026-09-09 22:19:08] [Discord] [INFO] [INIT] [StoreLimitless#1152] FILE_DUMP channel initialized: files-dump (id=1399311590616203284).
-[2026-09-09 22:19:08] [Discord] [INFO] [INIT] [StoreLimitless#1152] Bot online and ready (id=1399287140885725245).
-[2026-09-09 22:19:09] [Telegram] [INFO] [DOWNLOAD] [iamloki] Got link: https://youtu.be/u83QjBSaD-A?si=YbJBUWRIJkZ0PByQ
-[2026-09-09 22:19:09] [Telegram] [INFO] [DOWNLOAD] [iamloki] Starting download from `https://youtu.be/u83QjBSaD-A?si=YbJBUWRIJkZ0PByQ`
-[2026-09-09 22:20:33] [Telegram] [ERROR] [DOWNLOAD] [iamloki] Unhandled exception: get_unique_name() missing 1 required positional argument: 'username'
-Traceback (most recent call last):
-  File "/home/dream/github/drive-bot/core/transfer.py", line 114, in download_link
-    async for progress in downloader(file, link):
-  File "/home/dream/github/drive-bot/core/utils/download_.py", line 218, in download_youtube
-    file.name = get_unique_name(output.name, file.username)
-                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-TypeError: get_unique_name() missing 1 required positional argument: 'username'
-
-[2026-09-09 22:22:14,942] [WARNING] [discord.client] PyNaCl is not installed, voice will NOT be supported
-[2026-09-09 22:22:14,942] [WARNING] [discord.client] davey is not installed, voice will NOT be supported
-[2026-09-09 22:22:15,201] [INFO] [telethon.crypto.aes] libssl detected, it will be used for encryption
-[2026-09-09 22:22:15,265] [INFO] [telethon.network.mtprotosender] Connecting to 91.108.56.126:443/TcpFull...
-[2026-09-09 22:22:15,375] [INFO] [telethon.network.mtprotosender] Connection to 91.108.56.126:443/TcpFull complete!
-[2026-09-09 22:22:16] [Telegram] [INFO] [INIT] [StoreLimitless_bot] Bot is online. Logged in (id=8404712547)
-[2026-09-09 22:22:16] [Discord] [INFO] [MAIN] [] Starting Store Limitless Bot...
-[2026-09-09 22:22:16,376] [INFO] [discord.client] logging in using static token
-[2026-09-09 22:22:25,418] [INFO] [discord.gateway] Shard ID None has connected to Gateway (Session ID: 5307884f76cd33d204e9da587d119969).
-[2026-09-09 22:22:27] [Discord] [INFO] [INIT] [StoreLimitless#1152] FILE_DUMP channel initialized: files-dump (id=1399311590616203284).
-[2026-09-09 22:22:27] [Discord] [INFO] [INIT] [StoreLimitless#1152] Bot online and ready (id=1399287140885725245).
-[2026-09-09 22:22:39] [Telegram] [INFO] [DOWNLOAD] [iamloki] Got link: https://youtu.be/u83QjBSaD-A?si=YbJBUWRIJkZ0PByQ
-[2026-09-09 22:22:39] [Telegram] [INFO] [DOWNLOAD] [iamloki] Starting download from `https://youtu.be/u83QjBSaD-A?si=YbJBUWRIJkZ0PByQ`
-[2026-09-09 22:24:21] [Telegram] [INFO] [UPLOAD] [iamloki] Got file: id=None directory='' name='Avengers Doomsday Special Look & Marvel Phase 7 Breakdown.mkv' type='application/octet-stream' size=0 modified_at=datetime.datetime(2026, 9, 9, 16, 52, 39, 206973, tzinfo=datetime.timezone.utc) deleted_at=None data_center='Telegram' links=[] username='iamloki'
-[2026-09-09 22:24:21] [Telegram] [INFO] [UPLOAD] [iamloki] Found local file: Avengers Doomsday Special Look & Marvel Phase 7 Breakdown.mkv
-[2026-09-09 22:24:21] [Telegram] [INFO] [UPLOAD] [iamloki] Starting upload `Avengers Doomsday Special Look & Marvel Phase 7 Breakdown.mkv` (22 parts)
-[2026-09-09 22:24:21,969] [INFO] [telethon.client.uploads] Uploading file of 10485760 bytes in 80 chunks of 131072
-[2026-09-09 22:24:21,971] [INFO] [telethon.client.uploads] Uploading file of 10485760 bytes in 80 chunks of 131072
-[2026-09-09 22:24:21,972] [INFO] [telethon.client.uploads] Uploading file of 10485760 bytes in 80 chunks of 131072
-[2026-09-09 22:24:21,973] [INFO] [telethon.client.uploads] Uploading file of 10485760 bytes in 80 chunks of 131072
-[2026-09-09 22:24:21,974] [INFO] [telethon.client.uploads] Uploading file of 10485760 bytes in 80 chunks of 131072
-[2026-09-09 22:24:21,975] [INFO] [telethon.client.uploads] Uploading file of 10485760 bytes in 80 chunks of 131072
-[2026-09-09 22:24:21,976] [INFO] [telethon.client.uploads] Uploading file of 10485760 bytes in 80 chunks of 131072
-[2026-09-09 22:24:21,977] [INFO] [telethon.client.uploads] Uploading file of 10485760 bytes in 80 chunks of 131072
-[2026-09-09 22:24:54,108] [INFO] [telethon.client.users] Sleeping for 3s (0:00:03) on SendMediaRequest flood wait
-[2026-09-09 22:24:54,127] [INFO] [telethon.client.users] Sleeping for 3s (0:00:03) on SendMediaRequest flood wait
-[2026-09-09 22:24:54,149] [INFO] [telethon.client.users] Sleeping for 3s (0:00:03) on SendMediaRequest flood wait
-[2026-09-09 22:24:54,364] [INFO] [telethon.client.uploads] Uploading file of 10485760 bytes in 80 chunks of 131072
-[2026-09-09 22:24:54,418] [INFO] [telethon.client.uploads] Uploading file of 10485760 bytes in 80 chunks of 131072
-[2026-09-09 22:24:54] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded 1/22 parts
-[2026-09-09 22:24:54] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded 2/22 parts
-[2026-09-09 22:24:54,466] [INFO] [telethon.client.uploads] Uploading file of 10485760 bytes in 80 chunks of 131072
-[2026-09-09 22:24:54,503] [INFO] [telethon.client.uploads] Uploading file of 10485760 bytes in 80 chunks of 131072
-[2026-09-09 22:24:54,534] [INFO] [telethon.client.uploads] Uploading file of 10485760 bytes in 80 chunks of 131072
-[2026-09-09 22:24:54] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded 3/22 parts
-[2026-09-09 22:24:54] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded 4/22 parts
-[2026-09-09 22:24:54] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded 5/22 parts
-[2026-09-09 22:24:57,729] [INFO] [telethon.client.uploads] Uploading file of 10485760 bytes in 80 chunks of 131072
-[2026-09-09 22:24:57] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded 6/22 parts
-[2026-09-09 22:24:57,769] [INFO] [telethon.client.uploads] Uploading file of 10485760 bytes in 80 chunks of 131072
-[2026-09-09 22:24:57] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded 7/22 parts
-[2026-09-09 22:24:58,148] [INFO] [telethon.client.uploads] Uploading file of 10485760 bytes in 80 chunks of 131072
-[2026-09-09 22:24:58] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded 8/22 parts
-[2026-09-09 22:25:19,486] [INFO] [telethon.client.uploads] Uploading file of 10485760 bytes in 80 chunks of 131072
-[2026-09-09 22:25:19,525] [INFO] [telethon.client.uploads] Uploading file of 10485760 bytes in 80 chunks of 131072
-[2026-09-09 22:25:19] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded 9/22 parts
-[2026-09-09 22:25:19] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded 10/22 parts
-[2026-09-09 22:25:19,565] [INFO] [telethon.client.uploads] Uploading file of 10485760 bytes in 80 chunks of 131072
-[2026-09-09 22:25:19,602] [INFO] [telethon.client.uploads] Uploading file of 10485760 bytes in 80 chunks of 131072
-[2026-09-09 22:25:19] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded 11/22 parts
-[2026-09-09 22:25:19] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded 12/22 parts
-[2026-09-09 22:25:19,708] [INFO] [telethon.client.uploads] Uploading file of 10485760 bytes in 80 chunks of 131072
-[2026-09-09 22:25:19] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded 13/22 parts
-[2026-09-09 22:25:24,405] [INFO] [telethon.client.uploads] Uploading file of 5942350 bytes in 46 chunks of 131072
-[2026-09-09 22:25:24] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded 14/22 parts
-[2026-09-09 22:25:24] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded 15/22 parts
-[2026-09-09 22:25:24] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded 16/22 parts
-[2026-09-09 22:25:38] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded 17/22 parts
-[2026-09-09 22:25:43] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded 18/22 parts
-[2026-09-09 22:25:43] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded 19/22 parts
-[2026-09-09 22:25:43] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded 20/22 parts
-[2026-09-09 22:25:43] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded 21/22 parts
-[2026-09-09 22:25:43] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded 22/22 parts
-[2026-09-09 22:25:43] [Telegram] [INFO] [UPLOAD] [iamloki] Upload complete `Avengers Doomsday Special Look & Marvel Phase 7 Breakdown.mkv`
-[2026-09-09 22:25:43] [Telegram] [INFO] [DOWNLOAD] [iamloki] Download and upload complete `Avengers Doomsday Special Look & Marvel Phase 7 Breakdown.mkv`
-[2026-09-09 22:25:45] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
-[2026-09-09 22:25:45] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
-[2026-09-09 22:25:51] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
-[2026-09-09 22:25:51] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
-[2026-09-09 22:26:31] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
-[2026-09-09 22:26:33] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
-[2026-09-09 22:26:36] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
-[2026-09-09 22:26:39] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
-[2026-09-09 22:34:09,597] [WARNING] [discord.client] PyNaCl is not installed, voice will NOT be supported
-[2026-09-09 22:34:09,597] [WARNING] [discord.client] davey is not installed, voice will NOT be supported
-[2026-09-09 22:34:09,873] [INFO] [telethon.crypto.aes] libssl detected, it will be used for encryption
-[2026-09-09 22:34:09,966] [INFO] [telethon.network.mtprotosender] Connecting to 91.108.56.126:443/TcpFull...
-[2026-09-09 22:34:10,060] [INFO] [telethon.network.mtprotosender] Connection to 91.108.56.126:443/TcpFull complete!
-[2026-09-09 22:34:10] [Telegram] [INFO] [INIT] [StoreLimitless_bot] Bot is online. Logged in (id=8404712547)
-[2026-09-09 22:34:10] [Discord] [INFO] [MAIN] [] Starting Store Limitless Bot...
-[2026-09-09 22:34:10,681] [INFO] [discord.client] logging in using static token
-[2026-09-09 22:34:13,194] [INFO] [discord.gateway] Shard ID None has connected to Gateway (Session ID: aff4c22e3666ac914b81e694de530a16).
-[2026-09-09 22:34:15] [Discord] [INFO] [INIT] [StoreLimitless#1152] FILE_DUMP channel initialized: files-dump (id=1399311590616203284).
-[2026-09-09 22:34:15] [Discord] [INFO] [INIT] [StoreLimitless#1152] Bot online and ready (id=1399287140885725245).
-[2026-09-09 22:35:07] [Telegram] [INFO] [DOWNLOAD] [iamloki] Got link: https://youtu.be/u83QjBSaD-A?si=kxlKY0diyLd7P7Ap
-[2026-09-09 22:35:07] [Telegram] [INFO] [DOWNLOAD] [iamloki] Starting download from `https://youtu.be/u83QjBSaD-A?si=kxlKY0diyLd7P7Ap`
-[2026-09-09 22:36:50] [Telegram] [INFO] [UPLOAD] [iamloki] Got file: id=None directory='' name='Avengers Doomsday Special Look & Marvel Phase 7 Breakdown.mkv' type='video/x-matroska' size=226143310 modified_at=datetime.datetime(2026, 9, 9, 17, 5, 7, 158833, tzinfo=datetime.timezone.utc) deleted_at=None data_center='Telegram' links=[] username='iamloki'
-[2026-09-09 22:36:50] [Telegram] [INFO] [UPLOAD] [iamloki] Found local file: Avengers Doomsday Special Look & Marvel Phase 7 Breakdown.mkv
-[2026-09-09 22:36:50] [Telegram] [INFO] [UPLOAD] [iamloki] Starting upload `Avengers Doomsday Special Look & Marvel Phase 7 Breakdown.mkv` (22 parts)
-[2026-09-09 22:36:51,033] [INFO] [telethon.client.uploads] Uploading file of 10485760 bytes in 80 chunks of 131072
-[2026-09-09 22:36:51,034] [INFO] [telethon.client.uploads] Uploading file of 10485760 bytes in 80 chunks of 131072
-[2026-09-09 22:36:51,036] [INFO] [telethon.client.uploads] Uploading file of 10485760 bytes in 80 chunks of 131072
-[2026-09-09 22:36:51,037] [INFO] [telethon.client.uploads] Uploading file of 10485760 bytes in 80 chunks of 131072
-[2026-09-09 22:36:51,038] [INFO] [telethon.client.uploads] Uploading file of 10485760 bytes in 80 chunks of 131072
-[2026-09-09 22:36:51,039] [INFO] [telethon.client.uploads] Uploading file of 10485760 bytes in 80 chunks of 131072
-[2026-09-09 22:36:51,041] [INFO] [telethon.client.uploads] Uploading file of 10485760 bytes in 80 chunks of 131072
-[2026-09-09 22:36:51,042] [INFO] [telethon.client.uploads] Uploading file of 10485760 bytes in 80 chunks of 131072
-[2026-09-09 22:37:25,224] [INFO] [telethon.client.users] Sleeping for 3s (0:00:03) on SendMediaRequest flood wait
-[2026-09-09 22:37:25,225] [INFO] [telethon.client.users] Sleeping for 3s (0:00:03) on SendMediaRequest flood wait
-[2026-09-09 22:37:25,236] [INFO] [telethon.client.users] Sleeping for 3s (0:00:03) on SendMediaRequest flood wait
-[2026-09-09 22:37:25,375] [INFO] [telethon.client.uploads] Uploading file of 10485760 bytes in 80 chunks of 131072
-[2026-09-09 22:37:25] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded 1/22 parts
-[2026-09-09 22:37:25,415] [INFO] [telethon.client.uploads] Uploading file of 10485760 bytes in 80 chunks of 131072
-[2026-09-09 22:37:25,455] [INFO] [telethon.client.uploads] Uploading file of 10485760 bytes in 80 chunks of 131072
-[2026-09-09 22:37:25,493] [INFO] [telethon.client.uploads] Uploading file of 10485760 bytes in 80 chunks of 131072
-[2026-09-09 22:37:25,530] [INFO] [telethon.client.uploads] Uploading file of 10485760 bytes in 80 chunks of 131072
-[2026-09-09 22:37:25] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded 2/22 parts
-[2026-09-09 22:37:25] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded 3/22 parts
-[2026-09-09 22:37:25] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded 4/22 parts
-[2026-09-09 22:37:25] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded 5/22 parts
-[2026-09-09 22:37:28,706] [INFO] [telethon.client.uploads] Uploading file of 10485760 bytes in 80 chunks of 131072
-[2026-09-09 22:37:28] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded 6/22 parts
-[2026-09-09 22:37:28,782] [INFO] [telethon.client.uploads] Uploading file of 10485760 bytes in 80 chunks of 131072
-[2026-09-09 22:37:28,815] [INFO] [telethon.client.uploads] Uploading file of 10485760 bytes in 80 chunks of 131072
-[2026-09-09 22:37:28] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded 7/22 parts
-[2026-09-09 22:37:28] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded 8/22 parts
-[2026-09-09 22:37:50,728] [INFO] [telethon.client.uploads] Uploading file of 10485760 bytes in 80 chunks of 131072
-[2026-09-09 22:37:50] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded 9/22 parts
-[2026-09-09 22:37:50,770] [INFO] [telethon.client.uploads] Uploading file of 10485760 bytes in 80 chunks of 131072
-[2026-09-09 22:37:50,806] [INFO] [telethon.client.uploads] Uploading file of 10485760 bytes in 80 chunks of 131072
-[2026-09-09 22:37:50] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded 10/22 parts
-[2026-09-09 22:37:50] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded 11/22 parts
-[2026-09-09 22:37:50] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded 12/22 parts
-[2026-09-09 22:37:50,885] [INFO] [telethon.client.uploads] Uploading file of 10485760 bytes in 80 chunks of 131072
-[2026-09-09 22:37:51] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded 13/22 parts
-[2026-09-09 22:37:51,051] [INFO] [telethon.client.uploads] Uploading file of 10485760 bytes in 80 chunks of 131072
-[2026-09-09 22:37:54,880] [INFO] [telethon.client.uploads] Uploading file of 5942350 bytes in 46 chunks of 131072
-[2026-09-09 22:37:54] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded 14/22 parts
-[2026-09-09 22:37:55] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded 15/22 parts
-[2026-09-09 22:37:55] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded 16/22 parts
-[2026-09-09 22:38:06] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded 17/22 parts
-[2026-09-09 22:38:10] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded 18/22 parts
-[2026-09-09 22:38:11] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded 19/22 parts
-[2026-09-09 22:38:11] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded 20/22 parts
-[2026-09-09 22:38:11] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded 21/22 parts
-[2026-09-09 22:38:11] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded 22/22 parts
-[2026-09-09 22:38:11] [Telegram] [INFO] [UPLOAD] [iamloki] Upload complete `Avengers Doomsday Special Look & Marvel Phase 7 Breakdown.mkv`
-[2026-09-09 22:38:11] [Telegram] [INFO] [DOWNLOAD] [iamloki] Download and upload complete `Avengers Doomsday Special Look & Marvel Phase 7 Breakdown.mkv`
-[2026-09-09 22:38:12] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
-[2026-09-09 22:38:12] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
-[2026-09-09 22:42:11,978] [WARNING] [discord.client] PyNaCl is not installed, voice will NOT be supported
-[2026-09-09 22:42:11,978] [WARNING] [discord.client] davey is not installed, voice will NOT be supported
-[2026-09-09 22:42:13] [Telegram] [INFO] [INIT] [StoreLimitless_bot] Bot is online. Logged in (id=8404712547)
-[2026-09-09 22:42:13] [Discord] [INFO] [MAIN] [] Starting Store Limitless Bot...
-[2026-09-09 22:42:13,437] [INFO] [discord.client] logging in using static token
-[2026-09-09 22:42:15,888] [INFO] [discord.gateway] Shard ID None has connected to Gateway (Session ID: 6cecd8e6155eb533cb76cbc8c895758b).
-[2026-09-09 22:42:17] [Discord] [INFO] [INIT] [StoreLimitless#1152] FILE_DUMP channel initialized: files-dump (id=1399311590616203284).
-[2026-09-09 22:42:17] [Discord] [INFO] [INIT] [StoreLimitless#1152] Bot online and ready (id=1399287140885725245).
-[2026-09-09 22:42:20] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
-[2026-09-09 22:42:22] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
-[2026-09-09 22:42:25] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
-[2026-09-09 22:42:26] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
-[2026-09-09 22:43:33] [Telegram] [INFO] [DOWNLOAD] [iamloki] Got link: https://youtu.be/u83QjBSaD-A?si=330kc2KM55getwP-
-[2026-09-09 22:43:33] [Telegram] [INFO] [DOWNLOAD] [iamloki] Starting download from `https://youtu.be/u83QjBSaD-A?si=330kc2KM55getwP-`
-[2026-09-09 22:45:25,777] [WARNING] [discord.client] PyNaCl is not installed, voice will NOT be supported
-[2026-09-09 22:45:25,778] [WARNING] [discord.client] davey is not installed, voice will NOT be supported
-[2026-09-09 22:45:27] [Telegram] [INFO] [INIT] [StoreLimitless_bot] Bot is online. Logged in (id=8404712547)
-[2026-09-09 22:45:27] [Discord] [INFO] [MAIN] [] Starting Store Limitless Bot...
-[2026-09-09 22:45:27,140] [INFO] [discord.client] logging in using static token
-[2026-09-09 22:45:29,564] [INFO] [discord.gateway] Shard ID None has connected to Gateway (Session ID: fe306007fbd4b128a606a265fac1e49e).
-[2026-09-09 22:45:31] [Discord] [INFO] [INIT] [StoreLimitless#1152] FILE_DUMP channel initialized: files-dump (id=1399311590616203284).
-[2026-09-09 22:45:31] [Discord] [INFO] [INIT] [StoreLimitless#1152] Bot online and ready (id=1399287140885725245).
-[2026-09-09 22:46:15] [Telegram] [INFO] [DOWNLOAD] [iamloki] Got link: https://youtu.be/u83QjBSaD-A?si=330kc2KM55getwP-
-[2026-09-09 22:46:15] [Telegram] [INFO] [DOWNLOAD] [iamloki] Starting download from `https://youtu.be/u83QjBSaD-A?si=330kc2KM55getwP-`
-[2026-09-09 22:47:31] [Telegram] [INFO] [UPLOAD] [iamloki] Got file: id=None directory='' name='Avengers Doomsday Special Look & Marvel Phase 7 Breakdown.mkv' type='video/x-matroska' size=226143310 modified_at=datetime.datetime(2026, 9, 9, 17, 16, 15, 532598, tzinfo=datetime.timezone.utc) deleted_at=None data_center='Telegram' links=[] username='iamloki'
-[2026-09-09 22:47:31] [Telegram] [INFO] [UPLOAD] [iamloki] Found local file: Avengers Doomsday Special Look & Marvel Phase 7 Breakdown.mkv
-[2026-09-09 22:47:31] [Telegram] [INFO] [UPLOAD] [iamloki] Starting upload `Avengers Doomsday Special Look & Marvel Phase 7 Breakdown.mkv` (22 parts)
-[2026-09-09 22:47:58] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded 1/22 parts
-[2026-09-09 22:47:58] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded 2/22 parts
-[2026-09-09 22:47:58] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded 3/22 parts
-[2026-09-09 22:47:58] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded 4/22 parts
-[2026-09-09 22:47:58] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded 5/22 parts
-[2026-09-09 22:48:01] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded 6/22 parts
-[2026-09-09 22:48:01] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded 7/22 parts
-[2026-09-09 22:48:01] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded 8/22 parts
-[2026-09-09 22:48:25] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded 9/22 parts
-[2026-09-09 22:48:25] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded 10/22 parts
-[2026-09-09 22:48:25] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded 11/22 parts
-[2026-09-09 22:48:26] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded 12/22 parts
-[2026-09-09 22:48:26] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded 13/22 parts
-[2026-09-09 22:48:30] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded 14/22 parts
-[2026-09-09 22:48:30] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded 15/22 parts
-[2026-09-09 22:48:30] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded 16/22 parts
-[2026-09-09 22:48:41] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded 17/22 parts
-[2026-09-09 22:48:45] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded 18/22 parts
-[2026-09-09 22:48:45] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded 19/22 parts
-[2026-09-09 22:48:45] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded 20/22 parts
-[2026-09-09 22:48:45] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded 21/22 parts
-[2026-09-09 22:48:45] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded 22/22 parts
-[2026-09-09 22:48:45] [Telegram] [INFO] [UPLOAD] [iamloki] Upload complete `Avengers Doomsday Special Look & Marvel Phase 7 Breakdown.mkv`
-[2026-09-09 22:48:45] [Telegram] [INFO] [DOWNLOAD] [iamloki] Download and upload complete `Avengers Doomsday Special Look & Marvel Phase 7 Breakdown.mkv`
-[2026-09-09 22:48:47] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
-[2026-09-09 22:48:47] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
-[2026-09-09 22:49:13] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
-[2026-09-09 22:49:15] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
-[2026-09-09 22:49:19] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
-[2026-09-09 22:49:22] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
-[2026-09-09 23:06:06,692] [WARNING] [discord.client] PyNaCl is not installed, voice will NOT be supported
-[2026-09-09 23:06:06,692] [WARNING] [discord.client] davey is not installed, voice will NOT be supported
-[2026-09-09 23:06:07] [Telegram] [INFO] [INIT] [StoreLimitless_bot] Bot is online. Logged in (id=8404712547)
-[2026-09-09 23:06:07] [Discord] [INFO] [MAIN] [] Starting Store Limitless Bot...
-[2026-09-09 23:06:07,911] [INFO] [discord.client] logging in using static token
-[2026-09-09 23:06:08] [Telegram] [INFO] [SHUTDOWN] [] Telegram client stopped.
-[2026-09-09 23:06:11,307] [INFO] [discord.gateway] Shard ID None has connected to Gateway (Session ID: 01a7cc778660b3368fa56c2ef46cafa9).
-[2026-09-09 23:06:13] [Discord] [INFO] [INIT] [StoreLimitless#1152] FILE_DUMP channel initialized: files-dump (id=1399311590616203284).
-[2026-09-09 23:06:13] [Discord] [INFO] [INIT] [StoreLimitless#1152] Bot online and ready (id=1399287140885725245).
-[2026-09-09 23:08:59,314] [WARNING] [discord.client] PyNaCl is not installed, voice will NOT be supported
-[2026-09-09 23:08:59,315] [WARNING] [discord.client] davey is not installed, voice will NOT be supported
-[2026-09-09 23:09:06,859] [WARNING] [telethon.network.mtprotosender] Attempt 1 at connecting failed: OSError: [Errno 101] Connect call failed ('91.108.56.126', 443)
-[2026-09-09 23:09:09,923] [WARNING] [telethon.network.mtprotosender] Attempt 2 at connecting failed: OSError: [Errno 101] Connect call failed ('91.108.56.126', 443)
-[2026-09-09 23:09:20,934] [WARNING] [telethon.network.mtprotosender] Attempt 3 at connecting failed: TimeoutError: 
-[2026-09-09 23:09:29,128] [WARNING] [telethon.network.mtprotosender] Attempt 4 at connecting failed: OSError: [Errno 101] Connect call failed ('91.108.56.126', 443)
-[2026-09-09 23:09:37,297] [WARNING] [telethon.network.mtprotosender] Attempt 5 at connecting failed: OSError: [Errno 101] Connect call failed ('91.108.56.126', 443)
-[2026-09-09 23:09:48,308] [WARNING] [telethon.network.mtprotosender] Attempt 6 at connecting failed: TimeoutError: 
-[2026-09-09 23:09:49] [Telegram] [ERROR] [INIT] [] Initialization failure: Connection to Telegram failed 5 time(s)
-[2026-09-09 23:14:58,154] [WARNING] [discord.client] PyNaCl is not installed, voice will NOT be supported
-[2026-09-09 23:14:58,154] [WARNING] [discord.client] davey is not installed, voice will NOT be supported
-[2026-09-09 23:14:59] [Telegram] [INFO] [INIT] [StoreLimitless_bot] Bot is online. Logged in (id=8404712547)
-[2026-09-09 23:14:59] [Discord] [INFO] [MAIN] [] Starting Store Limitless Bot...
-[2026-09-09 23:14:59,271] [INFO] [discord.client] logging in using static token
-[2026-09-09 23:15:02,037] [INFO] [discord.gateway] Shard ID None has connected to Gateway (Session ID: 005dbe71e6691ebc2239a6613c5e54e4).
-[2026-09-09 23:15:04] [Discord] [INFO] [INIT] [StoreLimitless#1152] FILE_DUMP channel initialized: files-dump (id=1399311590616203284).
-[2026-09-09 23:15:04] [Discord] [INFO] [INIT] [StoreLimitless#1152] Bot online and ready (id=1399287140885725245).
-[2026-09-09 23:15:13] [Discord] [INFO] [DOWNLOAD] [iamloki] Got link: https://youtu.be/ADacNDSFRio?si=_aFZ4446xi73GZwg
-[2026-09-09 23:15:13] [Discord] [INFO] [DOWNLOAD] [iamloki] Starting download from `https://youtu.be/ADacNDSFRio?si=_aFZ4446xi73GZwg`
-[2026-09-09 23:15:27] [Discord] [ERROR] [DOWNLOAD] [iamloki] Unhandled exception: [Errno 2] No such file or directory: '/home/dream/github/drive-bot/transfer/iamloki/WandaVision & Loki Scenes Sync Perfectly？!.mkv'
-Traceback (most recent call last):
-  File "/home/dream/github/drive-bot/core/transfer.py", line 115, in download_link
-    async for progress in downloader(file, link):
-  File "/home/dream/github/drive-bot/core/utils/download_.py", line 231, in download_youtube
-    file.size = file_path.stat().st_size
-                ^^^^^^^^^^^^^^^^
-  File "/usr/lib/python3.12/pathlib.py", line 842, in stat
-    return os.stat(self, follow_symlinks=follow_symlinks)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-FileNotFoundError: [Errno 2] No such file or directory: '/home/dream/github/drive-bot/transfer/iamloki/WandaVision & Loki Scenes Sync Perfectly？!.mkv'
-
-[2026-09-09 23:17:38] [Telegram] [INFO] [SHUTDOWN] [] Telegram client stopped.
-[2026-09-09 23:17:42,158] [WARNING] [discord.client] PyNaCl is not installed, voice will NOT be supported
-[2026-09-09 23:17:42,158] [WARNING] [discord.client] davey is not installed, voice will NOT be supported
-[2026-09-09 23:17:43] [Telegram] [INFO] [INIT] [StoreLimitless_bot] Bot is online. Logged in (id=8404712547)
-[2026-09-09 23:17:43] [Discord] [INFO] [MAIN] [] Starting Store Limitless Bot...
-[2026-09-09 23:17:43,519] [INFO] [discord.client] logging in using static token
-[2026-09-09 23:17:46,435] [INFO] [discord.gateway] Shard ID None has connected to Gateway (Session ID: ef5ad6a9ca748b1019e7d660a00a8658).
-[2026-09-09 23:17:48] [Discord] [INFO] [INIT] [StoreLimitless#1152] FILE_DUMP channel initialized: files-dump (id=1399311590616203284).
-[2026-09-09 23:17:48] [Discord] [INFO] [INIT] [StoreLimitless#1152] Bot online and ready (id=1399287140885725245).
-[2026-09-09 23:17:59] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
-[2026-09-09 23:17:59] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
-[2026-09-09 23:18:07] [Telegram] [INFO] [DOWNLOAD] [iamloki] Got link: https://youtu.be/ADacNDSFRio?si=_aFZ4446xi73GZwg
-[2026-09-09 23:18:07] [Telegram] [INFO] [DOWNLOAD] [iamloki] Starting download from `https://youtu.be/ADacNDSFRio?si=_aFZ4446xi73GZwg`
-[2026-09-09 23:18:20] [Telegram] [INFO] [UPLOAD] [iamloki] Got file: id=None directory='' name='WandaVision & Loki Scenes Sync Perfectly？!.mkv' type='video/x-matroska' size=20039089 modified_at=datetime.datetime(2026, 9, 9, 17, 48, 7, 146899, tzinfo=datetime.timezone.utc) deleted_at=None data_center='Telegram' links=[] username='iamloki'
-[2026-09-09 23:18:20] [Telegram] [INFO] [UPLOAD] [iamloki] Found local file: WandaVision & Loki Scenes Sync Perfectly？!.mkv
-[2026-09-09 23:18:20] [Telegram] [INFO] [UPLOAD] [iamloki] Starting upload `WandaVision & Loki Scenes Sync Perfectly？!.mkv` (2 parts)
-[2026-09-09 23:18:36] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded 1/2 parts
-[2026-09-09 23:18:37] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded 2/2 parts
-[2026-09-09 23:18:37] [Telegram] [INFO] [DOWNLOAD] [iamloki] Download and upload complete `WandaVision & Loki Scenes Sync Perfectly？!.mkv`
-[2026-09-09 23:18:38] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
-[2026-09-09 23:18:38] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
-[2026-09-09 23:20:02] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
-[2026-09-09 23:20:46] [Telegram] [INFO] [DOWNLOAD] [iamloki] Got link: https://youtu.be/9XYt-_GdPIU?si=rUBq0WucghLHJiGq
-[2026-09-09 23:20:46] [Telegram] [INFO] [DOWNLOAD] [iamloki] Starting download from `https://youtu.be/9XYt-_GdPIU?si=rUBq0WucghLHJiGq`
-[2026-09-09 23:22:02] [Telegram] [INFO] [UPLOAD] [iamloki] Got file: id=None directory='' name='The controversy around OpenAI ＂solving＂ a $1m math problem (Navier-Stokes).mkv' type='video/x-matroska' size=191598738 modified_at=datetime.datetime(2026, 9, 9, 17, 50, 45, 989915, tzinfo=datetime.timezone.utc) deleted_at=None data_center='Telegram' links=[] username='iamloki'
-[2026-09-09 23:22:02] [Telegram] [INFO] [UPLOAD] [iamloki] Found local file: The controversy around OpenAI ＂solving＂ a $1m math problem (Navier-Stokes).mkv
-[2026-09-09 23:22:02] [Telegram] [INFO] [UPLOAD] [iamloki] Starting upload `The controversy around OpenAI ＂solving＂ a $1m math problem (Navier-Stokes).mkv` (19 parts)
-[2026-09-09 23:22:28] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded 1/19 parts
-[2026-09-09 23:22:28] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded 2/19 parts
-[2026-09-09 23:22:28] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded 3/19 parts
-[2026-09-09 23:22:28] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded 4/19 parts
-[2026-09-09 23:22:28] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded 5/19 parts
-[2026-09-09 23:22:31] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded 6/19 parts
-[2026-09-09 23:22:31] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded 7/19 parts
-[2026-09-09 23:22:31] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded 8/19 parts
-[2026-09-09 23:22:50] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded 9/19 parts
-[2026-09-09 23:22:50] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded 10/19 parts
-[2026-09-09 23:22:50] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded 11/19 parts
-[2026-09-09 23:22:51] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded 12/19 parts
-[2026-09-09 23:22:51] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded 13/19 parts
-[2026-09-09 23:22:54] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded 14/19 parts
-[2026-09-09 23:22:54] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded 15/19 parts
-[2026-09-09 23:22:54] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded 16/19 parts
-[2026-09-09 23:22:56] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded 17/19 parts
-[2026-09-09 23:23:00] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
-[2026-09-09 23:23:00] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
-[2026-09-09 23:23:08] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded 18/19 parts
-[2026-09-09 23:23:08] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded 19/19 parts
-[2026-09-09 23:23:08] [Telegram] [INFO] [DOWNLOAD] [iamloki] Download and upload complete `The controversy around OpenAI ＂solving＂ a $1m math problem (Navier-Stokes).mkv`
-[2026-09-09 23:23:10] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
-[2026-09-09 23:23:10] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
-[2026-09-09 23:23:11] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
-[2026-09-09 23:23:12] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
-[2026-09-09 23:25:57,710] [WARNING] [discord.client] PyNaCl is not installed, voice will NOT be supported
-[2026-09-09 23:25:57,711] [WARNING] [discord.client] davey is not installed, voice will NOT be supported
-[2026-09-09 23:25:58] [Telegram] [INFO] [INIT] [StoreLimitless_bot] Bot is online. Logged in (id=8404712547)
-[2026-09-09 23:25:58] [Discord] [INFO] [MAIN] [] Starting Store Limitless Bot...
-[2026-09-09 23:25:58,882] [INFO] [discord.client] logging in using static token
-[2026-09-09 23:26:02,155] [INFO] [discord.gateway] Shard ID None has connected to Gateway (Session ID: fc58055d7b1f34c4983d10eabd204702).
-[2026-09-09 23:26:04] [Discord] [INFO] [INIT] [StoreLimitless#1152] FILE_DUMP channel initialized: files-dump (id=1399311590616203284).
-[2026-09-09 23:26:04] [Discord] [INFO] [INIT] [StoreLimitless#1152] Bot online and ready (id=1399287140885725245).
-[2026-09-09 23:26:56,756] [WARNING] [discord.client] PyNaCl is not installed, voice will NOT be supported
-[2026-09-09 23:26:56,757] [WARNING] [discord.client] davey is not installed, voice will NOT be supported
-[2026-09-09 23:26:58] [Telegram] [INFO] [INIT] [StoreLimitless_bot] Bot is online. Logged in (id=8404712547)
-[2026-09-09 23:26:58] [Discord] [INFO] [MAIN] [] Starting Store Limitless Bot...
-[2026-09-09 23:26:58,048] [INFO] [discord.client] logging in using static token
-[2026-09-09 23:27:00] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
-[2026-09-09 23:27:00,470] [INFO] [discord.gateway] Shard ID None has connected to Gateway (Session ID: 99c29f0e6835c960ede63181fbaff6c0).
-[2026-09-09 23:27:02] [Discord] [INFO] [INIT] [StoreLimitless#1152] FILE_DUMP channel initialized: files-dump (id=1399311590616203284).
-[2026-09-09 23:27:02] [Discord] [INFO] [INIT] [StoreLimitless#1152] Bot online and ready (id=1399287140885725245).
-[2026-09-09 23:27:02] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
-[2026-09-09 23:27:04] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
-[2026-09-09 23:27:24] [Telegram] [INFO] [DOWNLOAD] [iamloki] Got link: https://youtu.be/W8JAQdZae7M?si=mwiCp-h-6QloSg3N
-[2026-09-09 23:27:24] [Telegram] [INFO] [DOWNLOAD] [iamloki] Starting download from `https://youtu.be/W8JAQdZae7M?si=mwiCp-h-6QloSg3N`
-[2026-09-09 23:27:41] [Telegram] [INFO] [UPLOAD] [iamloki] Got file: id=None directory='' name="when you're the subject of a Zack D. Films video.mkv" type='video/x-matroska' size=34341156 modified_at=datetime.datetime(2026, 9, 9, 17, 57, 24, 568862, tzinfo=datetime.timezone.utc) deleted_at=None data_center='Telegram' links=[] username='iamloki'
-[2026-09-09 23:27:41] [Telegram] [INFO] [UPLOAD] [iamloki] Found local file: when you're the subject of a Zack D. Films video.mkv
-[2026-09-09 23:27:41] [Telegram] [INFO] [UPLOAD] [iamloki] Starting upload `when you're the subject of a Zack D. Films video.mkv` (4 parts)
-[2026-09-09 23:27:47] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded 1/4 parts
-[2026-09-09 23:27:57] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded 2/4 parts
-[2026-09-09 23:27:57] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded 3/4 parts
-[2026-09-09 23:27:57] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded 4/4 parts
-[2026-09-09 23:27:57] [Telegram] [INFO] [DOWNLOAD] [iamloki] Download and upload complete `when you're the subject of a Zack D. Films video.mkv`
-[2026-09-09 23:27:58] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
-[2026-09-09 23:27:58] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
-[2026-09-09 23:28:02] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
-[2026-09-09 23:28:02] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
-[2026-09-09 23:29:07] [Telegram] [INFO] [SHUTDOWN] [] Telegram client stopped.
-[2026-09-09 23:29:09,977] [WARNING] [discord.client] PyNaCl is not installed, voice will NOT be supported
-[2026-09-09 23:29:09,977] [WARNING] [discord.client] davey is not installed, voice will NOT be supported
-[2026-09-09 23:29:11] [Telegram] [INFO] [INIT] [StoreLimitless_bot] Bot is online. Logged in (id=8404712547)
-[2026-09-09 23:29:11] [Discord] [INFO] [MAIN] [] Starting Store Limitless Bot...
-[2026-09-09 23:29:11,482] [INFO] [discord.client] logging in using static token
-[2026-09-09 23:29:13] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
-[2026-09-09 23:29:13,895] [INFO] [discord.gateway] Shard ID None has connected to Gateway (Session ID: 368af27482a620b7fc42598208f54acb).
-[2026-09-09 23:29:15] [Discord] [INFO] [INIT] [StoreLimitless#1152] FILE_DUMP channel initialized: files-dump (id=1399311590616203284).
-[2026-09-09 23:29:15] [Discord] [INFO] [INIT] [StoreLimitless#1152] Bot online and ready (id=1399287140885725245).
-[2026-09-09 23:29:16] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
-[2026-09-09 23:29:24] [Telegram] [INFO] [DOWNLOAD] [iamloki] Got link: https://youtu.be/W8JAQdZae7M?si=mwiCp-h-6QloSg3N
-[2026-09-09 23:29:24] [Telegram] [INFO] [DOWNLOAD] [iamloki] Starting download from `https://youtu.be/W8JAQdZae7M?si=mwiCp-h-6QloSg3N`
-[2026-09-09 23:29:38] [Telegram] [INFO] [UPLOAD] [iamloki] Got file: id=None directory='' name="when you're the subject of a Zack D. Films video.mkv" type='video/x-matroska' size=34341156 modified_at=datetime.datetime(2026, 9, 9, 17, 59, 24, 602615, tzinfo=datetime.timezone.utc) deleted_at=None data_center='Telegram' links=[] username='iamloki'
-[2026-09-09 23:29:38] [Telegram] [INFO] [UPLOAD] [iamloki] Found local file: when you're the subject of a Zack D. Films video.mkv
-[2026-09-09 23:29:38] [Telegram] [INFO] [UPLOAD] [iamloki] Starting upload `when you're the subject of a Zack D. Films video.mkv` (4 parts)
-[2026-09-09 23:29:44] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded 1/4 parts
-[2026-09-09 23:29:55] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded 2/4 parts
-[2026-09-09 23:29:55] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded 3/4 parts
-[2026-09-09 23:29:55] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded 4/4 parts
-[2026-09-09 23:29:55] [Telegram] [INFO] [DOWNLOAD] [iamloki] Download and upload complete `when you're the subject of a Zack D. Films video.mkv`
-[2026-09-09 23:29:56] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
-[2026-09-09 23:29:56] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
-[2026-09-09 23:30:01] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
-[2026-09-09 23:30:01] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
-[2026-09-09 23:30:41] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
-[2026-09-09 23:30:44] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
-[2026-09-10 00:01:54,380] [WARNING] [discord.client] PyNaCl is not installed, voice will NOT be supported
-[2026-09-10 00:01:54,381] [WARNING] [discord.client] davey is not installed, voice will NOT be supported
-[2026-09-10 00:01:55] [Telegram] [INFO] [INIT] [StoreLimitless_bot] Bot is online. Logged in (id=8404712547)
-[2026-09-10 00:01:55] [Discord] [INFO] [MAIN] [] Starting Store Limitless Bot...
-[2026-09-10 00:01:55,807] [INFO] [discord.client] logging in using static token
-[2026-09-10 00:01:59] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
-[2026-09-10 00:01:59] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
-[2026-09-10 00:02:00,482] [INFO] [discord.gateway] Shard ID None has connected to Gateway (Session ID: 1e36129c63e346afe880ba16b9e6a732).
-[2026-09-10 00:02:02] [Discord] [INFO] [INIT] [StoreLimitless#1152] FILE_DUMP channel initialized: files-dump (id=1399311590616203284).
-[2026-09-10 00:02:02] [Discord] [INFO] [INIT] [StoreLimitless#1152] Bot online and ready (id=1399287140885725245).
-[2026-09-10 00:02:18] [Discord] [INFO] [DOWNLOAD] [iamloki] Got link: https://youtu.be/W8JAQdZae7M?si=WO2fvA09xWsc9UmY
-[2026-09-10 00:02:18] [Discord] [INFO] [DOWNLOAD] [iamloki] Starting download from `https://youtu.be/W8JAQdZae7M?si=WO2fvA09xWsc9UmY`
-[2026-09-10 00:02:38] [Discord] [INFO] [UPLOAD] [iamloki] Got file: id=None directory='' name="when you're the subject of a Zack D. Films video.mkv" type='video/x-matroska' size=34341156 modified_at=datetime.datetime(2026, 9, 9, 18, 32, 18, 485527, tzinfo=datetime.timezone.utc) deleted_at=None data_center='Discord' links=[] username='iamloki'
-[2026-09-10 00:02:38] [Discord] [INFO] [UPLOAD] [iamloki] Found local file: when you're the subject of a Zack D. Films video.mkv
-[2026-09-10 00:02:38] [Discord] [INFO] [UPLOAD] [iamloki] Starting upload `when you're the subject of a Zack D. Films video.mkv` (4 parts)
-[2026-09-10 00:02:46] [Discord] [INFO] [UPLOAD] [iamloki] Uploaded 1/4 parts
-[2026-09-10 00:02:52] [Discord] [INFO] [UPLOAD] [iamloki] Uploaded 2/4 parts
-[2026-09-10 00:02:59] [Discord] [INFO] [UPLOAD] [iamloki] Uploaded 3/4 parts
-[2026-09-10 00:02:59] [Discord] [INFO] [UPLOAD] [iamloki] Uploaded 4/4 parts
-[2026-09-10 00:02:59] [Discord] [INFO] [DOWNLOAD] [iamloki] Download and upload complete `when you're the subject of a Zack D. Films video.mkv`
-[2026-09-10 00:03:00] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
-[2026-09-10 00:03:00] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
+[2026-09-11 17:45:10,699] [WARNING] [discord.client] PyNaCl is not installed, voice will NOT be supported
+[2026-09-11 17:45:10,699] [WARNING] [discord.client] davey is not installed, voice will NOT be supported
+[2026-09-11 17:45:11] [Telegram] [INFO] [INIT] [StoreLimitless_bot] Bot is online. Logged in (id=8404712547)
+[2026-09-11 17:45:11] [Discord] [INFO] [MAIN] [] Starting Store Limitless Bot...
+[2026-09-11 17:45:11,722] [INFO] [discord.client] logging in using static token
+[2026-09-11 17:45:14,772] [INFO] [discord.gateway] Shard ID None has connected to Gateway (Session ID: 1a7b628f6ac43d8e2e7cc56195716b98).
+[2026-09-11 17:45:16] [Discord] [INFO] [INIT] [StoreLimitless#1152] FILE_DUMP channel initialized: files-dump (id=1399311590616203284).
+[2026-09-11 17:45:16] [Discord] [INFO] [INIT] [StoreLimitless#1152] Bot online and ready (id=1399287140885725245).
+[2026-09-11 17:45:17] [Discord] [INFO] [DOWNLOAD] [iamloki] Got link: https://drive.google.com/file/d/1OP5AkfKzvugzV-dCb-HSN9o--FeloyaC/view?usp=drive_link
+[2026-09-11 17:45:17] [Discord] [INFO] [DOWNLOAD] [iamloki] Starting download from `https://drive.google.com/file/d/1OP5AkfKzvugzV-dCb-HSN9o--FeloyaC/view?usp=drive_link`
+[2026-09-11 17:45:41] [Discord] [INFO] [UPLOAD] [iamloki] Uploaded part 1/10
+[2026-09-11 17:46:03] [Discord] [INFO] [UPLOAD] [iamloki] Uploaded part 3/10
+[2026-09-11 17:46:04] [Discord] [INFO] [UPLOAD] [iamloki] Uploaded part 5/10
+[2026-09-11 17:46:06] [Discord] [INFO] [UPLOAD] [iamloki] Uploaded part 6/10
+[2026-09-11 17:46:08] [Discord] [INFO] [UPLOAD] [iamloki] Uploaded part 4/10
+[2026-09-11 17:46:09] [Discord] [INFO] [UPLOAD] [iamloki] Uploaded part 2/10
+[2026-09-11 17:46:17] [Discord] [INFO] [UPLOAD] [iamloki] Uploaded part 10/10
+[2026-09-11 17:46:18] [Discord] [INFO] [UPLOAD] [iamloki] Uploaded part 8/10
+[2026-09-11 17:46:19] [Discord] [INFO] [UPLOAD] [iamloki] Uploaded part 7/10
+[2026-09-11 17:46:20] [Discord] [INFO] [UPLOAD] [iamloki] Uploaded part 9/10
+[2026-09-11 17:46:21] [Discord] [INFO] [DOWNLOAD] [iamloki] Download and upload complete `100MB.bin`
+[2026-09-11 17:46:32] [Telegram] [INFO] [SHUTDOWN] [] Telegram client stopped.
+[2026-09-11 17:50:48,891] [WARNING] [discord.client] PyNaCl is not installed, voice will NOT be supported
+[2026-09-11 17:50:48,891] [WARNING] [discord.client] davey is not installed, voice will NOT be supported
+[2026-09-11 17:50:50] [Telegram] [INFO] [INIT] [StoreLimitless_bot] Bot is online. Logged in (id=8404712547)
+[2026-09-11 17:50:50] [Discord] [INFO] [MAIN] [] Starting Store Limitless Bot...
+[2026-09-11 17:50:50,313] [INFO] [discord.client] logging in using static token
+[2026-09-11 17:50:52,900] [INFO] [discord.gateway] Shard ID None has connected to Gateway (Session ID: a94a615b96205e5961e70feed33266e2).
+[2026-09-11 17:50:54] [Discord] [INFO] [INIT] [StoreLimitless#1152] FILE_DUMP channel initialized: files-dump (id=1399311590616203284).
+[2026-09-11 17:50:54] [Discord] [INFO] [INIT] [StoreLimitless#1152] Bot online and ready (id=1399287140885725245).
+[2026-09-11 17:51:17] [Telegram] [INFO] [DOWNLOAD] [iamloki] Got link: https://drive.google.com/file/d/1OP5AkfKzvugzV-dCb-HSN9o--FeloyaC/view?usp=drive_link
+[2026-09-11 17:51:17] [Telegram] [INFO] [DOWNLOAD] [iamloki] Starting download from `https://drive.google.com/file/d/1OP5AkfKzvugzV-dCb-HSN9o--FeloyaC/view?usp=drive_link`
+[2026-09-11 17:51:38] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded part 1/10
+[2026-09-11 17:51:41] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded part 2/10
+[2026-09-11 17:51:44] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded part 3/10
+[2026-09-11 17:51:47] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded part 4/10
+[2026-09-11 17:51:50] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded part 5/10
+[2026-09-11 17:51:53] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded part 6/10
+[2026-09-11 17:51:56] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded part 7/10
+[2026-09-11 17:51:59] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded part 8/10
+[2026-09-11 17:52:03] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded part 9/10
+[2026-09-11 17:52:05] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded part 10/10
+[2026-09-11 17:52:05] [Telegram] [INFO] [DOWNLOAD] [iamloki] Download and upload complete `100MB.bin`
+[2026-09-11 17:52:31] [Discord] [INFO] [DOWNLOAD] [iamloki] Got link: https://youtu.be/s9w3gtgvNSU?si=oUaeWSnQQ5Pf8ZS6
+[2026-09-11 17:52:31] [Discord] [INFO] [DOWNLOAD] [iamloki] Starting download from `https://youtu.be/s9w3gtgvNSU?si=oUaeWSnQQ5Pf8ZS6`
+[2026-09-11 17:53:11] [Discord] [INFO] [UPLOAD] [iamloki] Got file: id=None directory='' name='I Built ChatGPT from Scratch.mkv' type='video/x-matroska' size=91732381 modified_at=datetime.datetime(2026, 9, 11, 12, 22, 31, 29799, tzinfo=datetime.timezone.utc) deleted_at=None data_center='Discord' links=[] username='iamloki'
+[2026-09-11 17:53:11] [Discord] [INFO] [UPLOAD] [iamloki] Found local file: I Built ChatGPT from Scratch.mkv
+[2026-09-11 17:53:20] [Discord] [INFO] [UPLOAD] [iamloki] Uploaded part 1
+[2026-09-11 17:53:40] [Discord] [INFO] [UPLOAD] [iamloki] Uploaded part 4
+[2026-09-11 17:53:41] [Discord] [INFO] [UPLOAD] [iamloki] Uploaded part 2
+[2026-09-11 17:53:41] [Discord] [INFO] [UPLOAD] [iamloki] Uploaded part 5
+[2026-09-11 17:53:43] [Discord] [INFO] [UPLOAD] [iamloki] Uploaded part 3
+[2026-09-11 17:53:45] [Discord] [INFO] [UPLOAD] [iamloki] Uploaded part 6
+[2026-09-11 17:53:57] [Discord] [INFO] [UPLOAD] [iamloki] Uploaded part 9
+[2026-09-11 17:53:58] [Discord] [INFO] [UPLOAD] [iamloki] Uploaded part 7
+[2026-09-11 17:53:59] [Discord] [INFO] [UPLOAD] [iamloki] Uploaded part 8
+[2026-09-11 17:53:59] [Discord] [INFO] [DOWNLOAD] [iamloki] Download and upload complete `I Built ChatGPT from Scratch.mkv`
+[2026-09-11 17:56:17] [Telegram] [INFO] [SHUTDOWN] [] Telegram client stopped.
+[2026-09-11 17:56:19,693] [WARNING] [discord.client] PyNaCl is not installed, voice will NOT be supported
+[2026-09-11 17:56:19,693] [WARNING] [discord.client] davey is not installed, voice will NOT be supported
+[2026-09-11 17:56:20] [Telegram] [INFO] [INIT] [StoreLimitless_bot] Bot is online. Logged in (id=8404712547)
+[2026-09-11 17:56:20] [Discord] [INFO] [MAIN] [] Starting Store Limitless Bot...
+[2026-09-11 17:56:20,800] [INFO] [discord.client] logging in using static token
+[2026-09-11 17:56:24,067] [INFO] [discord.gateway] Shard ID None has connected to Gateway (Session ID: 4094c837a55d86bf998b07ea4ef1f290).
+[2026-09-11 17:56:26] [Discord] [INFO] [INIT] [StoreLimitless#1152] FILE_DUMP channel initialized: files-dump (id=1399311590616203284).
+[2026-09-11 17:56:26] [Discord] [INFO] [INIT] [StoreLimitless#1152] Bot online and ready (id=1399287140885725245).
+[2026-09-11 17:56:40] [Telegram] [INFO] [DOWNLOAD] [iamloki] Got link: https://youtu.be/ib7rFohGAR4?si=004T-fhzqpf6Fwsh
+[2026-09-11 17:56:40] [Telegram] [INFO] [DOWNLOAD] [iamloki] Starting download from `https://youtu.be/ib7rFohGAR4?si=004T-fhzqpf6Fwsh`
+[2026-09-11 18:07:11] [Telegram] [INFO] [UPLOAD] [iamloki] Got file: id=None directory='' name='I Tried To 100% ALL THE MODS 10.....mkv' type='video/x-matroska' size=1936655552 modified_at=datetime.datetime(2026, 9, 11, 12, 26, 40, 220247, tzinfo=datetime.timezone.utc) deleted_at=None data_center='Telegram' links=[] username='iamloki'
+[2026-09-11 18:07:11] [Telegram] [INFO] [UPLOAD] [iamloki] Found local file: I Tried To 100% ALL THE MODS 10.....mkv
+[2026-09-11 18:07:38] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded part 1
+[2026-09-11 18:07:38] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded part 3
+[2026-09-11 18:07:38] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded part 5
+[2026-09-11 18:07:38] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded part 2
+[2026-09-11 18:07:38] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded part 4
+[2026-09-11 18:07:42] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded part 7
+[2026-09-11 18:07:42] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded part 6
+[2026-09-11 18:07:42] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded part 8
+[2026-09-11 18:08:08] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded part 9
+[2026-09-11 18:08:08] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded part 10
+[2026-09-11 18:08:09] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded part 11
+[2026-09-11 18:08:09] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded part 13
+[2026-09-11 18:08:09] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded part 12
+[2026-09-11 18:08:14] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded part 14
+[2026-09-11 18:08:14] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded part 15
+[2026-09-11 18:08:14] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded part 16
+[2026-09-11 18:08:37] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded part 17
+[2026-09-11 18:08:38] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded part 18
+[2026-09-11 18:08:38] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded part 19
+[2026-09-11 18:08:38] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded part 20
+[2026-09-11 18:08:38] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded part 21
+[2026-09-11 18:08:41] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded part 22
+[2026-09-11 18:08:42] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded part 23
+[2026-09-11 18:08:42] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded part 24
+[2026-09-11 18:09:04] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded part 25
+[2026-09-11 18:09:05] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded part 26
+[2026-09-11 18:09:05] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded part 27
+[2026-09-11 18:09:05] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded part 28
+[2026-09-11 18:09:05] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded part 29
+[2026-09-11 18:09:08] [Telegram] [INFO] [UPLOAD] [iamloki] Uploaded part 30
+[2026-09-11 18:15:08,137] [WARNING] [discord.client] PyNaCl is not installed, voice will NOT be supported
+[2026-09-11 18:15:08,138] [WARNING] [discord.client] davey is not installed, voice will NOT be supported
+[2026-09-11 18:15:08] [Telegram] [ERROR] [INIT] [] Initialization failure: Cannot send requests while disconnected
+[2026-09-11 18:15:20,689] [WARNING] [discord.client] PyNaCl is not installed, voice will NOT be supported
+[2026-09-11 18:15:20,690] [WARNING] [discord.client] davey is not installed, voice will NOT be supported
+[2026-09-11 18:15:21] [Telegram] [INFO] [INIT] [StoreLimitless_bot] Bot is online. Logged in (id=8404712547)
+[2026-09-11 18:15:21] [Discord] [INFO] [MAIN] [] Starting Store Limitless Bot...
+[2026-09-11 18:15:21,763] [INFO] [discord.client] logging in using static token
+[2026-09-11 18:15:24,377] [INFO] [discord.gateway] Shard ID None has connected to Gateway (Session ID: ef3402d5c98dbca54289e548e6980e42).
+[2026-09-11 18:15:26] [Discord] [INFO] [INIT] [StoreLimitless#1152] FILE_DUMP channel initialized: files-dump (id=1399311590616203284).
+[2026-09-11 18:15:26] [Discord] [INFO] [INIT] [StoreLimitless#1152] Bot online and ready (id=1399287140885725245).
+[2026-09-11 18:15:29] [Telegram] [INFO] [SHUTDOWN] [] Telegram client stopped.
+[2026-09-11 18:16:15,887] [WARNING] [discord.client] PyNaCl is not installed, voice will NOT be supported
+[2026-09-11 18:16:15,887] [WARNING] [discord.client] davey is not installed, voice will NOT be supported
+[2026-09-11 18:16:16] [Telegram] [INFO] [INIT] [StoreLimitless_bot] Bot is online. Logged in (id=8404712547)
+[2026-09-11 18:16:16] [Discord] [INFO] [MAIN] [] Starting Store Limitless Bot...
+[2026-09-11 18:16:16,963] [INFO] [discord.client] logging in using static token
+[2026-09-11 18:16:20,316] [INFO] [discord.gateway] Shard ID None has connected to Gateway (Session ID: cf008e8501ac58bd1d22637c63ce72c7).
+[2026-09-11 18:16:22] [Discord] [INFO] [INIT] [StoreLimitless#1152] FILE_DUMP channel initialized: files-dump (id=1399311590616203284).
+[2026-09-11 18:16:22] [Discord] [INFO] [INIT] [StoreLimitless#1152] Bot online and ready (id=1399287140885725245).
+[2026-09-11 18:21:19,728] [WARNING] [discord.client] PyNaCl is not installed, voice will NOT be supported
+[2026-09-11 18:21:19,728] [WARNING] [discord.client] davey is not installed, voice will NOT be supported
+[2026-09-11 18:21:20] [Telegram] [INFO] [INIT] [StoreLimitless_bot] Bot is online. Logged in (id=8404712547)
+[2026-09-11 18:21:20] [Discord] [INFO] [MAIN] [] Starting Store Limitless Bot...
+[2026-09-11 18:21:20,836] [INFO] [discord.client] logging in using static token
+[2026-09-11 18:21:23,843] [INFO] [discord.gateway] Shard ID None has connected to Gateway (Session ID: c43ed97693e7b7167b462926413dad3f).
+[2026-09-11 18:21:25] [Discord] [INFO] [INIT] [StoreLimitless#1152] FILE_DUMP channel initialized: files-dump (id=1399311590616203284).
+[2026-09-11 18:21:25] [Discord] [INFO] [INIT] [StoreLimitless#1152] Bot online and ready (id=1399287140885725245).
+[2026-09-11 18:22:02,801] [WARNING] [discord.client] PyNaCl is not installed, voice will NOT be supported
+[2026-09-11 18:22:02,801] [WARNING] [discord.client] davey is not installed, voice will NOT be supported
+[2026-09-11 18:22:03] [Telegram] [INFO] [INIT] [StoreLimitless_bot] Bot is online. Logged in (id=8404712547)
+[2026-09-11 18:22:03] [Discord] [INFO] [MAIN] [] Starting Store Limitless Bot...
+[2026-09-11 18:22:03,813] [INFO] [discord.client] logging in using static token
+[2026-09-11 18:22:06,533] [INFO] [discord.gateway] Shard ID None has connected to Gateway (Session ID: 419a6a8d18651a5484c7cedffdb56dba).
+[2026-09-11 18:22:08] [Discord] [INFO] [INIT] [StoreLimitless#1152] FILE_DUMP channel initialized: files-dump (id=1399311590616203284).
+[2026-09-11 18:22:08] [Discord] [INFO] [INIT] [StoreLimitless#1152] Bot online and ready (id=1399287140885725245).

@@ -3,9 +3,9 @@ from asyncio import sleep
 from telethon import TelegramClient
 from telethon.errors import RPCError
 
-from core.config import getenv, TELEGRAM_SESSION
+from core.config import TELEGRAM_SESSION
 from core.data_center import ConfigMeta, DataCenter
-from core.utils import write_log, Progress
+from core.utils import write_log, Progress, getenv
 
 
 class Telegram(DataCenter, metaclass=ConfigMeta):

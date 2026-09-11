@@ -7,7 +7,7 @@ frontend/node_modules
 .env
 .venv
 .python-version
-/transfer
+transfer
 *.pyc
 backend/database/database.db
 telegram_bot.session

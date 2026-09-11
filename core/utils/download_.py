@@ -1,51 +1,22 @@
-from asyncio import Task, to_thread, create_task, sleep, wait
+from asyncio import Task, to_thread, create_task, sleep
 from datetime import datetime, timezone
 from mimetypes import guess_type
 from pathlib import Path
-from typing import BinaryIO, Any, AsyncGenerator, cast
+from traceback import format_exc
+from typing import Any, AsyncGenerator, cast
 
 import gdown
 import requests
 from yt_dlp import YoutubeDL
 
-from backend.database import File, get_file
-from core.config import TRANSFER_PATH, GOOGLE_API_KEY
+import core.transfer
+from backend.database import File
+from core.config import TRANSFER_PATH
 from core.data_center import DataCenter
-from core.utils import write_log, Progress, get_transfer_path
+from core.utils import Progress, upload_growing_file, write_log, GOOGLE_API_KEY
 
 
-async def upload_part(file: File, data_center: DataCenter, path: Path, part: int, size: int, total_size: int, name: str, progress: Progress) -> str:
-    with path.open("rb") as buffer:
-        buffer.seek(part * data_center.MAX_SIZE)
-        chunk: bytes = buffer.read(size)
-
-    msg_id: str = await data_center.upload(chunk, f"{name}.part{part}", progress)
-
-    if total_size:
-        total_parts: int = (total_size + data_center.MAX_SIZE - 1) // data_center.MAX_SIZE
-        write_log("INFO", data_center, "UPLOAD", file.username, f"Uploaded part {part + 1}/{total_parts}")
-
-    else:
-        write_log("INFO", data_center, "UPLOAD", file.username, f"Uploaded part {part + 1}")
-
-    return msg_id
-
-
-def get_unique_name(directory: str, name: str, username: str) -> str:
-    if not get_file(directory=directory, name=name, username=username):
-        return name
-
-    path: Path = Path(name)
-    stem, extension = path.stem, path.suffix
-    i: int = 1
-
-    while get_file(name=f"{stem}({i}){extension}", username=username):
-        i += 1
-
-    return f"{stem}({i}){extension}"
-
-
-async def download_google_drive(file: File, link: str) -> AsyncGenerator[tuple[str, int, int], None]:
+async def download_google_drive(file: File, link: str) -> AsyncGenerator[Progress, None]:
     data_center: DataCenter = DataCenter(file.data_center)
     temp_dir: Path = TRANSFER_PATH / file.username / "gdown"
     temp_dir.mkdir(parents=True, exist_ok=True)
@@ -55,9 +26,14 @@ async def download_google_drive(file: File, link: str) -> AsyncGenerator[tuple[s
             path.unlink()
 
     try:
+        progress: Progress = Progress(f"Uploading File", 0)
         file_id: str = link.split("/file/d/")[1].split("/")[0]
-        response = await to_thread(requests.get, f"https://www.googleapis.com/drive/v3/files/{file_id}",
-                                   params={"fields": "name,size", "key": GOOGLE_API_KEY}, timeout=30)
+        response = await to_thread(
+            requests.get,
+            f"https://www.googleapis.com/drive/v3/files/{file_id}",
+            params={"fields": "name,size", "key": GOOGLE_API_KEY},
+            timeout=30
+        )
 
         if not response.ok:
             raise OSError(f"Google Drive API error: {response.status_code}: {response.text}")
@@ -67,87 +43,34 @@ async def download_google_drive(file: File, link: str) -> AsyncGenerator[tuple[s
         if "size" not in data:
             raise OSError("Could not determine Google Drive file size")
 
-        file.name = get_unique_name(file.directory, data.get("name") or file_id, file.username)
+        file.name = data.get("name") or file_id
         total_size: int = int(data["size"])
-        output: Path = temp_dir / file.name
-        progress: Progress = Progress(f"Uploading {file.name}", total_size)
-        yield progress.value
+        progress.total = total_size
+        download_task: Task[Any] = create_task(to_thread(gdown.download, link, output=str(temp_dir), quiet=False))
 
-        def download() -> None:
-            result: str | BinaryIO | tuple[Any, ...] = gdown.download(link, output=str(output), quiet=False)
-
-            if not result:
-                raise OSError("Google Drive download failed")
-
-        download_task: Task[Any] = create_task(to_thread(download))
-        upload_tasks: set[Task[tuple[int, str]]] = set()
-        max_size: int = data_center.MAX_SIZE
-        part: int = 0
-        links: dict[int, str] = {}
-
-        async def upload(part: int, path: Path, size: int) -> tuple[int, str]:
-            return part, await upload_part(file, data_center, path, part, size, total_size, file.name, progress)
-
-        while not download_task.done():
-            files: list[Path] = [path for path in temp_dir.iterdir() if path.is_file()]
+        while True:
+            files = [path for path in temp_dir.iterdir() if path.is_file()]
 
             if files:
-                downloaded_path: Path = files[0]
+                output = files[0]
+                break
 
-                try:
-                    size: int = downloaded_path.stat().st_size
-
-                except FileNotFoundError:
-                    size = 0
-
-                while size >= (part + 1) * max_size:
-                    upload_tasks.add(create_task(upload(part, downloaded_path, max_size)))
-                    part += 1
-
-            if upload_tasks:
-                done, upload_tasks = await wait(upload_tasks, timeout=0)
-
-                for task in done:
-                    i, msg_id = task.result()
-                    links[i] = msg_id
-
-            yield progress.value
             await sleep(0.1)
 
-        await download_task
+        async for progress_value in upload_growing_file(file=file,
+                                                        path=output,
+                                                        data_center=data_center,
+                                                        progress=progress,
+                                                        producer=download_task,
+                                                        total_size=total_size):
+            yield progress_value
 
-        if not output.exists():
-            raise OSError("Google Drive download file not found")
-
-        size: int = output.stat().st_size
-
-        while size >= (part + 1) * max_size:
-            upload_tasks.add(create_task(upload(part, output, max_size)))
-            part += 1
-            size = output.stat().st_size
-
-        start: int = part * max_size
-
-        if size > start:
-            upload_tasks.add(create_task(upload(part, output, size - start)))
-            part += 1
-
-        while upload_tasks:
-            done, upload_tasks = await wait(upload_tasks, timeout=0.1)
-
-            for task in done:
-                i, msg_id = task.result()
-                links[i] = msg_id
-
-            yield progress.value
-
-        file.size = size
-        file.links = [links[i] for i in range(part)]
         file.type = guess_type(file.name)[0] or "application/octet-stream"
         file.modified_at = datetime.now(timezone.utc)
 
-        progress.transfer = total_size
-        yield progress.value
+    except Exception as e:
+        write_log("ERROR", data_center, "UPLOAD", file.username, f"Unhandled exception: {e}\n{format_exc()}")
+        raise
 
     finally:
         if temp_dir.exists():
@@ -156,9 +79,7 @@ async def download_google_drive(file: File, link: str) -> AsyncGenerator[tuple[s
                     path.unlink()
 
 
-async def download_youtube(file: File, link: str) -> AsyncGenerator[tuple[str, int, int], None]:
-    from core.transfer import upload
-
+async def download_youtube(file: File, link: str) -> AsyncGenerator[Progress, None]:
     temp_dir: Path = TRANSFER_PATH / file.username / "yt-dlp"
     temp_dir.mkdir(parents=True, exist_ok=True)
 
@@ -167,10 +88,10 @@ async def download_youtube(file: File, link: str) -> AsyncGenerator[tuple[str, i
             path.unlink()
 
     download_progress: Progress = Progress("Downloading Video", 0)
+    merge_progress: Progress = Progress("Merging Audio and Video", 0)
     current_progress: dict[str, Progress] = {"value": download_progress}
-    yield download_progress.value
 
-    def hook(data: dict):
+    def hook(data: dict) -> None:
         filename: str = data.get("filename", "")
 
         if filename.endswith((".vtt", ".srt", ".ass", ".ttml", ".srv1", ".srv2", ".srv3")):
@@ -198,6 +119,14 @@ async def download_youtube(file: File, link: str) -> AsyncGenerator[tuple[str, i
         elif data["status"] == "finished":
             progress.transfer = progress.total
 
+    def postprocessor_hook(data: dict) -> None:
+        if data.get("status") == "started":
+            current_progress["value"] = merge_progress
+            merge_progress.message = "Merging Audio and Video"
+
+        elif data.get("status") == "finished":
+            merge_progress.transfer = merge_progress.total
+
     def download() -> None:
         with YoutubeDL(cast(Any, {
             "quiet": True,
@@ -210,6 +139,7 @@ async def download_youtube(file: File, link: str) -> AsyncGenerator[tuple[str, i
             "subtitleslangs": ["en"],
             "embedsubtitles": True,
             "progress_hooks": [hook],
+            "postprocessor_hooks": [postprocessor_hook],
         })) as ydl:
             ydl.download([link])
 
@@ -217,25 +147,23 @@ async def download_youtube(file: File, link: str) -> AsyncGenerator[tuple[str, i
         download_task: Task[Any] = create_task(to_thread(download))
 
         while not download_task.done():
-            yield current_progress["value"].value
+            yield current_progress["value"]
             await sleep(0.1)
 
         await download_task
+
         files: list[Path] = [path for path in temp_dir.iterdir() if path.is_file()]
 
         if not files:
             raise OSError("YouTube download produced no file")
 
         output: Path = max(files, key=lambda path: path.stat().st_size)
-        file.name = get_unique_name(file.directory, output.name, file.username)
-        file_path: Path = get_transfer_path(file.username, file.directory, file.name)
-        file_path.parent.mkdir(parents=True, exist_ok=True)
-        output.rename(file_path)
-        file.size = file_path.stat().st_size
+        file.name = output.name
+        file.size = output.stat().st_size
         file.type = guess_type(file.name)[0] or "application/octet-stream"
-        yield current_progress["value"].value
+        yield current_progress["value"]
 
-        async for progress in upload(file, True):
+        async for progress in core.transfer.file_upload(file, output, intermediate=True):
             yield progress
 
     finally:

@@ -1,5 +1,6 @@
 from datetime import datetime, timezone, timedelta
 from json import loads, dumps
+from pathlib import Path
 from sqlite3 import Row
 from typing import cast
 
@@ -16,8 +17,7 @@ def add_user(user: User) -> None:
             INSERT INTO users (username, password, first_name, last_name, created_at)
             VALUES (?, ?, ?, ?, ?);
             """, (user.username, user.password, user.first_name, user.last_name, user.created_at.isoformat()),
-        )
-        CURSOR.connection.commit()
+        ).connection.commit()
 
     except Exception as e:
         CURSOR.connection.rollback()
@@ -56,8 +56,7 @@ def update_user(user: User) -> None:
             WHERE username = ?;
             """,
             (user.password, user.first_name, user.last_name, user.username),
-        )
-        CURSOR.connection.commit()
+        ).connection.commit()
 
     except Exception as e:
         CURSOR.connection.rollback()
@@ -71,24 +70,29 @@ def add_file(file: File) -> None:
     if user is None:
         raise ValueError(f"User `{file.username}` does not exist")
 
+    name: str = file.name
+
+    if get_file(directory=file.directory, name=name, username=file.username):
+        path: Path = Path(name)
+        stem, extension = path.stem, path.suffix
+        i: int = 1
+
+        while get_file(directory=file.directory, name=f"{stem}({i}){extension}", username=file.username):
+            i += 1
+
+        name = f"{stem}({i}){extension}"
+
+    file.name = name
+
     try:
         CURSOR.execute(
             """
-            INSERT INTO files (directory,
-                               name,
-                               type,
-                               size,
-                               modified_at,
-                               data_center,
-                               links,
-                               deleted_at,
-                               username)
+            INSERT INTO files (directory, name, type, size, modified_at, data_center, links, deleted_at, username)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
             """,
-            (file.directory, file.name, file.type, file.size, file.modified_at.isoformat(), file.data_center,
-             dumps(file.links), file.deleted_at.isoformat() if file.deleted_at else None, file.username),
-        )
-        CURSOR.connection.commit()
+            (file.directory, file.name, file.type, file.size, file.modified_at.isoformat(), file.data_center, dumps(file.links),
+             file.deleted_at.isoformat() if file.deleted_at else None, file.username),
+        ).connection.commit()
 
     except Exception as e:
         CURSOR.connection.rollback()
@@ -96,8 +100,12 @@ def add_file(file: File) -> None:
         raise
 
 
-def get_file(*, fid: int | None = None, directory: str | None = None, name: str | None = None, username: str | None = None,
-             include_trashed: bool = False, trashed_only: bool = False) -> File | None:
+def get_file(*, fid: int | None = None,
+             directory: str | None = None,
+             name: str | None = None,
+             username: str | None = None,
+             include_trashed: bool = False,
+             trashed_only: bool = False) -> File | None:
     if trashed_only:
         trash_clause: str = "AND deleted_at IS NOT NULL"
 
@@ -122,8 +130,8 @@ def get_file(*, fid: int | None = None, directory: str | None = None, name: str 
             SELECT id, directory, name, type, size, modified_at, data_center, links, deleted_at, username
             FROM files
             WHERE directory = ?
-            AND name = ?
-            AND username = ? {trash_clause};
+              AND name = ?
+              AND username = ? {trash_clause};
             """, (directory, name, username),
         )
 
@@ -143,8 +151,10 @@ def get_file(*, fid: int | None = None, directory: str | None = None, name: str 
     return None
 
 
-def get_files(*, directory: str | None = None, username: str | None = None,
-              include_trashed: bool = False, trashed_only: bool = False) -> list[File]:
+def get_files(*, directory: str | None = None,
+              username: str | None = None,
+              include_trashed: bool = False,
+              trashed_only: bool = False) -> list[File]:
     if trashed_only:
         trash_clause: str = "AND deleted_at IS NOT NULL"
 
@@ -181,7 +191,7 @@ def get_files(*, directory: str | None = None, username: str | None = None,
     files: list[File] = []
 
     for row in CURSOR.fetchall():
-        file: dict[str, int | str | datetime | None] = dict(row)
+        file: dict[str, int | str | datetime | None] = dict(cast(Row, row))
         file["links"] = loads(cast(str, file["links"]))
         file["modified_at"] = datetime.fromisoformat(cast(str, file["modified_at"]))
         file["deleted_at"] = datetime.fromisoformat(cast(str, file["deleted_at"])) if file["deleted_at"] else None
@@ -203,10 +213,16 @@ def update_file(file: File) -> None:
             WHERE id = ?
               AND username = ?;
             """,
-            (file.directory, file.name, file.type, file.modified_at.isoformat(),
-             file.deleted_at.isoformat() if file.deleted_at else None, file.id, file.username),
-        )
-        CURSOR.connection.commit()
+            (
+                file.directory,
+                file.name,
+                file.type,
+                file.modified_at.isoformat(),
+                file.deleted_at.isoformat() if file.deleted_at else None,
+                file.id,
+                file.username
+            ),
+        ).connection.commit()
 
     except Exception as e:
         CURSOR.connection.rollback()
@@ -227,9 +243,7 @@ def purge_expired_trash(*, username: str, older_than_days: int = 30) -> None:
               AND deleted_at < ?;
             """,
             (username, cutoff),
-        )
-        CURSOR.connection.commit()
-        write_log("INFO", Database, "PURGE TRASH", username, f"Purged {CURSOR.rowcount} expired trash item(s).")
+        ).connection.commit()
 
     except Exception as e:
         CURSOR.connection.rollback()
@@ -247,8 +261,7 @@ def delete_file(file: File) -> None:
               AND username = ?;
             """,
             (file.id, file.username),
-        )
-        CURSOR.connection.commit()
+        ).connection.commit()
 
     except Exception as e:
         CURSOR.connection.rollback()
@@ -278,8 +291,7 @@ def github_cursor_increment_repo_id() -> None:
         UPDATE github_cursor
         SET repo_id = repo_id + 1;
         """
-    )
-    CURSOR.connection.commit()
+    ).connection.commit()
 
 
 def github_cursor_get_used() -> int:
@@ -305,5 +317,4 @@ def github_cursor_set_used(value: int) -> None:
         SET used = ?;
         """,
         (value,),
-    )
-    CURSOR.connection.commit()
+    ).connection.commit()

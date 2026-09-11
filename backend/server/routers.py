@@ -1,22 +1,21 @@
+from asyncio import Task, create_task
 from datetime import datetime, timezone
-from json import dumps
 from mimetypes import guess_type
 from pathlib import Path
-from typing import AsyncGenerator
 from urllib.parse import quote
+from uuid import uuid4
 
-from fastapi import APIRouter, Depends, Form, HTTPException, UploadFile, Request
-from fastapi.responses import Response, StreamingResponse
+from fastapi import APIRouter, Depends, HTTPException, Request, Header
+from fastapi.responses import Response, StreamingResponse, JSONResponse
 
 from backend.database import add_user, File, get_files, get_user, User, get_file, update_file, purge_expired_trash, delete_file
 from backend.server.jwt_handler import create_access_token, get_current_user
 from backend.server.security import hash_password, verify_password, create_public_stream_token, verify_public_stream_token
 from backend.server.utils import LoginRequest, LinkDownloadRequest, CreateFolderRequest, validate_directory_path, ensure_folder_chain
-from core.config import TRANSFER_PATH
-from core.data_center import BackEnd
+from core.config import TRANSFER_PATH, UPLOAD_JOBS
 from core.stream import ChunkCache, get_chunks, parse_range, stream_range, ByteRange, FileChunk
-from core.transfer import download_link, upload
-from core.utils import get_transfer_path
+from core.transfer import link_upload, file_upload
+from core.utils import get_transfer_path, Progress
 
 auth: APIRouter = APIRouter(prefix="/auth")
 
@@ -47,43 +46,66 @@ def login(credentials: LoginRequest) -> dict[str, str]:
     }
 
 
+@auth.get("/upload/{job_id}/status")
+async def upload_status(job_id: str, user: User = Depends(get_current_user)) -> JSONResponse:
+    progress: Progress | None = UPLOAD_JOBS.get(job_id)
+
+    if progress is None:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    return JSONResponse({
+        "status": "completed" if "complete" in progress.message.lower() else "uploading",
+        "message": progress.message,
+        "transfer": progress.transfer,
+        "total": progress.total,
+    })
+
+
 @auth.post("/upload")
-async def upload_route(file: UploadFile, data_center: str = Form(...), directory: str = Form(""),
-                       user: User = Depends(get_current_user)) -> StreamingResponse:
-    if not file.filename:
-        raise HTTPException(status_code=400, detail="No file name provided")
-
-    filename: str = Path(file.filename).name
-    directory: str = validate_directory_path(directory)
+async def upload_file(request: Request,
+                      data_center: str = Header(..., alias="X-Data-Center"),
+                      directory: str = Header(""),
+                      file_name: str = Header(..., alias="X-File-Name"),
+                      user: User = Depends(get_current_user)) -> JSONResponse:
+    directory = validate_directory_path(directory)
     ensure_folder_chain(user.username, directory)
-    file_path: Path = get_transfer_path(user.username, directory, filename)
+    file_path: Path = get_transfer_path(user.username, directory, file_name)
     file_path.parent.mkdir(parents=True, exist_ok=True)
-
-    with open(file_path, "wb") as buffer:
-        while chunk := await file.read(BackEnd.MAX_SIZE):
-            buffer.write(chunk)
+    file_path.touch()
 
     file_job: File = File(
         directory=directory,
-        name=file.filename,
-        type=guess_type(filename)[0] or "application/octet-stream",
-        size=file_path.stat().st_size,
-        modified_at=datetime.fromtimestamp(file_path.stat().st_mtime, tz=timezone.utc),
+        name=file_name,
+        type=request.headers.get("content-type", "application/octet-stream"),
+        size=0,
+        modified_at=datetime.now(timezone.utc),
         links=[],
         data_center=data_center,
         username=user.username
     )
 
-    async def progress_stream() -> AsyncGenerator[str, None]:
-        async for progress in upload(file_job):
-            message, transfer, total = progress
-            yield dumps({"message": message, "transfer": transfer, "total": total}) + "\n"
+    async def write_file() -> None:
+        with file_path.open("wb") as buffer:
+            async for chunk in request.stream():
+                buffer.write(chunk)
+                buffer.flush()
 
-    return StreamingResponse(progress_stream(), media_type="application/x-ndjson")
+    upload_task: Task[None] = create_task(write_file())
+    job_id: str = str(uuid4())
+    UPLOAD_JOBS[job_id] = Progress("Starting", 0)
+
+    async def run_upload_job() -> None:
+        async for progress in file_upload(file_job, file_path, upload_task):
+            UPLOAD_JOBS[job_id] = progress
+
+    create_task(run_upload_job())
+    await upload_task
+    return JSONResponse({"job_id": job_id})
 
 
-@auth.post("/upload-from-link")
-async def upload_from_link_route(request: LinkDownloadRequest, user: User = Depends(get_current_user)) -> StreamingResponse:
+@auth.post("/upload-link")
+async def upload_link(request: LinkDownloadRequest,
+                      user: User = Depends(get_current_user)) -> JSONResponse:
     link: str = request.link.strip()
     data_center: str = request.data_center.strip()
     directory: str = request.directory.strip()
@@ -110,21 +132,15 @@ async def upload_from_link_route(request: LinkDownloadRequest, user: User = Depe
         username=user.username
     )
 
-    async def progress_stream() -> AsyncGenerator[str, None]:
-        try:
-            progress: tuple[str, int, int] | None = None
+    job_id: str = str(uuid4())
+    UPLOAD_JOBS[job_id] = Progress("Starting", 0)
 
-            async for progress in download_link(file, link):
-                yield dumps({"status": "uploading", "message": progress[0], "transfer": progress[1], "total": progress[2]}) + "\n"
+    async def run_upload_job() -> None:
+        async for progress in link_upload(file, link):
+            UPLOAD_JOBS[job_id] = progress
 
-            if progress is not None:
-                yield dumps({"status": "completed", "message": progress[0], "transfer": progress[1], "total": progress[2]}) + "\n"
-
-        except Exception as e:
-            print(f"Link upload error: {e}")
-            yield dumps({"status": "error", "error": str(e)}) + "\n"
-
-    return StreamingResponse(progress_stream(), media_type="application/x-ndjson")
+    create_task(run_upload_job())
+    return JSONResponse({"job_id": job_id})
 
 
 @auth.post("/create-folder")

@@ -6,7 +6,7 @@ import discord
 from discord import Intents, Message, TextChannel
 from discord.ext.commands import Bot
 
-from core.config import getenv
+from core.utils import getenv
 from core.data_center import ConfigMeta, DataCenter
 from core.utils import write_log, Progress, ProgressStream
 
