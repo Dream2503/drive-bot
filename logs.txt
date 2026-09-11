@@ -736,3 +736,57 @@ Traceback (most recent call last):
 yt_dlp.utils.DownloadError: [0;31mERROR:[0m You have requested merging of multiple formats but ffmpeg is not installed. Aborting due to --abort-on-error
 
 [2026-09-09 12:31:35] [Telegram] [INFO] [SHUTDOWN] [] Telegram client stopped.
+[2026-09-09 12:40:29,395] [WARNING] [discord.client] PyNaCl is not installed, voice will NOT be supported
+[2026-09-09 12:40:29,395] [WARNING] [discord.client] davey is not installed, voice will NOT be supported
+[2026-09-09 12:40:32] [Telegram] [INFO] [INIT] [StoreLimitless_bot] Bot is online. Logged in (id=8404712547)
+[2026-09-09 12:40:32] [Discord] [INFO] [MAIN] [] Starting Store Limitless Bot...
+[2026-09-09 12:40:32,092] [INFO] [discord.client] logging in using static token
+[2026-09-09 12:40:34,574] [INFO] [discord.gateway] Shard ID None has connected to Gateway (Session ID: 7b0526d186d3585d194e61e754f5ec4a).
+[2026-09-09 12:40:36] [Discord] [INFO] [INIT] [StoreLimitless#1152] FILE_DUMP channel initialized: files-dump (id=1399311590616203284).
+[2026-09-09 12:40:36] [Discord] [INFO] [INIT] [StoreLimitless#1152] Bot online and ready (id=1399287140885725245).
+[2026-09-09 12:41:22] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
+[2026-09-09 12:41:22] [Database] [INFO] [GET TRASHED FILES] [iamloki] Select query executed for trashed files.
+[2026-09-09 12:41:22] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
+[2026-09-09 12:41:22] [Database] [INFO] [GET TRASHED FILES] [iamloki] Select query executed for trashed files.
+[2026-09-09 12:41:57,281] [WARNING] [asyncio] socket.send() raised exception.
+[2026-09-09 12:46:54] [Telegram] [INFO] [SHUTDOWN] [] Telegram client stopped.
+[2026-09-10 23:50:09,274] [WARNING] [discord.client] PyNaCl is not installed, voice will NOT be supported
+[2026-09-10 23:50:09,276] [WARNING] [discord.client] davey is not installed, voice will NOT be supported
+[2026-09-10 23:50:10] [Telegram] [INFO] [INIT] [StoreLimitless_bot] Bot is online. Logged in (id=8404712547)
+[2026-09-10 23:50:10] [Discord] [INFO] [MAIN] [] Starting Store Limitless Bot...
+[2026-09-10 23:50:10,652] [INFO] [discord.client] logging in using static token
+[2026-09-10 23:50:13,292] [INFO] [discord.gateway] Shard ID None has connected to Gateway (Session ID: 3768765fa733f256743eaec8ba7ef61c).
+[2026-09-10 23:50:15] [Discord] [INFO] [INIT] [StoreLimitless#1152] FILE_DUMP channel initialized: files-dump (id=1399311590616203284).
+[2026-09-10 23:50:15] [Discord] [INFO] [INIT] [StoreLimitless#1152] Bot online and ready (id=1399287140885725245).
+[2026-09-10 23:51:02] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
+[2026-09-10 23:51:02] [Database] [INFO] [GET TRASHED FILES] [iamloki] Select query executed for trashed files.
+[2026-09-10 23:51:02] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
+[2026-09-10 23:51:02] [Database] [INFO] [GET TRASHED FILES] [iamloki] Select query executed for trashed files.
+[2026-09-10 23:52:46,124] [WARNING] [asyncio] socket.send() raised exception.
+[2026-09-10 23:52:46,124] [WARNING] [asyncio] socket.send() raised exception.
+[2026-09-10 23:52:46,124] [WARNING] [asyncio] socket.send() raised exception.
+[2026-09-10 23:52:46,124] [WARNING] [asyncio] socket.send() raised exception.
+[2026-09-10 23:52:51,849] [WARNING] [asyncio] socket.send() raised exception.
+[2026-09-10 23:52:51,849] [WARNING] [asyncio] socket.send() raised exception.
+[2026-09-10 23:52:51,849] [WARNING] [asyncio] socket.send() raised exception.
+[2026-09-10 23:52:51,849] [WARNING] [asyncio] socket.send() raised exception.
+[2026-09-10 23:52:56,873] [WARNING] [asyncio] socket.send() raised exception.
+[2026-09-10 23:52:56,874] [WARNING] [asyncio] socket.send() raised exception.
+[2026-09-10 23:52:56,877] [WARNING] [asyncio] socket.send() raised exception.
+[2026-09-10 23:52:56,879] [WARNING] [asyncio] socket.send() raised exception.
+[2026-09-10 23:53:35] [Telegram] [INFO] [SHUTDOWN] [] Telegram client stopped.
+[2026-09-10 23:54:35,817] [WARNING] [discord.client] PyNaCl is not installed, voice will NOT be supported
+[2026-09-10 23:54:35,817] [WARNING] [discord.client] davey is not installed, voice will NOT be supported
+[2026-09-10 23:54:37] [Telegram] [INFO] [INIT] [StoreLimitless_bot] Bot is online. Logged in (id=8404712547)
+[2026-09-10 23:54:37] [Discord] [INFO] [MAIN] [] Starting Store Limitless Bot...
+[2026-09-10 23:54:37,639] [INFO] [discord.client] logging in using static token
+[2026-09-10 23:54:40,286] [INFO] [discord.gateway] Shard ID None has connected to Gateway (Session ID: 88f854335615f62a6c11e47e35bd90cc).
+[2026-09-10 23:54:42] [Discord] [INFO] [INIT] [StoreLimitless#1152] FILE_DUMP channel initialized: files-dump (id=1399311590616203284).
+[2026-09-10 23:54:42] [Discord] [INFO] [INIT] [StoreLimitless#1152] Bot online and ready (id=1399287140885725245).
+[2026-09-10 23:55:05] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
+[2026-09-10 23:55:05] [Database] [INFO] [GET TRASHED FILES] [iamloki] Select query executed for trashed files.
+[2026-09-10 23:55:05] [Database] [INFO] [PURGE TRASH] [iamloki] Purged 0 expired trash item(s).
+[2026-09-10 23:55:05] [Database] [INFO] [GET TRASHED FILES] [iamloki] Select query executed for trashed files.
+[2026-09-10 23:55:11,374] [WARNING] [asyncio] socket.send() raised exception.
+[2026-09-10 23:55:11,374] [WARNING] [asyncio] socket.send() raised exception.
+[2026-09-10 23:59:44] [Telegram] [INFO] [SHUTDOWN] [] Telegram client stopped.
