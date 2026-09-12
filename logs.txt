@@ -1,4 +1,5 @@
 <<<<<<< HEAD
+<<<<<<< HEAD
 [2026-09-07 19:03:50,597] [WARNING] [discord.client] PyNaCl is not installed, voice will NOT be supported
 [2026-09-07 19:03:50,597] [WARNING] [discord.client] davey is not installed, voice will NOT be supported
 [2026-09-07 19:03:52] [Telegram] [INFO] [INIT] [StoreLimitless_bot] Bot is online. Logged in (id=8404712547)
@@ -966,3 +967,5 @@ yt_dlp.utils.DownloadError: [0;31mERROR:[0m You have requested merging of mult
 [2026-09-12 13:14:28] [Discord] [INFO] [INIT] [StoreLimitless#1152] FILE_DUMP channel initialized: files-dump (id=1399311590616203284).
 [2026-09-12 13:14:28] [Discord] [INFO] [INIT] [StoreLimitless#1152] Bot online and ready (id=1399287140885725245).
 [2026-09-12 13:16:34] [Telegram] [INFO] [SHUTDOWN] [] Telegram client stopped.
+=======
+>>>>>>> 7add38577a9fefb5e6278d7bc00863294cd56516
