@@ -1110,27 +1110,24 @@ export default function DashboardPage() {
                                             </>)}
                                         </div>
                                     </div>
-                                    );
-                                    })}
-                                </div>
-                            </div>))
-                            }
-                                </>)}
-                        </main>
-                    </div>
-
-                    {streamData && (<StreamModal
-                        file={streamData.file}
-                    streamUrl={streamData.url}
-                    onClose={() => setStreamData(null)}
-                />)}
-
-                {showFolderModal && (<CreateFolderModal
-                    targetPath={currentFolder}
-                  onClose={() => setShowFolderModal(false)}
-                  onCreate={createFolder}
-            />
-            )}
+                                </div>);
+                            })}
+                        </div>
+                    </div>))}
+                </>)}
+            </main>
         </div>
-        );
-        }
+
+        {streamData && (<StreamModal
+            file={streamData.file}
+            streamUrl={streamData.url}
+            onClose={() => setStreamData(null)}
+        />)}
+
+        {showFolderModal && (<CreateFolderModal
+            targetPath={currentFolder}
+            onClose={() => setShowFolderModal(false)}
+            onCreate={createFolder}
+        />)}
+    </div>);
+}

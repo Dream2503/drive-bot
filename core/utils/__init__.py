@@ -128,6 +128,7 @@ async def upload_growing_file(file: File,
         path = next(p for p in path.parent.iterdir() if p.is_file())
         size: int = path.stat().st_size
 
+    total_size = size
     offset: int = (part - start_part) * data_center.MAX_SIZE
 
     while size >= offset + data_center.MAX_SIZE:
