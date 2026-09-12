@@ -1,4 +1,5 @@
 from asyncio import create_task, CancelledError, gather, run, Task
+from subprocess import Popen
 from threading import Thread
 
 from uvicorn import Config, Server
@@ -19,6 +20,7 @@ async def main() -> None:
     await Telegram.main()
     discord_thread: Thread = Thread(target=Discord.main, daemon=True)
     server_task: Task[None] = create_task(run_server())
+    npm_process: Popen = Popen(["npm", "run", "dev"], cwd="frontend")
     discord_thread.start()
 
     try:
@@ -30,6 +32,16 @@ async def main() -> None:
     finally:
         server_task.cancel()
         await gather(server_task, return_exceptions=True)
+
+        if npm_process.poll() is None:
+            npm_process.terminate()
+
+            try:
+                npm_process.wait(timeout=5)
+
+            except TimeoutExpired:
+                npm_process.kill()
+
         await Telegram.exit()
         discord_thread.join(timeout=5)
 
