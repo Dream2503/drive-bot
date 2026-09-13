@@ -1,10 +1,10 @@
-from asyncio import create_task, CancelledError, gather, run, Task
-from subprocess import Popen
+from asyncio import CancelledError, Task, create_task, gather, run
 from threading import Thread
 
 from uvicorn import Config, Server
 
 from core.data_center import DataCenter
+from core.utils import check_dependencies
 from core.utils.discord_ import Discord
 from core.utils.telegram_ import Telegram
 
@@ -16,11 +16,11 @@ async def run_server() -> None:
 
 
 async def main() -> None:
+    check_dependencies()
     await DataCenter.initialize_cache()
     await Telegram.main()
     discord_thread: Thread = Thread(target=Discord.main, daemon=True)
     server_task: Task[None] = create_task(run_server())
-    npm_process: Popen = Popen(["npm", "run", "dev"], cwd="frontend")
     discord_thread.start()
 
     try:
@@ -32,16 +32,6 @@ async def main() -> None:
     finally:
         server_task.cancel()
         await gather(server_task, return_exceptions=True)
-
-        if npm_process.poll() is None:
-            npm_process.terminate()
-
-            try:
-                npm_process.wait(timeout=5)
-
-            except TimeoutExpired:
-                npm_process.kill()
-
         await Telegram.exit()
         discord_thread.join(timeout=5)
 

@@ -1,12 +1,12 @@
 from .auth import StoreLimitless
-from .client import StoreLimitlessClient
+from .user import User
 from .directory import Directory
 from .exception import StoreLimitlessConnectionError, StoreLimitlessError, StoreLimitlessHTTPError, StoreLimitlessResponseError
 from .file import File
 
 __all__ = [
     "StoreLimitless",
-    "StoreLimitlessClient",
+    "User",
     "Directory",
     "StoreLimitlessError",
     "StoreLimitlessConnectionError",

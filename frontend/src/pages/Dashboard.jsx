@@ -479,13 +479,10 @@ export default function DashboardPage() {
         }
 
         try {
-            const linkRes = await fetch(`${API_URL}/auth/files/${file.id}/public-link`, {
+            const {public_token} = await (await fetch(`${API_URL}/auth/files/${file.id}/public-link`, {
                 method: "POST", headers: {Authorization: `Bearer ${token}`},
-            });
-            if (!linkRes.ok) throw new Error("Failed to initialize stream.");
-            const {url} = await linkRes.json();
-            const streamToken = url.split("/").filter(Boolean).pop();
-            setStreamData({file, url: `${API_URL}/public/stream/${streamToken}`});
+            })).json();
+            setStreamData({file, url: `${API_URL}/public/stream/${public_token}`});
         } catch (error) {
             console.error("Stream init error:", error);
             alert(error.message || "Could not stream file.");
@@ -502,18 +499,10 @@ export default function DashboardPage() {
         }
 
         try {
-            const linkRes = await fetch(`${API_URL}/auth/files/${fileId}/public-link`, {
+            const {public_token} = await (await fetch(`${API_URL}/auth/files/${fileId}/public-link`, {
                 method: "POST", headers: {Authorization: `Bearer ${token}`},
-            });
-
-            if (!linkRes.ok) {
-                const errorData = await linkRes.json().catch(() => ({}));
-                throw new Error(errorData.detail || "Failed to generate download link.");
-            }
-
-            const {url} = await linkRes.json();
-            const downloadToken = url.split("/").filter(Boolean).pop();
-            const downloadUrl = `${API_URL}/public/download/${downloadToken}`;
+            })).json();
+            const downloadUrl = `${API_URL}/public/download/${public_token}`;
 
             const anchor = document.createElement("a");
             anchor.href = downloadUrl;
