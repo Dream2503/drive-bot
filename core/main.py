@@ -2,6 +2,7 @@ from asyncio import CancelledError, Task, create_task, gather, run
 from shutil import rmtree
 from threading import Thread
 
+from backend.server.app import app
 from core.config import TRANSFER_PATH
 from core.data_center import DataCenter
 from core.utils import check_dependencies
@@ -11,7 +12,7 @@ from uvicorn import Config, Server
 
 
 async def run_server() -> None:
-    config: Config = Config("backend.server.app:app", host="0.0.0.0", port=8000, log_level="warning")
+    config: Config = Config(app, host="0.0.0.0", port=8000, log_level="warning")
     server: Server = Server(config)
     await server.serve()
 
