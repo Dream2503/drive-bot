@@ -3,8 +3,9 @@ from __future__ import annotations
 from datetime import datetime
 from pathlib import Path
 from time import sleep
-from typing import Literal, TYPE_CHECKING
+from typing import Literal, TYPE_CHECKING, NamedTuple, cast
 
+from requests import Response
 from tqdm import tqdm
 
 from .auth import StoreLimitless
@@ -13,6 +14,11 @@ from .file import File
 
 if TYPE_CHECKING:
     from .user import User
+
+
+class DirectoryResult(NamedTuple):
+    directories: list[Directory]
+    files: list[File]
 
 
 class Directory:
@@ -36,23 +42,24 @@ class Directory:
         folders: int = 0
         files_count: int = 0
         total_size: int = 0
-        directories_to_visit = [self]
+        directories_to_visit: list[Directory] = [self]
 
         while directories_to_visit:
-            directory = directories_to_visit.pop()
-            directories, files = directory.ls()
-
+            directory: Directory = directories_to_visit.pop()
+            directories, files = directory.ls
             folders += len(directories)
             files_count += len(files)
             total_size += sum(file.size for file in files)
             directories_to_visit.extend(directories)
 
+        unit: str = ""
         size: float = float(total_size)
         units: tuple[str, ...] = ("B", "KB", "MB", "GB", "TB")
 
         for unit in units:
             if size < 1024 or unit == units[-1]:
                 break
+
             size /= 1024
 
         return (
@@ -63,105 +70,103 @@ class Directory:
             f"Modified: {self.modified_at}\n"
         )
 
+    def __truediv__(self, arg: str) -> Directory:
+        return self.cd(arg)
+
     def mkdir(self, name: str) -> Directory:
         if not name or name in (".", ".."):
             raise ValueError("Invalid folder name")
 
-        StoreLimitless.request(
-            self.user.token,
-            "POST",
-            "/auth/create-folder",
-            params={
-                "directory": str(self.path),
-                "name": name,
-            },
-        )
+        StoreLimitless.request(self.user.token, "POST", "/auth/create-folder", params={"directory": str(self.path), "name": name})
         return self
 
     def cd(self, arg: str) -> Directory:
         if arg in ("~", "/"):
-            self.__dict__.update(self.user.directory.__dict__)
-            return self
+            return self.user.home
+
+        if arg == "..":
+            if self.path == self.user.home.path:
+                return self.user.home
+
+            path = self.path.parent
+            directory = self.user.home
+
+            for part in path.relative_to(self.user.home.path).parts:
+                directory = directory / part
+
+            return directory
 
         if len(Path(arg).parts) != 1:
             raise ValueError("cd accepts only one directory at a time")
 
-        path = self.path / arg if not arg.startswith("/") else Path(arg)
-        directories, _ = self.ls()
+        path = self.path / arg
 
-        for directory in directories:
+        for directory in self.ls.directories:
             if directory.path == path:
-                self.__dict__.update(directory.__dict__)
-                return self
+                return directory
 
         raise ValueError(f"Directory does not exist: {path}")
 
-    def ls(self) -> tuple[list[Directory], list[File]]:
+    @property
+    def ls(self) -> DirectoryResult:
         current_directory = str(self.path)
-        response = StoreLimitless.request(
-            self.user.token,
-            "GET",
-            "/auth/directory",
-            params={"directory": current_directory},
-        )
-        directories, files = response.json()
+        directories, files = StoreLimitless.request(self.user.token, "GET", "/auth/directory", params={"directory": current_directory}).json()
 
-        return [
-            Directory(self.user,
-                      directory["id"],
-                      Path(directory["path"]),
-                      datetime.fromisoformat(directory["modified_at"]),
-                      datetime.fromisoformat(directory["deleted_at"]) if directory["deleted_at"] else None)
-            for directory in directories], [
-            File(file["id"],
-                 self,
-                 file["name"],
-                 file["type"],
-                 file["size"],
-                 datetime.fromisoformat(file["modified_at"]),
-                 datetime.fromisoformat(file["deleted_at"]) if file["deleted_at"] else None,
-                 file["data_center"])
-            for file in files
-        ]
+        return DirectoryResult([
+            Directory(
+                self.user,
+                directory["id"],
+                Path(directory["path"]),
+                datetime.fromisoformat(directory["modified_at"]),
+                datetime.fromisoformat(directory["deleted_at"]) if directory["deleted_at"] else None
+            ) for directory in directories
+        ], [
+            File(
+                file["id"],
+                self,
+                file["name"],
+                file["type"],
+                file["size"],
+                datetime.fromisoformat(file["modified_at"]),
+                datetime.fromisoformat(file["deleted_at"]) if file["deleted_at"] else None,
+                file["data_center"]
+            ) for file in files
+        ])
 
-    def find(self, file_name: str) -> tuple[list[Directory], list[File]]:
+    def find(self, file_name: str) -> DirectoryResult:
         directories: list[Directory] = []
         files: list[File] = []
         directories_to_visit: list[Directory] = [self]
+        query: list[str] = file_name.lower().split()
 
         while directories_to_visit:
             directory: Directory = directories_to_visit.pop()
-            child_directories, child_files = directory.ls()
-            directories.extend(directory for directory in child_directories if file_name.lower() in directory.path.name.lower())
-            files.extend(file for file in child_files if file_name.lower() in file.name.lower())
+            child_directories, child_files = directory.ls
+            directories.extend(directory for directory in child_directories if all(word in directory.path.name.lower() for word in query))
+            files.extend(file for file in child_files if all(word in file.name.lower() for word in query))
             directories_to_visit.extend(child_directories)
 
-        return directories, files
+        return DirectoryResult(directories, files)
 
-    def upload(self, source: str | Path, data_center: Literal["Discord", "Telegram"], *, quiet: bool = False) -> File:
+    def upload(self, source: str | Path, data_center: Literal["Discord", "Telegram"] = "Discord", *, quiet: bool = False) -> File:
         if isinstance(source, Path) or not source.startswith(("http://", "https://")):
-            path: Path = Path(source)
-
-            if not path.is_file():
-                raise FileNotFoundError(path)
-
-            file_name: str = path.name
+            path: Path = Path(source).expanduser()
 
             with path.open("rb") as file:
-                response = StoreLimitless.request(
+                response: Response = StoreLimitless.request(
                     self.user.token,
                     "POST",
                     "/auth/upload",
                     headers={
                         "X-Data-Center": data_center,
-                        "X-File-Name": file_name,
+                        "X-File-Name": path.name,
                         "X-Directory": str(self.path),
                         "Content-Type": "application/octet-stream",
                     },
                     data=file,
                 )
         else:
-            response = StoreLimitless.request(
+            response: Response = StoreLimitless.request(
                 self.user.token,
                 "POST",
                 "/auth/upload-link",
@@ -185,24 +190,20 @@ class Directory:
                 disable=quiet,
                 ascii=" ━",
                 colour="green",
-                bar_format="\033[92m{desc}\033[0m {bar:40}\033[0m \033[92m{n_fmt}/{total_fmt}\033[0m \033[91m{rate_fmt}\033[0m eta \033[96m{remaining}\033[0m"
+                bar_format="\033[92m{desc}\033[0m{bar:40}\033[0m \033[92m{n_fmt}/{total_fmt}\033[0m \033[91m{rate_fmt}\033[0m eta \033[96m{remaining}\033[0m"
         ) as bar:
             while True:
-                response = StoreLimitless.request(
-                    self.user.token,
-                    "GET",
-                    f"/auth/upload/{job_id}/status",
-                )
+                response: Response = StoreLimitless.request(self.user.token, "GET", f"/auth/upload/{job_id}/status")
 
                 try:
-                    status: dict = response.json()
+                    status: dict[str, str | int] = response.json()
 
                 except (ValueError, KeyError, TypeError) as e:
                     raise StoreLimitlessResponseError("StoreLimitless server returned an invalid upload status") from e
 
                 bar.total = status["total"]
                 bar.n = status["transfer"]
-                bar.set_description(status["message"], refresh=False)
+                bar.set_description(cast(str, status["message"]), refresh=False)
                 bar.refresh()
 
                 if status["status"] == "completed":
@@ -213,8 +214,19 @@ class Directory:
         if status["file_id"] is None:
             raise StoreLimitlessResponseError("Upload completed but the server did not return a file ID")
 
-        for file in self.ls()[1]:
+        for file in self.ls[1]:
             if file.id == status["file_id"]:
                 return file
 
         raise StoreLimitlessResponseError(f"Upload completed but file {status["file_id"]} could not be found")
+
+    def rm(self) -> Directory:
+        StoreLimitless.request(self.user.token, "DELETE", f"/auth/directory/{self.id}")
+        return self
+
+    def delete(self) -> None:
+        StoreLimitless.request(self.user.token, "DELETE", f"/auth/trash/directory/{self.id}")
+
+    def restore(self) -> Directory:
+        StoreLimitless.request(self.user.token, "POST", f"/auth/trash/directory/{self.id}/restore")
+        return self

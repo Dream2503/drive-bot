@@ -479,7 +479,7 @@ export default function DashboardPage() {
         }
 
         try {
-            const {public_token} = await (await fetch(`${API_URL}/auth/files/${file.id}/public-link`, {
+            const {public_token} = await (await fetch(`${API_URL}/auth/file/${file.id}/public-link`, {
                 method: "POST", headers: {Authorization: `Bearer ${token}`},
             })).json();
             setStreamData({file, url: `${API_URL}/public/stream/${public_token}`});
@@ -499,7 +499,7 @@ export default function DashboardPage() {
         }
 
         try {
-            const {public_token} = await (await fetch(`${API_URL}/auth/files/${fileId}/public-link`, {
+            const {public_token} = await (await fetch(`${API_URL}/auth/file/${fileId}/public-link`, {
                 method: "POST", headers: {Authorization: `Bearer ${token}`},
             })).json();
             const downloadUrl = `${API_URL}/public/download/${public_token}`;
@@ -532,7 +532,7 @@ export default function DashboardPage() {
         setDeletingId(fileId);
 
         try {
-            const endpoint = permanent ? `${API_URL}/auth/trash/${fileId}` : `${API_URL}/auth/files/${fileId}`;
+            const endpoint = permanent ? `${API_URL}/auth/trash/file/${fileId}` : `${API_URL}/auth/file/${fileId}`;
 
             const response = await fetch(endpoint, {
                 method: "DELETE", headers: {Authorization: `Bearer ${token}`},
@@ -565,7 +565,7 @@ export default function DashboardPage() {
         }
 
         try {
-            const response = await fetch(`${API_URL}/auth/trash/${itemId}/restore`, {
+            const response = await fetch(`${API_URL}/auth/trash/file/${itemId}/restore`, {
                 method: "POST", headers: {Authorization: `Bearer ${token}`},
             });
 
@@ -654,7 +654,7 @@ export default function DashboardPage() {
         setDeletingId(`folder-${folderId}`);
 
         try {
-            const endpoint = permanent ? `${API_URL}/auth/trash/directory/${folderId}` : `${API_URL}/auth/directories/${folderId}`;
+            const endpoint = permanent ? `${API_URL}/auth/trash/directory/${folderId}` : `${API_URL}/auth/directory/${folderId}`;
 
             const response = await fetch(endpoint, {
                 method: "DELETE", headers: {Authorization: `Bearer ${token}`},

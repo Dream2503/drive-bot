@@ -1,9 +1,7 @@
-from storelimtless import User, Directory, StoreLimitless
+from pathlib import Path
 
-client: User = StoreLimitless.login("iamloki", "whoami")
-directory: Directory = client.directory
-# print(directory.upload("/home/dream/Downloads/video.mp4", "Telegram"))
-# print(directory.upload("https://drive.google.com/file/d/1OP5AkfKzvugzV-dCb-HSN9o--FeloyaC/view?usp=drive_link", "Discord"))
-# print(directory.upload("https://youtu.be/Ig5D3XPK4Xo?si=B__yAWdUVV8skSGE", "Telegram"))
-print(*directory.ls()[1], sep='\n')
-directory.find("video")[1][0].download()
+from src.storelimtless import User, StoreLimitless
+
+user: User = StoreLimitless.login("iamloki", "whoami")
+# print(user.home.find("P04S03").directories[0].upload(Path("~/Downloads/Telegram Desktop/Phase 4/P04S03 - Loki - Season 1/Loki S01E01 1080p 60FPS 10bit x265 HEVC.mkv")))
+# user.home.find("Loki S01E01").files[0].stream()

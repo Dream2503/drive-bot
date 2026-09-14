@@ -1,12 +1,21 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 import requests
 from requests import Response
 
 from .exception import StoreLimitlessHTTPError, StoreLimitlessConnectionError, StoreLimitlessError, StoreLimitlessResponseError
-from .user import User
+
+if TYPE_CHECKING:
+    from .user import User
 
 
 class StoreLimitless:
     API_URL: str = "http://127.0.0.1:8000"
+
+    def __new__(cls, *args, **kwargs):
+        raise TypeError("MyClass cannot be instantiated")
 
     @staticmethod
     def request(token: str | None, method: str, path: str, **kwargs) -> Response:
@@ -31,10 +40,10 @@ class StoreLimitless:
 
         if not response.ok:
             try:
-                message = response.json().get("detail", response.text)
+                message: str = response.json().get("detail", response.text)
 
             except (ValueError, AttributeError):
-                message = response.text
+                message: str = response.text
 
             raise StoreLimitlessHTTPError(response.status_code, message or f"HTTP {response.status_code}")
 
@@ -42,21 +51,16 @@ class StoreLimitless:
 
     @classmethod
     def login(cls, username: str, password: str) -> User:
-        response = cls.request(
-            None,
-            "POST",
-            "/auth/login",
-            params={"username": username, "password": password},
-        )
+        from .user import User
+
+        response: Response = cls.request(None, "POST", "/auth/login", params={"username": username, "password": password})
 
         try:
-            reply, user, directory = response.json()
-            token: str = reply["access_token"]
+            reply, user, home = response.json()
+            return User(reply["access_token"], **user, home=home)
 
         except (ValueError, KeyError, TypeError) as e:
             raise StoreLimitlessResponseError("StoreLimitless server returned an invalid login response") from e
-
-        return User(token, **user, directory=directory)
 
     @classmethod
     def register(cls, first_name: str, last_name: str, username: str, password: str) -> None:

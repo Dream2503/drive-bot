@@ -49,7 +49,7 @@ def login(username: str, password: str) -> tuple[dict[str, str], dict[str, str],
                 "username": user.username,
                 "first_name": user.first_name,
                 "last_name": user.last_name,
-            }, user.get_home_directory()
+            }, user.home
     )
 
 
@@ -169,10 +169,10 @@ def get_directory(directory: str, user: User = Depends(get_current_user)) -> tup
 @auth.get("/trash")
 def get_trash(user: User = Depends(get_current_user)) -> tuple[list[Directory], list[File]]:
     File.purge_expired(user.username)
-    return Directory.get_all(user.username, trashed_only=True), File.get_all(user.username, trashed_only=True),
+    return Directory.get_all(user.username, trashed_only=True), File.get_all(user.username, trashed_only=True)
 
 
-@auth.delete("/files/{fid}")
+@auth.delete("/file/{fid}")
 def file_delete(fid: int, user: User = Depends(get_current_user)) -> JSONResponse:
     file: File | None = File.get(fid=fid)
 
@@ -186,7 +186,7 @@ def file_delete(fid: int, user: User = Depends(get_current_user)) -> JSONRespons
     return JSONResponse({"message": "File moved to trash"})
 
 
-@auth.delete("/directories/{did}")
+@auth.delete("/directory/{did}")
 def directory_delete(did: int, user: User = Depends(get_current_user)) -> JSONResponse:
     directory: Directory | None = Directory.get(did=did)
 
@@ -196,17 +196,11 @@ def directory_delete(did: int, user: User = Depends(get_current_user)) -> JSONRe
     if directory.username != user.username:
         raise HTTPException(status_code=403, detail="Access denied")
 
-    for file in File.get_all(user.username, directory_id=directory.id):
-        file.move_to_trash()
-
-    for child in Directory.get_all(user.username, directory=directory.path):
-        directory_delete(cast(int, child.id), user)
-
     directory.move_to_trash()
     return JSONResponse({"message": "Directory moved to trash"})
 
 
-@auth.delete("/trash/{fid}")
+@auth.delete("/trash/file/{fid}")
 def permanently_delete(fid: int, user: User = Depends(get_current_user)) -> JSONResponse:
     file: File | None = File.get(fid=fid, trashed_only=True)
 
@@ -234,7 +228,7 @@ def permanently_delete_directory(did: int, user: User = Depends(get_current_user
     return JSONResponse({"message": "Permanently deleted"})
 
 
-@auth.post("/trash/{fid}/restore")
+@auth.post("/trash/file/{fid}/restore")
 def restore_file(fid: int, user: User = Depends(get_current_user)) -> JSONResponse:
     file: File | None = File.get(fid=fid, trashed_only=True)
 
@@ -253,11 +247,10 @@ def restore_directory(did: int, user: User = Depends(get_current_user)) -> JSONR
         raise HTTPException(status_code=404, detail="Directory not found")
 
     directory.restore()
-
     return JSONResponse({"message": "Restored"})
 
 
-@auth.post("/files/{fid}/public-link")
+@auth.post("/file/{fid}/public-link")
 def create_public_link(fid: int, user: User = Depends(get_current_user)) -> dict[str, str]:
     file: File | None = File.get(fid=fid)
 

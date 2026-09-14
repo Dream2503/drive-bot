@@ -187,7 +187,7 @@ class Directory(BaseModel):
             raise ValueError("Directory has no ID")
 
         self.deleted_at = datetime.now(timezone.utc)
-        self.modified_at = self.deleted_at
+        self.modified_at = cast(datetime, self.deleted_at)
         self.update()
 
     def delete(self) -> None:

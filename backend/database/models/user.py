@@ -51,7 +51,8 @@ class User(BaseModel):
             write_log("ERROR", Database, "SET USER", self.username, f"Failed to insert user: {e}")
             raise
 
-    def get_home_directory(self) -> Directory:
+    @property
+    def home(self) -> Directory:
         return cast(Directory, Directory.get(path=Path("/home"), username=self.username))
 
     @classmethod

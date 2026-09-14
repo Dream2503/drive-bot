@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import subprocess
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
+from requests import Response
 from tqdm import tqdm
 
 from .auth import StoreLimitless
@@ -14,8 +16,17 @@ if TYPE_CHECKING:
 
 
 class File:
-    def __init__(self, id: int, directory: Directory, name: str, type: str, size: int, modified_at: datetime, deleted_at: datetime | None,
-                 data_center: str):
+    def __init__(
+            self,
+            id: int,
+            directory: Directory,
+            name: str,
+            type: str,
+            size: int,
+            modified_at: datetime,
+            deleted_at: datetime | None,
+            data_center: str
+    ) -> None:
         self.id: int = id
         self.directory: Directory = directory
         self.name: str = name
@@ -45,6 +56,7 @@ class File:
         for unit in units:
             if size < 1024 or unit == units[-1]:
                 break
+
             size /= 1024
 
         return (
@@ -58,24 +70,13 @@ class File:
     def download(self, path: str | Path | None = None, *, quiet: bool = False) -> Path:
         path = Path(path) if path is not None else Path(self.name)
 
-        response = StoreLimitless.request(
-            self.directory.user.token,
-            "POST",
-            f"/auth/files/{self.id}/public-link",
-        )
-
         try:
-            token: str = response.json()["public_token"]
+            token: str = StoreLimitless.request(self.directory.user.token, "POST", f"/auth/file/{self.id}/public-link").json()["public_token"]
 
         except (ValueError, KeyError, TypeError) as e:
             raise StoreLimitlessResponseError("StoreLimitless server returned an invalid public link response") from e
 
-        response = StoreLimitless.request(
-            self.directory.user.token,
-            "GET",
-            f"/public/download/{token}",
-            stream=True,
-        )
+        response: Response = StoreLimitless.request(self.directory.user.token, "GET", f"/public/download/{token}", stream=True)
 
         try:
             total: int = int(response.headers.get("Content-Length", self.size))
@@ -94,12 +95,31 @@ class File:
                 disable=quiet,
                 ascii=" ━",
                 colour="green",
-                bar_format="\033[92m{desc}\033[0m {bar:40}\033[0m \033[92m{n_fmt}/{total_fmt}\033[0m \033[91m{rate_fmt}\033[0m eta \033[96m{remaining}\033[0m",
+                bar_format="\033[92m{desc}\033[0m{bar:40}\033[0m \033[92m{n_fmt}/{total_fmt}\033[0m \033[91m{rate_fmt}\033[0m eta \033[96m{remaining}\033[0m",
         ) as bar:
             with path.open("wb") as file:
                 for chunk in response.iter_content(chunk_size=1024 * 1024):
                     if chunk:
-                        file.write(chunk)
-                        bar.update(len(chunk))
+                        bar.update(file.write(chunk))
 
         return path
+
+    def stream(self, *, application: Literal["vlc"] = "vlc") -> None:
+        try:
+            token: str = StoreLimitless.request(self.directory.user.token, "POST", f"/auth/file/{self.id}/public-link").json()["public_token"]
+
+        except (ValueError, KeyError, TypeError) as e:
+            raise StoreLimitlessResponseError("StoreLimitless server returned an invalid public link response") from e
+
+        subprocess.Popen([application, f"{StoreLimitless.API_URL}/public/stream/{token}"])
+
+    def rm(self) -> File:
+        StoreLimitless.request(self.directory.user.token, "DELETE", f"/auth/file/{self.id}")
+        return self
+
+    def delete(self) -> None:
+        StoreLimitless.request(self.directory.user.token, "DELETE", f"/auth/trash/file/{self.id}")
+
+    def restore(self) -> File:
+        StoreLimitless.request(self.directory.user.token, "POST", f"/auth/trash/file/{self.id}/restore")
+        return self
