@@ -7,18 +7,16 @@ from dotenv import load_dotenv
 from filelock import FileLock
 from redis.asyncio import Redis
 
-load_dotenv()
-
 # Paths
 BASE_DIR: Path = Path(__file__).resolve().parent.parent
-DATA_DIR: Path = Path(getenv("DATA_DIR"))
-DATABASE_PATH: Path = DATA_DIR / "database.db"
-LOG_PATH: Path = DATA_DIR / "logs.txt"
-LOG_LOCK_PATH: Path = DATA_DIR / "logs.lock"
-TELEGRAM_SESSION: Path = DATA_DIR / "telegram_bot"
-TRANSFER_PATH: Path = DATA_DIR / "transfer"
+DATABASE_PATH: Path = BASE_DIR / "backend" / "database" / "database.db"
+LOG_PATH: Path = BASE_DIR / "logs.txt"
+LOG_LOCK_PATH: Path = BASE_DIR / "logs.lock"
+TELEGRAM_SESSION: Path = BASE_DIR / "telegram_bot"
+TRANSFER_PATH: Path = BASE_DIR / "transfer"
 
 # Environment
+load_dotenv()
 GOOGLE_API_KEY: str = getenv("GOOGLE_API_KEY")
 
 # Application constants
@@ -35,7 +33,7 @@ SUPPORTED_DOMAINS: frozenset[str] = frozenset({
 })
 
 # Runtime state
-redis: Redis = Redis.from_url(getenv("REDIS_URL"), decode_responses=True)
+redis: Redis = Redis.from_url("redis://localhost:6379", decode_responses=True)
 UPLOAD_JOBS: Jobs = Jobs(redis)
 
 # Files and locks
@@ -44,6 +42,6 @@ LOG_HANDLER: TextIO = open(LOG_PATH, "a")
 LOCK: FileLock = FileLock(LOG_LOCK_PATH)
 
 # Logging
-basicConfig(level=INFO, filename=LOG_PATH, filemode="a", format="[%(asctime)s] [%(levelname)s] [%(name)s] %(message)s")
+basicConfig(level=INFO, filename=LOG_PATH, filemode="a", format="[%(asctime)s] [%(levelname)s] [%(name)s] %(message)s", )
 getLogger("httpx").setLevel(WARNING)
 getLogger("telethon").setLevel(WARNING)

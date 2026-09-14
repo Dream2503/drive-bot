@@ -1,12 +1,13 @@
 from asyncio import CancelledError, Task, create_task, gather, run
+from shutil import rmtree
 from threading import Thread
 
-from uvicorn import Config, Server
-
+from core.config import TRANSFER_PATH
 from core.data_center import DataCenter
 from core.utils import check_dependencies
 from core.utils.discord_ import Discord
 from core.utils.telegram_ import Telegram
+from uvicorn import Config, Server
 
 
 async def run_server() -> None:
@@ -34,6 +35,12 @@ async def main() -> None:
         await gather(server_task, return_exceptions=True)
         await Telegram.exit()
         discord_thread.join(timeout=5)
+
+        for path in TRANSFER_PATH.iterdir():
+            if path.is_dir():
+                rmtree(path)
+            else:
+                path.unlink()
 
 
 if __name__ == "__main__":
