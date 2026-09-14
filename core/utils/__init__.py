@@ -6,7 +6,6 @@ from asyncio import Task, create_task, wait, sleep
 from datetime import datetime
 from io import BytesIO
 from pathlib import Path
-from socket import create_connection
 from typing import Any, AsyncGenerator, TYPE_CHECKING
 
 from redis.asyncio import Redis
@@ -17,104 +16,38 @@ if TYPE_CHECKING:
 
 
 def check_dependencies() -> None:
-    missing: list[str] = []
+    if shutil.which("ffmpeg") is not None:
+        return
 
-    if shutil.which("ffmpeg") is None:
-        missing.append("FFmpeg")
+    system = platform.system()
 
-    if shutil.which("redis-server") is None:
-        missing.append("Redis")
-
-    if missing:
-        system = platform.system()
-        instructions: list[str] = []
-
-        if system == "Windows":
-            if "FFmpeg" in missing:
-                instructions.append(
-                    "FFmpeg:\n"
-                    "  1. Open PowerShell or Command Prompt.\n"
-                    "  2. Run: winget install Gyan.FFmpeg\n"
-                    "  3. Close and reopen your terminal so PATH is refreshed."
-                )
-
-            if "Redis" in missing:
-                instructions.append(
-                    "Redis:\n"
-                    "  1. Open PowerShell or Command Prompt as Administrator.\n"
-                    "  2. Run: winget install Memurai.Memurai\n"
-                    "  3. Memurai is installed as a Windows service and should start automatically.\n"
-                    "  4. If it does not start automatically, open the Memurai service from Windows Services and start it."
-                )
-
-        elif system == "Linux":
-            if "FFmpeg" in missing:
-                instructions.append(
-                    "FFmpeg:\n"
-                    "  1. Open a terminal.\n"
-                    "  2. Run: sudo apt update\n"
-                    "  3. Run: sudo apt install ffmpeg"
-                )
-
-            if "Redis" in missing:
-                instructions.append(
-                    "Redis:\n"
-                    "  1. Open a terminal.\n"
-                    "  2. Run: sudo apt update\n"
-                    "  3. Run: sudo apt install redis-server\n"
-                    "  4. Start Redis with: sudo systemctl enable --now redis-server"
-                )
-
-        else:
-            instructions.append(
-                "Your operating system is not supported automatically.\n"
-                "Install FFmpeg and Redis manually, then make sure both "
-                "commands are available in PATH."
-            )
-
-        raise RuntimeError(
-            "\n"
-            "╔══════════════════════════════════════════════════════════╗\n"
-            "║             Missing Required Dependencies                ║\n"
-            "╚══════════════════════════════════════════════════════════╝\n\n"
-            f"The application cannot start because the following dependencies are missing:\n\n"
-            f"  • {', '.join(missing)}\n\n"
-            "Follow the instructions below, then run the application again.\n\n"
-            + "\n\n".join(instructions)
-            + "\n\n"
-              "After installation, simply restart the application.\n"
+    if system == "Windows":
+        instructions: str = (
+            "FFmpeg is missing.\n\n"
+            "Install it with:\n"
+            "  winget install Gyan.FFmpeg\n"
+        )
+    elif system == "Linux":
+        instructions: str = (
+            "FFmpeg is missing.\n\n"
+            "Install it with:\n"
+            "  sudo apt update\n"
+            "  sudo apt install ffmpeg\n"
+        )
+    else:
+        instructions: str = (
+            "FFmpeg is missing.\n\n"
+            "Install FFmpeg manually and make sure it is available in PATH."
         )
 
-    try:
-        with create_connection(("127.0.0.1", 6379), timeout=1):
-            pass
-
-    except OSError as error:
-        system = platform.system()
-
-        if system == "Windows":
-            instructions = (
-                "Redis is installed, but the Redis server is not running.\n\n"
-                "Try the following:\n"
-                "  1. Open Windows Services.\n"
-                "  2. Find the Memurai service.\n"
-                "  3. Right-click it and select Start.\n\n"
-                "Then run the application again."
-            )
-        elif system == "Linux":
-            instructions = (
-                "Redis is installed, but the Redis server is not running.\n\n"
-                "Run:\n"
-                "  sudo systemctl enable --now redis-server\n\n"
-                "Then run the application again."
-            )
-        else:
-            instructions = (
-                "Redis is installed, but the Redis server is not running on localhost:6379.\n\n"
-                "Start the Redis server and then run the application again."
-            )
-
-        raise RuntimeError(instructions) from error
+    raise RuntimeError(
+        "\n"
+        "╔══════════════════════════════════════════════════════════╗\n"
+        "║             Missing Required Dependencies                ║\n"
+        "╚══════════════════════════════════════════════════════════╝\n\n"
+        f"{instructions}\n"
+        "After installation, restart the application.\n"
+    )
 
 
 def getenv(key: str) -> str:

@@ -136,6 +136,7 @@ async def download_youtube(file: File, link: str) -> AsyncGenerator[Progress, No
             "outtmpl": str(temp_dir / "%(title)s.%(ext)s"),
             "merge_output_format": "mkv",
             "writesubtitles": True,
+            "writeautomaticsub": True,
             "subtitleslangs": ["en"],
             "embedsubtitles": True,
             "progress_hooks": [hook],

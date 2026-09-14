@@ -1,6 +1,5 @@
 aiohttp
 bcrypt==4.0.1
-booktype
 discord-py
 fastapi[all]
 filelock

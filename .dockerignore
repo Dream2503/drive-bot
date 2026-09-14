@@ -1,0 +1,16 @@
+.git
+.gitignore
+.github
+
+api/
+frontend/
+__pycache__/
+*.pyc
+*.pyo
+
+node_modules/
+
+logs.txt
+logs.lock
+
+telegram_bot.session
