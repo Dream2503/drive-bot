@@ -1,12 +1,21 @@
 # -*- mode: python ; coding: utf-8 -*-
 
+import os
+
+FFMPEG = os.environ["STORELIMITLESS_FFMPEG"]
+REDIS = os.environ.get("STORELIMITLESS_REDIS")
+
+binaries = [(FFMPEG, ".")]
+
+if REDIS:
+    binaries.append((REDIS, "."))
 
 a = Analysis(
-    ['core/main.py'],
+    ["core/main.py"],
     pathex=[],
-    binaries=[],
+    binaries=binaries,
     datas=[(".env", ".")],
-    hiddenimports=['passlib.handlers.bcrypt'],
+    hiddenimports=["passlib.handlers.bcrypt"],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
@@ -14,14 +23,16 @@ a = Analysis(
     noarchive=False,
     optimize=0,
 )
+
 pyz = PYZ(a.pure)
 
 exe = EXE(
     pyz,
     a.scripts,
+    a.binaries,
+    a.datas,
     [],
-    exclude_binaries=True,
-    name='storelimitless-backend',
+    name="storelimitless-backend",
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -32,13 +43,4 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-)
-coll = COLLECT(
-    exe,
-    a.binaries,
-    a.datas,
-    strip=False,
-    upx=True,
-    upx_exclude=[],
-    name='storelimitless-backend',
 )

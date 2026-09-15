@@ -17,6 +17,7 @@ frontend/node_modules/
 transfer/
 telegram_bot.session
 
+releases
 build/
 dist/
 frontend/dist/

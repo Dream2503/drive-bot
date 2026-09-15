@@ -23,6 +23,7 @@ class Discord(DataCenter, metaclass=ConfigMeta):
     INTENTS.message_content = True
 
     app: Bot = Bot(command_prefix="!", intents=INTENTS, help_command=None, heartbeat_timeout=36_000)
+    ready: bool = False
 
     @staticmethod
     async def upload(chunk: bytes, filename: str, progress: Progress) -> str:
@@ -66,6 +67,7 @@ class Discord(DataCenter, metaclass=ConfigMeta):
                 write_log("ERROR", Discord, "INIT", "", f"Failed to fetch FILE_DUMP channel with ID {Discord.FILE_DUMP_ID}. Check bot permissions.")
 
             write_log("INFO", Discord, "INIT", str(Discord.app.user), f"Bot online and ready (id={Discord.app.user.id}).")
+            Discord.ready = True
 
         except Exception as e:
             write_log("ERROR", Discord, "INIT", "", f"Initialization failure: {e}\n{format_exc()}")

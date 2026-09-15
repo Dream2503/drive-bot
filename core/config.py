@@ -6,12 +6,11 @@ from logging import INFO, WARNING, basicConfig, getLogger
 from pathlib import Path
 from typing import TextIO
 
-from core.utils import Jobs, getenv
 from dotenv import load_dotenv
 from filelock import FileLock
 from redis.asyncio import Redis
 
-# Paths
+from core.utils import Jobs, getenv
 
 BASE_DIR: Path = Path(__file__).resolve().parent.parent
 FROZEN: bool = getattr(sys, "frozen", False)
@@ -19,7 +18,6 @@ FROZEN: bool = getattr(sys, "frozen", False)
 if FROZEN:
     if platform.system() == "Windows":
         BASE_DIR = Path(os.getenv("LOCALAPPDATA", Path.home() / "AppData/Local")) / "StoreLimitless"
-
     else:
         BASE_DIR = Path(os.getenv("XDG_DATA_HOME", Path.home() / ".local/share")) / "storelimitless"
 
@@ -31,6 +29,7 @@ if FROZEN:
     TELEGRAM_SESSION: Path = BASE_DIR / "telegram_bot"
     TRANSFER_PATH: Path = BASE_DIR / "transfer"
     ENV_PATH: Path = BASE_DIR / ".env"
+
     TRANSFER_PATH.mkdir(parents=True, exist_ok=True)
 
     if not ENV_PATH.exists():
@@ -47,16 +46,17 @@ else:
     LOG_LOCK_PATH: Path = BASE_DIR / "logs.lock"
     TELEGRAM_SESSION: Path = BASE_DIR / "telegram_bot"
     TRANSFER_PATH: Path = BASE_DIR / "transfer"
+
     load_dotenv()
 
 GOOGLE_API_KEY: str = getenv("GOOGLE_API_KEY")
 
-# Application constants
 POSSIBLE_DATACENTERS: frozenset[str] = frozenset({
     "Discord",
     "GitHub",
     "Telegram",
 })
+
 SUPPORTED_DOMAINS: frozenset[str] = frozenset({
     "drive.google.com",
     "youtube.com",
@@ -64,16 +64,23 @@ SUPPORTED_DOMAINS: frozenset[str] = frozenset({
     "m.youtube.com",
 })
 
-# Runtime state
+RUNTIME_DIR: Path = Path(sys._MEIPASS) if FROZEN else BASE_DIR
+FFMPEG_PATH: Path = RUNTIME_DIR / ("ffmpeg.exe" if platform.system() == "Windows" else "ffmpeg")
+REDIS_PATH: Path = RUNTIME_DIR / "redis-server"
+
 redis: Redis = Redis.from_url("redis://localhost:6379", decode_responses=True)
 UPLOAD_JOBS: Jobs = Jobs(redis)
 
-# Files and locks
 TRANSFER_PATH.mkdir(exist_ok=True)
 LOG_HANDLER: TextIO = open(LOG_PATH, "a")
 LOCK: FileLock = FileLock(LOG_LOCK_PATH)
 
-# Logging
-basicConfig(level=INFO, filename=LOG_PATH, filemode="a", format="[%(asctime)s] [%(levelname)s] [%(name)s] %(message)s", )
+basicConfig(
+    level=INFO,
+    filename=LOG_PATH,
+    filemode="a",
+    format="[%(asctime)s] [%(levelname)s] [%(name)s] %(message)s",
+)
+
 getLogger("httpx").setLevel(WARNING)
 getLogger("telethon").setLevel(WARNING)
