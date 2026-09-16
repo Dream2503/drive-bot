@@ -1,10 +1,10 @@
 import platform
-import shutil
 import subprocess
 from asyncio import CancelledError, Task, create_task, gather, run
 from pathlib import Path
-from shutil import rmtree
+from shutil import rmtree, which
 from socket import create_connection
+from subprocess import Popen, CompletedProcess, DEVNULL, TimeoutExpired
 from threading import Thread
 from time import sleep
 
@@ -17,11 +17,8 @@ from core.utils.discord_ import Discord
 from core.utils.telegram_ import Telegram
 
 
-def start_redis() -> subprocess.Popen | None:
+def start_redis() -> Popen | None:
     from core.config import FROZEN
-
-    if platform.system() == "Windows":
-        return None
 
     try:
         with create_connection(("127.0.0.1", 6379), timeout=0.1):
@@ -30,14 +27,31 @@ def start_redis() -> subprocess.Popen | None:
     except OSError:
         pass
 
-    redis_path: Path = REDIS_PATH if FROZEN else Path(shutil.which("redis-server") or "")
+    if platform.system() == "Windows":
+        memurai_msi: Path = Path(__file__).resolve().parent / "Memurai.msi"
+
+        if not memurai_msi.is_file():
+            memurai_msi: Path = Path(__file__).resolve().parent / "resources" / "Memurai.msi"
+
+        if not memurai_msi.is_file():
+            raise FileNotFoundError(f"Memurai installer not found: {memurai_msi}")
+
+        result: CompletedProcess[bytes] = subprocess.run(["msiexec", "/i", str(memurai_msi), "/quiet", "/norestart"], check=False)
+
+        if result.returncode not in (0, 3010):
+            raise RuntimeError(f"Memurai installation failed with exit code: {result.returncode}")
+
+        subprocess.run(["sc", "start", "Memurai"], stdout=DEVNULL, stderr=DEVNULL, check=False)
+        return None
+
+    redis_path: Path = REDIS_PATH if FROZEN else Path(which("redis-server") or "")
 
     if not redis_path.is_file():
         raise FileNotFoundError(f"Redis executable not found: {redis_path}")
 
     redis_dir: Path = TRANSFER_PATH.parent / "redis"
     redis_dir.mkdir(parents=True, exist_ok=True)
-    return subprocess.Popen([
+    return Popen([
         str(redis_path),
         "--bind", "127.0.0.1",
         "--port", "6379",
@@ -88,7 +102,7 @@ async def main() -> None:
             try:
                 redis_process.wait(timeout=5)
 
-            except subprocess.TimeoutExpired:
+            except TimeoutExpired:
                 redis_process.kill()
                 redis_process.wait()
 
