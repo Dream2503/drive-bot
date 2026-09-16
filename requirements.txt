@@ -6,7 +6,7 @@ filelock
 gdown
 libtorrent
 passlib[bcrypt]==1.7.4
-psycopg2-binary
+psycopg[binary]
 pydantic
 python-dotenv
 python-jose

@@ -1,9 +1,9 @@
 import os
 import platform
-import shutil
 import sys
 from logging import INFO, WARNING, basicConfig, getLogger
 from pathlib import Path
+from shutil import copy2
 from typing import TextIO
 
 from dotenv import load_dotenv
@@ -12,18 +12,16 @@ from redis.asyncio import Redis
 
 from core.utils import Jobs, getenv
 
-BASE_DIR: Path = Path(__file__).resolve().parent.parent
 FROZEN: bool = getattr(sys, "frozen", False)
 
 if FROZEN:
     if platform.system() == "Windows":
         BASE_DIR = Path(os.getenv("LOCALAPPDATA", Path.home() / "AppData/Local")) / "StoreLimitless"
     else:
-        BASE_DIR = Path(os.getenv("XDG_DATA_HOME", Path.home() / ".local/share")) / "storelimitless"
+        BASE_DIR = Path(os.getenv("XDG_DATA_HOME", Path.home() / ".local/share")) / "storeLimitless"
 
     BASE_DIR.mkdir(parents=True, exist_ok=True)
 
-    DATABASE_PATH: Path = BASE_DIR / "database.db"
     LOG_PATH: Path = BASE_DIR / "logs.txt"
     LOG_LOCK_PATH: Path = BASE_DIR / "logs.lock"
     TELEGRAM_SESSION: Path = BASE_DIR / "telegram_bot"
@@ -36,12 +34,12 @@ if FROZEN:
         source_env = Path(sys._MEIPASS) / ".env"
 
         if source_env.exists():
-            shutil.copy2(source_env, ENV_PATH)
+            copy2(source_env, ENV_PATH)
 
     load_dotenv(ENV_PATH)
 
 else:
-    DATABASE_PATH: Path = BASE_DIR / "backend" / "database" / "database.db"
+    BASE_DIR: Path = Path(__file__).resolve().parent.parent
     LOG_PATH: Path = BASE_DIR / "logs.txt"
     LOG_LOCK_PATH: Path = BASE_DIR / "logs.lock"
     TELEGRAM_SESSION: Path = BASE_DIR / "telegram_bot"
@@ -49,6 +47,7 @@ else:
 
     load_dotenv()
 
+DATABASE_URL: str = getenv("DATABASE_URL")
 GOOGLE_API_KEY: str = getenv("GOOGLE_API_KEY")
 
 POSSIBLE_DATACENTERS: frozenset[str] = frozenset({
@@ -75,12 +74,6 @@ TRANSFER_PATH.mkdir(exist_ok=True)
 LOG_HANDLER: TextIO = open(LOG_PATH, "a")
 LOCK: FileLock = FileLock(LOG_LOCK_PATH)
 
-basicConfig(
-    level=INFO,
-    filename=LOG_PATH,
-    filemode="a",
-    format="[%(asctime)s] [%(levelname)s] [%(name)s] %(message)s",
-)
-
+basicConfig(level=INFO, filename=LOG_PATH, filemode="a", format="[%(asctime)s] [%(levelname)s] [%(name)s] %(message)s", )
 getLogger("httpx").setLevel(WARNING)
 getLogger("telethon").setLevel(WARNING)
