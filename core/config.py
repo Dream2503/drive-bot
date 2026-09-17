@@ -21,7 +21,7 @@ if FROZEN:
         BASE_DIR = Path(os.getenv("XDG_DATA_HOME", Path.home() / ".local/share")) / "storeLimitless"
 
     BASE_DIR.mkdir(parents=True, exist_ok=True)
-    LOG_PATH: Path = BASE_DIR / "logs.txt"
+    LOG_PATH: Path = BASE_DIR / "logs.log"
     LOG_LOCK_PATH: Path = BASE_DIR / "logs.lock"
     TELEGRAM_SESSION: Path = BASE_DIR / "telegram_bot"
     TRANSFER_PATH: Path = BASE_DIR / "transfer"
@@ -38,7 +38,7 @@ if FROZEN:
 
 else:
     BASE_DIR: Path = Path(__file__).resolve().parent.parent
-    LOG_PATH: Path = BASE_DIR / "logs.txt"
+    LOG_PATH: Path = BASE_DIR / "logs.log"
     LOG_LOCK_PATH: Path = BASE_DIR / "logs.lock"
     TELEGRAM_SESSION: Path = BASE_DIR / "telegram_bot"
     TRANSFER_PATH: Path = BASE_DIR / "transfer"
@@ -62,7 +62,7 @@ SUPPORTED_DOMAINS: frozenset[str] = frozenset({
 
 RUNTIME_DIR: Path = Path(sys._MEIPASS) if FROZEN else BASE_DIR
 FFMPEG_PATH: Path = RUNTIME_DIR / ("ffmpeg.exe" if platform.system() == "Windows" else "ffmpeg")
-REDIS_PATH: Path = RUNTIME_DIR / "redis-server"
+REDIS_PATH: Path = RUNTIME_DIR / ("redis-server.exe" if platform.system() == "Windows" else "redis-server")
 
 TRANSFER_PATH.mkdir(exist_ok=True)
 LOG_HANDLER: TextIO = open(LOG_PATH, "a")

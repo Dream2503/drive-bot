@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 clear
 set -euo pipefail
+exec > >(tee build.log) 2>&1
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -28,14 +29,16 @@ version_ge() {
 require_file "$ROOT/frontend/src-tauri/tauri.conf.json"
 require_file "$ROOT/requirements.txt"
 require_file "$ROOT/storelimitless-backend.spec"
-require_file "$ROOT/build/Memurai.msi"
 
 VERSION=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["version"])' \
     "$ROOT/frontend/src-tauri/tauri.conf.json")
 
 [ -n "$VERSION" ] || die "could not determine version from tauri.conf.json"
 
-MEMURAI_MSI="$ROOT/build/Memurai.msi"
+WINDOWS_REDIS_VERSION="8.10.1"
+WINDOWS_REDIS_ROOT="$ROOT/build/redis-windows"
+WINDOWS_REDIS_ARCHIVE="$ROOT/build/redis-windows-${WINDOWS_REDIS_VERSION}.zip"
+WINDOWS_REDIS="$WINDOWS_REDIS_ROOT/redis-server.exe"
 
 echo "==> Building StoreLimitless version: $VERSION"
 
@@ -55,7 +58,6 @@ rm -rf \
     "$ROOT/build/get-pip.py" \
     "$ROOT/dist" \
     "$ROOT/frontend/src-tauri/resources/backend" \
-    "$ROOT/frontend/src-tauri/resources/Memurai.msi" \
     "$ROOT/frontend/src-tauri/target/release/bundle" \
     "$ROOT/frontend/src-tauri/target/x86_64-pc-windows-msvc/release/bundle"
 
@@ -388,11 +390,55 @@ echo "==> Using Windows FFmpeg: $FFMPEG_WINDOWS"
 cp "$FFMPEG_WINDOWS" "$RUNTIME_DIR/windows/ffmpeg.exe"
 
 echo
+echo "==> Preparing Windows Redis"
+
+if [ ! -f "$WINDOWS_REDIS" ]; then
+    if [ ! -s "$WINDOWS_REDIS_ARCHIVE" ]; then
+        echo "==> Downloading Windows Redis ${WINDOWS_REDIS_VERSION}"
+
+        wget -q --show-progress \
+            "https://github.com/redis-windows/redis-windows/releases/download/${WINDOWS_REDIS_VERSION}/Redis-${WINDOWS_REDIS_VERSION}-Windows-x64-cygwin.zip" \
+            -O "$WINDOWS_REDIS_ARCHIVE" \
+            || die "could not download Windows Redis."
+
+        [ -s "$WINDOWS_REDIS_ARCHIVE" ] \
+            || die "Windows Redis download is empty."
+    else
+        echo "==> Using cached Windows Redis archive"
+    fi
+
+    echo "==> Extracting Windows Redis"
+
+    rm -rf "$WINDOWS_REDIS_ROOT"
+    mkdir -p "$WINDOWS_REDIS_ROOT"
+
+    unzip -q \
+        "$WINDOWS_REDIS_ARCHIVE" \
+        -d "$WINDOWS_REDIS_ROOT"
+
+    EXTRACTED_REDIS="$(find "$WINDOWS_REDIS_ROOT" -type f -name "redis-server.exe" -print -quit)"
+
+    [ -n "$EXTRACTED_REDIS" ] \
+        || die "Windows redis-server.exe was not found in the archive."
+
+REDIS_SOURCE_DIR="$(dirname "$EXTRACTED_REDIS")"
+
+find "$REDIS_SOURCE_DIR" -maxdepth 1 -type f \
+    -exec cp {} "$WINDOWS_REDIS_ROOT/" \;
+fi
+
+echo "==> Using Windows Redis: $WINDOWS_REDIS"
+
+find "$WINDOWS_REDIS_ROOT" -maxdepth 1 -type f \
+    -exec cp {} "$RUNTIME_DIR/windows/" \;
+
+echo
 echo "==> Verifying runtime binaries"
 
 require_file "$RUNTIME_DIR/linux/ffmpeg"
 require_file "$RUNTIME_DIR/linux/redis-server"
 require_file "$RUNTIME_DIR/windows/ffmpeg.exe"
+require_file "$RUNTIME_DIR/windows/redis-server.exe"
 
 file "$RUNTIME_DIR/linux/ffmpeg" | grep -q 'ELF .* executable' \
     || die "Linux FFmpeg is not a valid ELF executable."
@@ -402,28 +448,13 @@ file "$RUNTIME_DIR/linux/redis-server" | grep -q 'ELF .* executable' \
 
 file "$RUNTIME_DIR/windows/ffmpeg.exe" | grep -qi 'PE32' \
     || die "Windows FFmpeg is not a valid Windows executable."
+file "$RUNTIME_DIR/windows/redis-server.exe" | grep -qi 'PE32' \
+    || die "Windows Redis is not a valid Windows executable."
 
 echo "==> Linux FFmpeg: $RUNTIME_DIR/linux/ffmpeg"
 echo "==> Linux Redis:  $RUNTIME_DIR/linux/redis-server"
 echo "==> Windows FFmpeg: $RUNTIME_DIR/windows/ffmpeg.exe"
-
-echo
-echo "==> Checking Memurai installer"
-
-require_file "$MEMURAI_MSI"
-
-MEMURAI_TYPE="$(file -b "$MEMURAI_MSI")"
-
-echo "$MEMURAI_TYPE" | grep -Eiq \
-    'Composite Document File|Microsoft Installer|MSI' \
-    || die "Memurai installer does not appear to be a valid MSI: $MEMURAI_TYPE"
-
-mkdir -p "$ROOT/frontend/src-tauri/resources"
-
-cp "$MEMURAI_MSI" \
-    "$ROOT/frontend/src-tauri/resources/Memurai.msi"
-
-echo "==> Memurai installer: $MEMURAI_MSI"
+echo "==> Windows Redis: $RUNTIME_DIR/windows/redis-server.exe"
 
 echo
 echo "==> Checking frontend dependencies"
@@ -495,8 +526,11 @@ echo "==> [3/4] Building Windows server"
 
 cd "$ROOT"
 
-unset STORELIMITLESS_REDIS
-export STORELIMITLESS_FFMPEG="$RUNTIME_DIR/windows/ffmpeg.exe"
+export STORELIMITLESS_FFMPEG="$("$WINE_BIN" winepath -w "$RUNTIME_DIR/windows/ffmpeg.exe")"
+export STORELIMITLESS_REDIS="$("$WINE_BIN" winepath -w "$RUNTIME_DIR/windows/redis-server.exe")"
+
+echo "==> STORELIMITLESS_FFMPEG=$STORELIMITLESS_FFMPEG"
+echo "==> STORELIMITLESS_REDIS=$STORELIMITLESS_REDIS"
 
 "$WINE_BIN" python -m PyInstaller \
     --clean \
@@ -512,6 +546,23 @@ WINDOWS_BACKEND="$ROOT/dist/windows/storelimitless-backend.exe"
 file "$WINDOWS_BACKEND" | grep -qi 'PE32' \
     || die "Windows backend is not a valid Windows executable."
 
+echo
+echo "==> Verifying Windows backend bundle contents"
+
+"$WINE_BIN" pyi-archive_viewer -l "$WINDOWS_BACKEND" > "$ROOT/build/windows-bundle-list.txt" 2>&1 \
+    || die "Could not inspect Windows backend archive."
+
+cat "$ROOT/build/windows-bundle-list.txt"
+
+grep -q "'ffmpeg\.exe'" "$ROOT/build/windows-bundle-list.txt" \
+    || die "ffmpeg.exe is NOT bundled in the Windows backend."
+
+grep -q "'redis-server\.exe'" "$ROOT/build/windows-bundle-list.txt" \
+    || die "redis-server.exe is NOT bundled in the Windows backend."
+
+echo "==> ffmpeg.exe confirmed inside Windows backend."
+echo "==> redis-server.exe confirmed inside Windows backend."
+
 rm -f "$ROOT/frontend/src-tauri/resources/backend/"*
 
 cp "$WINDOWS_BACKEND" \
@@ -524,18 +575,11 @@ echo
 echo "==> Verifying Windows Tauri resources"
 
 require_file "$ROOT/frontend/src-tauri/resources/backend/storelimitless-backend.exe"
-require_file "$ROOT/frontend/src-tauri/resources/Memurai.msi"
 
 file "$ROOT/frontend/src-tauri/resources/backend/storelimitless-backend.exe" | grep -qi 'PE32' \
     || die "Windows backend resource is not a valid Windows executable."
 
-MEMURAI_RESOURCE_SIZE="$(stat -c '%s' "$ROOT/frontend/src-tauri/resources/Memurai.msi")"
-[ "$MEMURAI_RESOURCE_SIZE" -gt 0 ] \
-    || die "Windows Memurai resource is empty."
-
 echo "==> Windows backend resource verified."
-echo "==> Windows Memurai resource verified."
-
 echo
 echo "==> [4/4] Building Windows NSIS application"
 

@@ -9,7 +9,8 @@ core/transfer/
 .env
 .venv/
 .python-version
-
+build.log
+logs.log
 logs.lock
 
 frontend/node_modules/

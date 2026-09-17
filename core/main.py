@@ -1,10 +1,8 @@
-import platform
-import subprocess
 from asyncio import CancelledError, Task, create_task, gather, run
 from pathlib import Path
 from shutil import rmtree, which
 from socket import create_connection
-from subprocess import Popen, CompletedProcess, DEVNULL, TimeoutExpired
+from subprocess import Popen, TimeoutExpired
 from threading import Thread
 from time import sleep
 
@@ -27,23 +25,6 @@ def start_redis() -> Popen | None:
     except OSError:
         pass
 
-    if platform.system() == "Windows":
-        memurai_msi: Path = Path(__file__).resolve().parent / "Memurai.msi"
-
-        if not memurai_msi.is_file():
-            memurai_msi: Path = Path(__file__).resolve().parent / "resources" / "Memurai.msi"
-
-        if not memurai_msi.is_file():
-            raise FileNotFoundError(f"Memurai installer not found: {memurai_msi}")
-
-        result: CompletedProcess[bytes] = subprocess.run(["msiexec", "/i", str(memurai_msi), "/quiet", "/norestart"], check=False)
-
-        if result.returncode not in (0, 3010):
-            raise RuntimeError(f"Memurai installation failed with exit code: {result.returncode}")
-
-        subprocess.run(["sc", "start", "Memurai"], stdout=DEVNULL, stderr=DEVNULL, check=False)
-        return None
-
     redis_path: Path = REDIS_PATH if FROZEN else Path(which("redis-server") or "")
 
     if not redis_path.is_file():
@@ -51,6 +32,7 @@ def start_redis() -> Popen | None:
 
     redis_dir: Path = TRANSFER_PATH.parent / "redis"
     redis_dir.mkdir(parents=True, exist_ok=True)
+
     return Popen([
         str(redis_path),
         "--bind", "127.0.0.1",
