@@ -3,7 +3,7 @@
 __pycache__/
 *.pyc
 
-core/.env
+core/utils/env.py
 core/transfer/
 
 .env
