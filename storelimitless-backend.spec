@@ -1,28 +1,10 @@
 # -*- mode: python ; coding: utf-8 -*-
 
-import os
-
-FFMPEG = os.environ["STORELIMITLESS_FFMPEG"]
-REDIS = os.environ["STORELIMITLESS_REDIS"]
-
-binaries = [
-    (FFMPEG, "."),
-    (REDIS, "."),
-]
-
-# Windows Redis may require Cygwin DLLs.
-redis_dir = os.path.dirname(os.path.abspath(REDIS))
-
-for name in os.listdir(redis_dir):
-    if name.lower().endswith(".dll"):
-        binaries.append((os.path.join(redis_dir, name), "."))
-
-
 a = Analysis(
     ["core/main.py"],
     pathex=[],
-    binaries=binaries,
-    datas=[(".env", ".")],
+    binaries=[],
+    datas=[],
     hiddenimports=["passlib.handlers.bcrypt"],
     hookspath=[],
     hooksconfig={},

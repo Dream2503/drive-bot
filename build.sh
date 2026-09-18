@@ -10,6 +10,24 @@ die() {
     exit 1
 }
 
+usage() {
+    cat >&2 <<EOF
+Usage: $(basename "$0") <linux_server:0|1> <linux_app:0|1> <windows_server:0|1> <windows_app:0|1>
+
+  arg1  Linux server    (PyInstaller backend for Linux)
+  arg2  Linux app       (Tauri .deb, needs the Linux backend)
+  arg3  Windows server  (PyInstaller backend for Windows, via Wine)
+  arg4  Windows app     (Tauri NSIS installer, needs the Windows backend)
+
+Pass 1 to build a component, 0 to skip it. Example:
+
+  $(basename "$0") 1 1 0 0    # build Linux server + Linux app only
+  $(basename "$0") 0 1 0 0    # build Linux app only (reuses last built Linux server)
+  $(basename "$0") 1 1 1 1    # build everything
+EOF
+    exit 1
+}
+
 newest_match() {
     local dir="$1" name="$2"
     find "$dir" -maxdepth 1 -type f -name "$name" -printf '%T@ %p\n' 2>/dev/null \
@@ -26,6 +44,37 @@ version_ge() {
     [ "$(printf '%s\n%s\n' "$2" "$1" | sort -V | head -1)" = "$2" ]
 }
 
+# ---------------------------------------------------------------------------
+# Argument parsing
+# ---------------------------------------------------------------------------
+
+[ "$#" -eq 4 ] || usage
+
+for arg in "$@"; do
+    case "$arg" in
+        0|1) ;;
+        *) usage ;;
+    esac
+done
+
+BUILD_LINUX_SERVER="$1"
+BUILD_LINUX_APP="$2"
+BUILD_WINDOWS_SERVER="$3"
+BUILD_WINDOWS_APP="$4"
+
+if [ "$BUILD_LINUX_SERVER" = 0 ] && [ "$BUILD_LINUX_APP" = 0 ] \
+    && [ "$BUILD_WINDOWS_SERVER" = 0 ] && [ "$BUILD_WINDOWS_APP" = 0 ]; then
+    die "nothing to build — all four flags are 0."
+fi
+
+NEED_LINUX_TOOLCHAIN=0    # rust/node/tauri needed for linux app
+NEED_WINDOWS_TOOLCHAIN=0  # rust/node/tauri/xwin needed for windows app
+NEED_WINE=0                # wine needed for windows server (pyinstaller under wine)
+
+[ "$BUILD_LINUX_APP" = 1 ] && NEED_LINUX_TOOLCHAIN=1
+[ "$BUILD_WINDOWS_APP" = 1 ] && NEED_WINDOWS_TOOLCHAIN=1
+[ "$BUILD_WINDOWS_SERVER" = 1 ] && NEED_WINE=1
+
 require_file "$ROOT/frontend/src-tauri/tauri.conf.json"
 require_file "$ROOT/requirements.txt"
 require_file "$ROOT/storelimitless-backend.spec"
@@ -35,12 +84,11 @@ VERSION=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["versi
 
 [ -n "$VERSION" ] || die "could not determine version from tauri.conf.json"
 
-WINDOWS_REDIS_VERSION="8.10.1"
-WINDOWS_REDIS_ROOT="$ROOT/build/redis-windows"
-WINDOWS_REDIS_ARCHIVE="$ROOT/build/redis-windows-${WINDOWS_REDIS_VERSION}.zip"
-WINDOWS_REDIS="$WINDOWS_REDIS_ROOT/redis-server.exe"
-
 echo "==> Building StoreLimitless version: $VERSION"
+echo "==> Linux server:    $([ "$BUILD_LINUX_SERVER" = 1 ] && echo yes || echo skip)"
+echo "==> Linux app:       $([ "$BUILD_LINUX_APP" = 1 ] && echo yes || echo skip)"
+echo "==> Windows server:  $([ "$BUILD_WINDOWS_SERVER" = 1 ] && echo yes || echo skip)"
+echo "==> Windows app:     $([ "$BUILD_WINDOWS_APP" = 1 ] && echo yes || echo skip)"
 
 sudo -v
 ( while true; do sudo -n true; sleep 60; kill -0 "$$" 2>/dev/null || exit; done ) &
@@ -48,18 +96,12 @@ SUDO_KEEPALIVE_PID=$!
 trap 'kill "$SUDO_KEEPALIVE_PID" 2>/dev/null || true' EXIT
 
 echo
-echo "==> Cleaning previous builds"
+echo "==> Cleaning previous builds for selected targets"
 
-rm -rf \
-    "$ROOT/build/pyi-linux" \
-    "$ROOT/build/pyi-windows" \
-    "$ROOT/build/runtime" \
-    "$ROOT/build/python-"*.exe \
-    "$ROOT/build/get-pip.py" \
-    "$ROOT/dist" \
-    "$ROOT/frontend/src-tauri/resources/backend" \
-    "$ROOT/frontend/src-tauri/target/release/bundle" \
-    "$ROOT/frontend/src-tauri/target/x86_64-pc-windows-msvc/release/bundle"
+[ "$BUILD_LINUX_SERVER" = 1 ] && rm -rf "$ROOT/build/pyi-linux" "$ROOT/dist/linux"
+[ "$BUILD_WINDOWS_SERVER" = 1 ] && rm -rf "$ROOT/build/pyi-windows" "$ROOT/dist/windows"
+[ "$BUILD_LINUX_APP" = 1 ] && rm -rf "$ROOT/frontend/src-tauri/target/release/bundle"
+[ "$BUILD_WINDOWS_APP" = 1 ] && rm -rf "$ROOT/frontend/src-tauri/target/x86_64-pc-windows-msvc/release/bundle"
 
 mkdir -p \
     "$ROOT/dist/linux" \
@@ -78,530 +120,438 @@ fi
 sudo dpkg --add-architecture i386
 sudo apt-get update
 
-sudo apt-get install -y \
-    build-essential \
-    clang \
-    curl \
-    wget \
-    file \
-    git \
-    pkg-config \
-    libssl-dev \
-    libwebkit2gtk-4.1-dev \
-    libxdo-dev \
-    libayatana-appindicator3-dev \
-    librsvg2-dev \
-    nsis \
-    lld \
-    llvm \
-    python3 \
-    python3-pip \
-    python3-venv \
-    unzip \
-    ffmpeg \
-    redis-server
+# Core packages needed no matter what we're building.
+CORE_PKGS=(build-essential curl wget file git pkg-config python3 python3-pip python3-venv unzip)
 
-command -v makensis >/dev/null 2>&1 \
-    || die "NSIS installation failed."
+# GUI/Tauri packages, only needed to build an application bundle (Linux or Windows).
+APP_PKGS=(clang libssl-dev libwebkit2gtk-4.1-dev libxdo-dev libayatana-appindicator3-dev librsvg2-dev nsis lld llvm)
+
+APT_PKGS=("${CORE_PKGS[@]}")
+
+if [ "$NEED_LINUX_TOOLCHAIN" = 1 ] || [ "$NEED_WINDOWS_TOOLCHAIN" = 1 ]; then
+    APT_PKGS+=("${APP_PKGS[@]}")
+fi
+
+sudo apt-get install -y "${APT_PKGS[@]}"
+
+if [ "$NEED_LINUX_TOOLCHAIN" = 1 ] || [ "$NEED_WINDOWS_TOOLCHAIN" = 1 ]; then
+    command -v makensis >/dev/null 2>&1 \
+        || die "NSIS installation failed."
+fi
 
 WINE_MIN_VERSION="9.13"
-
-echo
-echo "==> Checking Wine (>= $WINE_MIN_VERSION required)"
-
-wine_version() {
-    "$1" --version 2>/dev/null \
-        | sed -E 's/^wine-([0-9]+(\.[0-9]+)*).*/\1/'
-}
-
-wine_is_new_enough() {
-    local bin="$1" ver
-    command -v "$bin" >/dev/null 2>&1 || return 1
-    ver="$(wine_version "$bin")"
-    [ -n "$ver" ] || return 1
-    version_ge "$ver" "$WINE_MIN_VERSION"
-}
-
-if ! wine_is_new_enough wine && ! wine_is_new_enough wine64; then
-    echo "==> Installing Wine from the WineHQ repository"
-
-    . /etc/os-release
-    DISTRO_CODENAME="${UBUNTU_CODENAME:-${VERSION_CODENAME:-}}"
-
-    [ -n "$DISTRO_CODENAME" ] \
-        || die "could not determine distro codename."
-
-    sudo mkdir -pm755 /etc/apt/keyrings
-
-    sudo wget -qO /etc/apt/keyrings/winehq-archive.key \
-        https://dl.winehq.org/wine-builds/winehq.key \
-        || die "could not download WineHQ signing key."
-
-    sudo wget -qNP /etc/apt/sources.list.d/ \
-        "https://dl.winehq.org/wine-builds/ubuntu/dists/${DISTRO_CODENAME}/winehq-${DISTRO_CODENAME}.sources" \
-        || die "WineHQ has no repository for '$DISTRO_CODENAME'."
-
-    sudo apt-get update
-
-    sudo apt-get remove -y \
-        wine wine64 wine32 wine-stable \
-        2>/dev/null || true
-
-    sudo apt-get install -y --install-recommends winehq-stable \
-        || die "WineHQ installation failed."
-fi
-
-if wine_is_new_enough wine; then
-    WINE_BIN="wine"
-elif wine_is_new_enough wine64; then
-    WINE_BIN="wine64"
-else
-    FOUND_WINE="$(wine_version wine 2>/dev/null || true)"
-    die "Wine >= $WINE_MIN_VERSION is required (found: ${FOUND_WINE:-none})."
-fi
-
+WINE_BIN=""
 WINEBOOT_BIN="wineboot"
 
-command -v "$WINEBOOT_BIN" >/dev/null 2>&1 \
-    || die "wineboot is unavailable."
+if [ "$NEED_WINE" = 1 ]; then
+    echo
+    echo "==> Checking Wine (>= $WINE_MIN_VERSION required)"
 
-echo "==> Wine: $("$WINE_BIN" --version)"
+    wine_version() {
+        "$1" --version 2>/dev/null \
+            | sed -E 's/^wine-([0-9]+(\.[0-9]+)*).*/\1/'
+    }
 
-if ! command -v rustup >/dev/null 2>&1; then
-    echo "==> Installing Rust"
-    curl --proto '=https' --tlsv1.2 -sSf \
-        https://sh.rustup.rs | sh -s -- -y
+    wine_is_new_enough() {
+        local bin="$1" ver
+        command -v "$bin" >/dev/null 2>&1 || return 1
+        ver="$(wine_version "$bin")"
+        [ -n "$ver" ] || return 1
+        version_ge "$ver" "$WINE_MIN_VERSION"
+    }
+
+    if ! wine_is_new_enough wine && ! wine_is_new_enough wine64; then
+        echo "==> Installing Wine from the WineHQ repository"
+
+        . /etc/os-release
+        DISTRO_CODENAME="${UBUNTU_CODENAME:-${VERSION_CODENAME:-}}"
+
+        [ -n "$DISTRO_CODENAME" ] \
+            || die "could not determine distro codename."
+
+        sudo mkdir -pm755 /etc/apt/keyrings
+
+        sudo wget -qO /etc/apt/keyrings/winehq-archive.key \
+            https://dl.winehq.org/wine-builds/winehq.key \
+            || die "could not download WineHQ signing key."
+
+        sudo wget -qNP /etc/apt/sources.list.d/ \
+            "https://dl.winehq.org/wine-builds/ubuntu/dists/${DISTRO_CODENAME}/winehq-${DISTRO_CODENAME}.sources" \
+            || die "WineHQ has no repository for '$DISTRO_CODENAME'."
+
+        sudo apt-get update
+
+        sudo apt-get remove -y \
+            wine wine64 wine32 wine-stable \
+            2>/dev/null || true
+
+        sudo apt-get install -y --install-recommends winehq-stable \
+            || die "WineHQ installation failed."
+    fi
+
+    if wine_is_new_enough wine; then
+        WINE_BIN="wine"
+    elif wine_is_new_enough wine64; then
+        WINE_BIN="wine64"
+    else
+        FOUND_WINE="$(wine_version wine 2>/dev/null || true)"
+        die "Wine >= $WINE_MIN_VERSION is required (found: ${FOUND_WINE:-none})."
+    fi
+
+    command -v "$WINEBOOT_BIN" >/dev/null 2>&1 \
+        || die "wineboot is unavailable."
+
+    echo "==> Wine: $("$WINE_BIN" --version)"
+
+    export WINEDEBUG=-all
+    export WINEDLLOVERRIDES="mscoree,mshtml="
+    export WINEPREFIX="${WINEPREFIX:-$HOME/.wine}"
+
+    "$WINEBOOT_BIN" --init >/dev/null 2>&1 || true
+    "$WINEBOOT_BIN" --update >/dev/null 2>&1 || true
+    "$WINEBOOT_BIN" --wait >/dev/null 2>&1 || true
 fi
 
-source "$HOME/.cargo/env" 2>/dev/null || true
+if [ "$NEED_LINUX_TOOLCHAIN" = 1 ] || [ "$NEED_WINDOWS_TOOLCHAIN" = 1 ]; then
+    if ! command -v rustup >/dev/null 2>&1; then
+        echo "==> Installing Rust"
+        curl --proto '=https' --tlsv1.2 -sSf \
+            https://sh.rustup.rs | sh -s -- -y
+    fi
 
-command -v cargo >/dev/null 2>&1 \
-    || die "cargo is not available."
+    source "$HOME/.cargo/env" 2>/dev/null || true
 
-if ! command -v node >/dev/null 2>&1 || ! command -v npm >/dev/null 2>&1; then
-    echo "==> Installing Node.js"
+    command -v cargo >/dev/null 2>&1 \
+        || die "cargo is not available."
 
-    curl -fsSL \
-        https://deb.nodesource.com/setup_22.x \
-        | sudo -E bash -
+    if ! command -v node >/dev/null 2>&1 || ! command -v npm >/dev/null 2>&1; then
+        echo "==> Installing Node.js"
 
-    sudo apt-get install -y nodejs
+        curl -fsSL \
+            https://deb.nodesource.com/setup_22.x \
+            | sudo -E bash -
+
+        sudo apt-get install -y nodejs
+    fi
+
+    echo "==> Node: $(node --version)"
+    echo "==> npm: $(npm --version)"
 fi
 
-echo "==> Node: $(node --version)"
-echo "==> npm: $(npm --version)"
+if [ "$NEED_WINDOWS_TOOLCHAIN" = 1 ]; then
+    if ! command -v cargo-xwin >/dev/null 2>&1; then
+        echo "==> Installing cargo-xwin"
+        cargo install --locked cargo-xwin
+    fi
 
-if ! command -v cargo-xwin >/dev/null 2>&1; then
-    echo "==> Installing cargo-xwin"
-    cargo install --locked cargo-xwin
+    echo "==> cargo-xwin: $(cargo-xwin --version)"
+
+    if ! rustup target list --installed \
+        | grep -q '^x86_64-pc-windows-msvc$'; then
+
+        echo "==> Installing Windows Rust target"
+        rustup target add x86_64-pc-windows-msvc
+    fi
 fi
-
-echo "==> cargo-xwin: $(cargo-xwin --version)"
-
-if ! rustup target list --installed \
-    | grep -q '^x86_64-pc-windows-msvc$'; then
-
-    echo "==> Installing Windows Rust target"
-    rustup target add x86_64-pc-windows-msvc
-fi
-
-export WINEDEBUG=-all
-export WINEDLLOVERRIDES="mscoree,mshtml="
-export WINEPREFIX="${WINEPREFIX:-$HOME/.wine}"
-
-"$WINEBOOT_BIN" --init >/dev/null 2>&1 || true
-"$WINEBOOT_BIN" --update >/dev/null 2>&1 || true
-"$WINEBOOT_BIN" --wait >/dev/null 2>&1 || true
 
 BUILD_VENV="$ROOT/build/venv"
 
-echo
-echo "==> Preparing Linux Python build environment"
+if [ "$BUILD_LINUX_SERVER" = 1 ]; then
+    echo
+    echo "==> Preparing Linux Python build environment"
 
-python3 -m venv "$BUILD_VENV"
+    python3 -m venv "$BUILD_VENV"
 
-"$BUILD_VENV/bin/python" -m pip install --upgrade pip
-"$BUILD_VENV/bin/python" -m pip install -r "$ROOT/requirements.txt"
-"$BUILD_VENV/bin/python" -m pip install pyinstaller
+    "$BUILD_VENV/bin/python" -m pip install --upgrade pip
+    "$BUILD_VENV/bin/python" -m pip install -r "$ROOT/requirements.txt"
+    "$BUILD_VENV/bin/python" -m pip install pyinstaller
 
-echo "==> Linux Python: $("$BUILD_VENV/bin/python" --version)"
-echo "==> Linux PyInstaller: $("$BUILD_VENV/bin/python" -m PyInstaller --version)"
-
-echo
-echo "==> Checking Windows Python"
-
-windows_python_ok() {
-    "$WINE_BIN" python --version >/dev/null 2>&1 \
-        && "$WINE_BIN" python -m pip --version >/dev/null 2>&1
-}
-
-if ! windows_python_ok; then
-    if "$WINE_BIN" python --version >/dev/null 2>&1; then
-        echo "==> Windows Python present but pip is missing"
-    else
-        echo "==> Windows Python not found"
-        echo "==> Downloading Windows Python"
-
-        PYTHON_VERSION="3.13.7"
-        PYTHON_INSTALLER="$ROOT/build/python-${PYTHON_VERSION}-amd64.exe"
-        PYTHON_URL="https://www.python.org/ftp/python/${PYTHON_VERSION}/python-${PYTHON_VERSION}-amd64.exe"
-
-        wget -q --show-progress \
-            "$PYTHON_URL" \
-            -O "$PYTHON_INSTALLER"
-
-        [ -s "$PYTHON_INSTALLER" ] \
-            || die "downloaded Python installer is empty."
-
-        file "$PYTHON_INSTALLER" | grep -qi 'PE32' \
-            || die "downloaded Python installer is not a Windows executable."
-
-        "$WINE_BIN" "$PYTHON_INSTALLER" \
-            /quiet \
-            InstallAllUsers=0 \
-            PrependPath=1 \
-            Include_pip=1 \
-            Include_test=0
-
-        "$WINEBOOT_BIN" --wait >/dev/null 2>&1 || true
-
-        rm -f "$PYTHON_INSTALLER"
-    fi
-
-    "$WINE_BIN" python --version >/dev/null 2>&1 \
-        || die "Windows Python installation failed."
-
-    if ! "$WINE_BIN" python -m pip --version >/dev/null 2>&1; then
-        echo "==> Bootstrapping pip via ensurepip"
-
-        "$WINE_BIN" python -m ensurepip \
-            --upgrade \
-            --default-pip \
-            >/dev/null 2>&1 || true
-    fi
-
-    if ! "$WINE_BIN" python -m pip --version >/dev/null 2>&1; then
-        echo "==> Falling back to get-pip.py"
-
-        GET_PIP="$ROOT/build/get-pip.py"
-
-        wget -q --show-progress \
-            https://bootstrap.pypa.io/get-pip.py \
-            -O "$GET_PIP" \
-            || die "could not download get-pip.py."
-
-        [ -s "$GET_PIP" ] \
-            || die "downloaded get-pip.py is empty."
-
-        "$WINE_BIN" python "$GET_PIP" \
-            || die "get-pip.py failed under Wine."
-
-        rm -f "$GET_PIP"
-    fi
+    echo "==> Linux Python: $("$BUILD_VENV/bin/python" --version)"
+    echo "==> Linux PyInstaller: $("$BUILD_VENV/bin/python" -m PyInstaller --version)"
 fi
 
-windows_python_ok \
-    || die "Windows Python is installed but pip is unavailable."
+if [ "$BUILD_WINDOWS_SERVER" = 1 ]; then
+    echo
+    echo "==> Checking Windows Python"
 
-echo "==> Windows Python: $("$WINE_BIN" python --version)"
-echo "==> Windows pip: $("$WINE_BIN" python -m pip --version)"
+    windows_python_ok() {
+        "$WINE_BIN" python --version >/dev/null 2>&1 \
+            && "$WINE_BIN" python -m pip --version >/dev/null 2>&1
+    }
 
-echo
-echo "==> Installing Windows Python dependencies"
+    if ! windows_python_ok; then
+        if "$WINE_BIN" python --version >/dev/null 2>&1; then
+            echo "==> Windows Python present but pip is missing"
+        else
+            echo "==> Windows Python not found"
+            echo "==> Downloading Windows Python"
 
-"$WINE_BIN" python -m pip install --upgrade pip
-"$WINE_BIN" python -m pip install -r "$ROOT/requirements.txt"
-"$WINE_BIN" python -m pip install pyinstaller
+            PYTHON_VERSION="3.13.7"
+            PYTHON_INSTALLER="$ROOT/build/python-${PYTHON_VERSION}-amd64.exe"
+            PYTHON_URL="https://www.python.org/ftp/python/${PYTHON_VERSION}/python-${PYTHON_VERSION}-amd64.exe"
 
-echo "==> Windows PyInstaller: $("$WINE_BIN" python -m PyInstaller --version)"
+            wget -q --show-progress \
+                "$PYTHON_URL" \
+                -O "$PYTHON_INSTALLER"
 
-echo
-echo "==> Preparing runtime binaries"
+            [ -s "$PYTHON_INSTALLER" ] \
+                || die "downloaded Python installer is empty."
 
-RUNTIME_DIR="$ROOT/build/runtime"
+            file "$PYTHON_INSTALLER" | grep -qi 'PE32' \
+                || die "downloaded Python installer is not a Windows executable."
 
-rm -rf "$RUNTIME_DIR"
+            "$WINE_BIN" "$PYTHON_INSTALLER" \
+                /quiet \
+                InstallAllUsers=0 \
+                PrependPath=1 \
+                Include_pip=1 \
+                Include_test=0
 
-mkdir -p \
-    "$RUNTIME_DIR/linux" \
-    "$RUNTIME_DIR/windows"
+            "$WINEBOOT_BIN" --wait >/dev/null 2>&1 || true
 
-FFMPEG_LINUX="$(command -v ffmpeg || true)"
+            rm -f "$PYTHON_INSTALLER"
+        fi
 
-[ -n "$FFMPEG_LINUX" ] \
-    || die "Linux FFmpeg was not installed."
+        "$WINE_BIN" python --version >/dev/null 2>&1 \
+            || die "Windows Python installation failed."
 
-[ -x "$FFMPEG_LINUX" ] \
-    || die "Linux FFmpeg is not executable."
+        if ! "$WINE_BIN" python -m pip --version >/dev/null 2>&1; then
+            echo "==> Bootstrapping pip via ensurepip"
 
-cp "$FFMPEG_LINUX" \
-    "$RUNTIME_DIR/linux/ffmpeg"
+            "$WINE_BIN" python -m ensurepip \
+                --upgrade \
+                --default-pip \
+                >/dev/null 2>&1 || true
+        fi
 
-REDIS_LINUX="$(command -v redis-server || true)"
+        if ! "$WINE_BIN" python -m pip --version >/dev/null 2>&1; then
+            echo "==> Falling back to get-pip.py"
 
-[ -n "$REDIS_LINUX" ] \
-    || die "Linux Redis was not installed."
+            GET_PIP="$ROOT/build/get-pip.py"
 
-[ -x "$REDIS_LINUX" ] \
-    || die "Linux Redis is not executable."
+            wget -q --show-progress \
+                https://bootstrap.pypa.io/get-pip.py \
+                -O "$GET_PIP" \
+                || die "could not download get-pip.py."
 
-cp "$REDIS_LINUX" \
-    "$RUNTIME_DIR/linux/redis-server"
+            [ -s "$GET_PIP" ] \
+                || die "downloaded get-pip.py is empty."
 
-echo "==> Preparing Windows FFmpeg"
+            "$WINE_BIN" python "$GET_PIP" \
+                || die "get-pip.py failed under Wine."
 
-FFMPEG_WINDOWS_ROOT="$ROOT/build/ffmpeg-windows"
-FFMPEG_WINDOWS_ARCHIVE="$ROOT/build/ffmpeg-windows.zip"
-FFMPEG_WINDOWS="$FFMPEG_WINDOWS_ROOT/ffmpeg.exe"
-
-if [ ! -f "$FFMPEG_WINDOWS" ]; then
-    if [ ! -s "$FFMPEG_WINDOWS_ARCHIVE" ]; then
-        echo "==> Downloading Windows FFmpeg"
-        wget -q --show-progress \
-            "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip" \
-            -O "$FFMPEG_WINDOWS_ARCHIVE" \
-            || die "could not download Windows FFmpeg."
-
-        [ -s "$FFMPEG_WINDOWS_ARCHIVE" ] \
-            || die "Windows FFmpeg download is empty."
-    else
-        echo "==> Using cached Windows FFmpeg archive"
+            rm -f "$GET_PIP"
+        fi
     fi
 
-    echo "==> Extracting Windows FFmpeg"
+    windows_python_ok \
+        || die "Windows Python is installed but pip is unavailable."
 
-    rm -rf "$FFMPEG_WINDOWS_ROOT"
-    mkdir -p "$FFMPEG_WINDOWS_ROOT"
+    echo "==> Windows Python: $("$WINE_BIN" python --version)"
+    echo "==> Windows pip: $("$WINE_BIN" python -m pip --version)"
 
-    unzip -q \
-        "$FFMPEG_WINDOWS_ARCHIVE" \
-        -d "$FFMPEG_WINDOWS_ROOT"
+    echo
+    echo "==> Installing Windows Python dependencies"
 
-    EXTRACTED_FFMPEG="$(find "$FFMPEG_WINDOWS_ROOT" -type f -name "ffmpeg.exe" -print -quit)"
+    "$WINE_BIN" python -m pip install --upgrade pip
+    "$WINE_BIN" python -m pip install -r "$ROOT/requirements.txt"
+    "$WINE_BIN" python -m pip install pyinstaller
 
-    [ -n "$EXTRACTED_FFMPEG" ] \
-        || die "Windows ffmpeg.exe was not found in the archive."
-
-    cp "$EXTRACTED_FFMPEG" "$FFMPEG_WINDOWS"
+    echo "==> Windows PyInstaller: $("$WINE_BIN" python -m PyInstaller --version)"
 fi
 
-echo "==> Using Windows FFmpeg: $FFMPEG_WINDOWS"
+if [ "$NEED_LINUX_TOOLCHAIN" = 1 ] || [ "$NEED_WINDOWS_TOOLCHAIN" = 1 ]; then
+    echo
+    echo "==> Checking frontend dependencies"
 
-cp "$FFMPEG_WINDOWS" "$RUNTIME_DIR/windows/ffmpeg.exe"
+    cd "$ROOT/frontend"
 
-echo
-echo "==> Preparing Windows Redis"
-
-if [ ! -f "$WINDOWS_REDIS" ]; then
-    if [ ! -s "$WINDOWS_REDIS_ARCHIVE" ]; then
-        echo "==> Downloading Windows Redis ${WINDOWS_REDIS_VERSION}"
-
-        wget -q --show-progress \
-            "https://github.com/redis-windows/redis-windows/releases/download/${WINDOWS_REDIS_VERSION}/Redis-${WINDOWS_REDIS_VERSION}-Windows-x64-cygwin.zip" \
-            -O "$WINDOWS_REDIS_ARCHIVE" \
-            || die "could not download Windows Redis."
-
-        [ -s "$WINDOWS_REDIS_ARCHIVE" ] \
-            || die "Windows Redis download is empty."
-    else
-        echo "==> Using cached Windows Redis archive"
+    if [ ! -d "node_modules" ]; then
+        echo "==> Installing frontend dependencies"
+        npm install
     fi
 
-    echo "==> Extracting Windows Redis"
+    npx tauri --version >/dev/null 2>&1 \
+        || die "Tauri CLI is unavailable."
 
-    rm -rf "$WINDOWS_REDIS_ROOT"
-    mkdir -p "$WINDOWS_REDIS_ROOT"
+    echo "==> Tauri: $(npx tauri --version)"
 
-    unzip -q \
-        "$WINDOWS_REDIS_ARCHIVE" \
-        -d "$WINDOWS_REDIS_ROOT"
-
-    EXTRACTED_REDIS="$(find "$WINDOWS_REDIS_ROOT" -type f -name "redis-server.exe" -print -quit)"
-
-    [ -n "$EXTRACTED_REDIS" ] \
-        || die "Windows redis-server.exe was not found in the archive."
-
-REDIS_SOURCE_DIR="$(dirname "$EXTRACTED_REDIS")"
-
-find "$REDIS_SOURCE_DIR" -maxdepth 1 -type f \
-    -exec cp {} "$WINDOWS_REDIS_ROOT/" \;
+    cd "$ROOT"
 fi
 
-echo "==> Using Windows Redis: $WINDOWS_REDIS"
+# ---------------------------------------------------------------------------
+# [1/4] Linux server
+# ---------------------------------------------------------------------------
 
-find "$WINDOWS_REDIS_ROOT" -maxdepth 1 -type f \
-    -exec cp {} "$RUNTIME_DIR/windows/" \;
+if [ "$BUILD_LINUX_SERVER" = 1 ]; then
+    echo
+    echo "==> [1/4] Building Linux server"
 
-echo
-echo "==> Verifying runtime binaries"
+    "$BUILD_VENV/bin/python" -m PyInstaller \
+        --clean \
+        --workpath "$ROOT/build/pyi-linux" \
+        --distpath "$ROOT/dist/linux" \
+        "$ROOT/storelimitless-backend.spec"
 
-require_file "$RUNTIME_DIR/linux/ffmpeg"
-require_file "$RUNTIME_DIR/linux/redis-server"
-require_file "$RUNTIME_DIR/windows/ffmpeg.exe"
-require_file "$RUNTIME_DIR/windows/redis-server.exe"
+    LINUX_BACKEND="$ROOT/dist/linux/storelimitless-backend"
 
-file "$RUNTIME_DIR/linux/ffmpeg" | grep -q 'ELF .* executable' \
-    || die "Linux FFmpeg is not a valid ELF executable."
+    [ -f "$LINUX_BACKEND" ] \
+        || die "Linux backend build failed."
 
-file "$RUNTIME_DIR/linux/redis-server" | grep -q 'ELF .* executable' \
-    || die "Linux Redis is not a valid ELF executable."
+    file "$LINUX_BACKEND" | grep -q 'ELF .* executable' \
+        || die "Linux backend is not a valid ELF executable."
 
-file "$RUNTIME_DIR/windows/ffmpeg.exe" | grep -qi 'PE32' \
-    || die "Windows FFmpeg is not a valid Windows executable."
-file "$RUNTIME_DIR/windows/redis-server.exe" | grep -qi 'PE32' \
-    || die "Windows Redis is not a valid Windows executable."
+    cp "$LINUX_BACKEND" \
+        "$ROOT/releases/linux/StoreLimitlessServer_$VERSION"
 
-echo "==> Linux FFmpeg: $RUNTIME_DIR/linux/ffmpeg"
-echo "==> Linux Redis:  $RUNTIME_DIR/linux/redis-server"
-echo "==> Windows FFmpeg: $RUNTIME_DIR/windows/ffmpeg.exe"
-echo "==> Windows Redis: $RUNTIME_DIR/windows/redis-server.exe"
-
-echo
-echo "==> Checking frontend dependencies"
-
-cd "$ROOT/frontend"
-
-if [ ! -d "node_modules" ]; then
-    echo "==> Installing frontend dependencies"
-    npm install
+    echo "==> Linux server built: $ROOT/releases/linux/StoreLimitlessServer_$VERSION"
+else
+    echo
+    echo "==> [1/4] Skipping Linux server build"
 fi
 
-npx tauri --version >/dev/null 2>&1 \
-    || die "Tauri CLI is unavailable."
+# ---------------------------------------------------------------------------
+# [2/4] Linux application
+# ---------------------------------------------------------------------------
 
-echo "==> Tauri: $(npx tauri --version)"
+if [ "$BUILD_LINUX_APP" = 1 ]; then
+    echo
+    echo "==> [2/4] Building Linux application"
 
-cd "$ROOT"
+    LINUX_BACKEND_FOR_APP="$ROOT/dist/linux/storelimitless-backend"
 
-echo
-echo "==> [1/4] Building Linux server"
+    if [ ! -f "$LINUX_BACKEND_FOR_APP" ]; then
+        LINUX_BACKEND_FOR_APP="$ROOT/releases/linux/StoreLimitlessServer_$VERSION"
+    fi
 
-export STORELIMITLESS_FFMPEG="$RUNTIME_DIR/linux/ffmpeg"
-export STORELIMITLESS_REDIS="$RUNTIME_DIR/linux/redis-server"
+    [ -f "$LINUX_BACKEND_FOR_APP" ] \
+        || die "no Linux backend available to bundle — build it first (arg1=1)."
 
-"$BUILD_VENV/bin/python" -m PyInstaller \
-    --clean \
-    --workpath "$ROOT/build/pyi-linux" \
-    --distpath "$ROOT/dist/linux" \
-    "$ROOT/storelimitless-backend.spec"
+    rm -f "$ROOT/frontend/src-tauri/resources/backend/"*
 
-LINUX_BACKEND="$ROOT/dist/linux/storelimitless-backend"
+    cp "$LINUX_BACKEND_FOR_APP" \
+        "$ROOT/frontend/src-tauri/resources/backend/storelimitless-backend"
 
-[ -f "$LINUX_BACKEND" ] \
-    || die "Linux backend build failed."
+    chmod +x \
+        "$ROOT/frontend/src-tauri/resources/backend/storelimitless-backend"
 
-file "$LINUX_BACKEND" | grep -q 'ELF .* executable' \
-    || die "Linux backend is not a valid ELF executable."
+    cd "$ROOT/frontend"
 
-rm -f "$ROOT/frontend/src-tauri/resources/backend/"*
+    npx tauri build --bundles deb
 
-cp "$LINUX_BACKEND" \
-    "$ROOT/frontend/src-tauri/resources/backend/storelimitless-backend"
+    LINUX_PACKAGE=$(newest_match \
+        "$ROOT/frontend/src-tauri/target/release/bundle/deb" \
+        "*.deb")
 
-chmod +x \
-    "$ROOT/frontend/src-tauri/resources/backend/storelimitless-backend"
+    [ -n "$LINUX_PACKAGE" ] \
+        || die "Linux .deb was not produced."
 
-cp "$LINUX_BACKEND" \
-    "$ROOT/releases/linux/StoreLimitlessServer_$VERSION"
+    cp "$LINUX_PACKAGE" \
+        "$ROOT/releases/linux/"
 
-echo
-echo "==> [2/4] Building Linux application"
+    cd "$ROOT"
 
-cd "$ROOT/frontend"
+    echo "==> Linux application built: $LINUX_PACKAGE"
+else
+    echo
+    echo "==> [2/4] Skipping Linux application build"
+fi
 
-npx tauri build --bundles deb
+# ---------------------------------------------------------------------------
+# [3/4] Windows server
+# ---------------------------------------------------------------------------
 
-LINUX_PACKAGE=$(newest_match \
-    "$ROOT/frontend/src-tauri/target/release/bundle/deb" \
-    "*.deb")
+if [ "$BUILD_WINDOWS_SERVER" = 1 ]; then
+    echo
+    echo "==> [3/4] Building Windows server"
 
-[ -n "$LINUX_PACKAGE" ] \
-    || die "Linux .deb was not produced."
+    "$WINE_BIN" python -m PyInstaller \
+        --clean \
+        --workpath "$ROOT/build/pyi-windows" \
+        --distpath "$ROOT/dist/windows" \
+        "$ROOT/storelimitless-backend.spec"
 
-cp "$LINUX_PACKAGE" \
-    "$ROOT/releases/linux/"
+    WINDOWS_BACKEND="$ROOT/dist/windows/storelimitless-backend.exe"
 
-echo
-echo "==> [3/4] Building Windows server"
+    [ -f "$WINDOWS_BACKEND" ] \
+        || die "Windows backend build failed."
 
-cd "$ROOT"
+    file "$WINDOWS_BACKEND" | grep -qi 'PE32' \
+        || die "Windows backend is not a valid Windows executable."
 
-export STORELIMITLESS_FFMPEG="$("$WINE_BIN" winepath -w "$RUNTIME_DIR/windows/ffmpeg.exe")"
-export STORELIMITLESS_REDIS="$("$WINE_BIN" winepath -w "$RUNTIME_DIR/windows/redis-server.exe")"
+    echo
+    echo "==> Verifying Windows backend bundle contents"
 
-echo "==> STORELIMITLESS_FFMPEG=$STORELIMITLESS_FFMPEG"
-echo "==> STORELIMITLESS_REDIS=$STORELIMITLESS_REDIS"
+    "$WINE_BIN" pyi-archive_viewer -l "$WINDOWS_BACKEND" > "$ROOT/build/windows-bundle-list.txt" 2>&1 \
+        || die "Could not inspect Windows backend archive."
 
-"$WINE_BIN" python -m PyInstaller \
-    --clean \
-    --workpath "$ROOT/build/pyi-windows" \
-    --distpath "$ROOT/dist/windows" \
-    "$ROOT/storelimitless-backend.spec"
+    cat "$ROOT/build/windows-bundle-list.txt"
 
-WINDOWS_BACKEND="$ROOT/dist/windows/storelimitless-backend.exe"
+    cp "$WINDOWS_BACKEND" \
+        "$ROOT/releases/windows/StoreLimitlessServer_$VERSION.exe"
 
-[ -f "$WINDOWS_BACKEND" ] \
-    || die "Windows backend build failed."
+    echo "==> Windows server built: $ROOT/releases/windows/StoreLimitlessServer_$VERSION.exe"
+else
+    echo
+    echo "==> [3/4] Skipping Windows server build"
+fi
 
-file "$WINDOWS_BACKEND" | grep -qi 'PE32' \
-    || die "Windows backend is not a valid Windows executable."
+# ---------------------------------------------------------------------------
+# [4/4] Windows application
+# ---------------------------------------------------------------------------
 
-echo
-echo "==> Verifying Windows backend bundle contents"
+if [ "$BUILD_WINDOWS_APP" = 1 ]; then
+    echo
+    echo "==> [4/4] Building Windows NSIS application"
 
-"$WINE_BIN" pyi-archive_viewer -l "$WINDOWS_BACKEND" > "$ROOT/build/windows-bundle-list.txt" 2>&1 \
-    || die "Could not inspect Windows backend archive."
+    WINDOWS_BACKEND_FOR_APP="$ROOT/dist/windows/storelimitless-backend.exe"
 
-cat "$ROOT/build/windows-bundle-list.txt"
+    if [ ! -f "$WINDOWS_BACKEND_FOR_APP" ]; then
+        WINDOWS_BACKEND_FOR_APP="$ROOT/releases/windows/StoreLimitlessServer_$VERSION.exe"
+    fi
 
-grep -q "'ffmpeg\.exe'" "$ROOT/build/windows-bundle-list.txt" \
-    || die "ffmpeg.exe is NOT bundled in the Windows backend."
+    [ -f "$WINDOWS_BACKEND_FOR_APP" ] \
+        || die "no Windows backend available to bundle — build it first (arg3=1)."
 
-grep -q "'redis-server\.exe'" "$ROOT/build/windows-bundle-list.txt" \
-    || die "redis-server.exe is NOT bundled in the Windows backend."
+    rm -f "$ROOT/frontend/src-tauri/resources/backend/"*
 
-echo "==> ffmpeg.exe confirmed inside Windows backend."
-echo "==> redis-server.exe confirmed inside Windows backend."
+    cp "$WINDOWS_BACKEND_FOR_APP" \
+        "$ROOT/frontend/src-tauri/resources/backend/storelimitless-backend.exe"
 
-rm -f "$ROOT/frontend/src-tauri/resources/backend/"*
+    require_file "$ROOT/frontend/src-tauri/resources/backend/storelimitless-backend.exe"
 
-cp "$WINDOWS_BACKEND" \
-    "$ROOT/frontend/src-tauri/resources/backend/storelimitless-backend.exe"
+    file "$ROOT/frontend/src-tauri/resources/backend/storelimitless-backend.exe" | grep -qi 'PE32' \
+        || die "Windows backend resource is not a valid Windows executable."
 
-cp "$WINDOWS_BACKEND" \
-    "$ROOT/releases/windows/StoreLimitlessServer_$VERSION.exe"
+    echo "==> Windows backend resource verified."
 
-echo
-echo "==> Verifying Windows Tauri resources"
+    cd "$ROOT/frontend"
 
-require_file "$ROOT/frontend/src-tauri/resources/backend/storelimitless-backend.exe"
+    npx tauri build \
+        --runner cargo-xwin \
+        --target x86_64-pc-windows-msvc \
+        --bundles nsis
 
-file "$ROOT/frontend/src-tauri/resources/backend/storelimitless-backend.exe" | grep -qi 'PE32' \
-    || die "Windows backend resource is not a valid Windows executable."
+    NSIS_INSTALLER=$(newest_match \
+        "$ROOT/frontend/src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis" \
+        "*-setup.exe")
 
-echo "==> Windows backend resource verified."
-echo
-echo "==> [4/4] Building Windows NSIS application"
+    [ -n "$NSIS_INSTALLER" ] \
+        || die "Windows NSIS installer was not produced."
 
-cd "$ROOT/frontend"
+    file "$NSIS_INSTALLER" | grep -Eqi 'PE32|MS-DOS executable' \
+        || die "Windows NSIS installer is not a valid Windows executable."
 
-npx tauri build \
-    --runner cargo-xwin \
-    --target x86_64-pc-windows-msvc \
-    --bundles nsis
+    cp "$NSIS_INSTALLER" \
+        "$ROOT/releases/windows/"
 
-NSIS_INSTALLER=$(newest_match \
-    "$ROOT/frontend/src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis" \
-    "*-setup.exe")
+    cd "$ROOT"
 
-[ -n "$NSIS_INSTALLER" ] \
-    || die "Windows NSIS installer was not produced."
-
-file "$NSIS_INSTALLER" | grep -Eqi 'PE32|MS-DOS executable' \
-    || die "Windows NSIS installer is not a valid Windows executable."
-
-cp "$NSIS_INSTALLER" \
-    "$ROOT/releases/windows/"
+    echo "==> Windows application built: $NSIS_INSTALLER"
+else
+    echo
+    echo "==> [4/4] Skipping Windows application build"
+fi
 
 echo
 echo "========================================"

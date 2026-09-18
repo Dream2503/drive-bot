@@ -39,12 +39,12 @@ class File(BaseModel):
         )
 
     async def save(self) -> None:
-        if await self.get(did=self.directory_id, name=self.name, username=self.username):
+        if await self.get(self.username, did=self.directory_id, name=self.name):
             path: Path = Path(self.name)
             stem, extension = path.stem, path.suffix
             i = 1
 
-            while await self.get(did=self.directory_id, name=f"{stem}({i}){extension}", username=self.username):
+            while await self.get(self.username, did=self.directory_id, name=f"{stem}({i}){extension}"):
                 i += 1
 
             self.name = f"{stem}({i}){extension}"
@@ -84,8 +84,7 @@ class File(BaseModel):
             fid: int | None = None,
             did: int | None = None,
             name: str | None = None,
-            include_trashed: bool = False,
-            trashed_only: bool = False
+            trash: bool = False
     ) -> "File | None":
         if fid is not None:
             try:
@@ -94,10 +93,7 @@ class File(BaseModel):
             except KeyError:
                 return None
 
-            if file.deleted_at is not None and not include_trashed:
-                return None
-
-            if file.deleted_at is None and trashed_only:
+            if trash != (file.deleted_at is not None):
                 return None
 
             return file
@@ -109,10 +105,7 @@ class File(BaseModel):
                 if file.directory_id != did or file.name != name:
                     continue
 
-                if file.deleted_at is not None and not include_trashed:
-                    continue
-
-                if file.deleted_at is None and trashed_only:
+                if trash != (file.deleted_at is not None):
                     continue
 
                 return file
@@ -120,22 +113,12 @@ class File(BaseModel):
         return None
 
     @classmethod
-    async def get_all(
-            cls,
-            username: str,
-            *,
-            directory_id: int | None = None,
-            include_trashed: bool = False,
-            trashed_only: bool = False
-    ) -> list["File"]:
+    async def get_all(cls, username: str, directory_id: int | None = None, trash: bool = False) -> list["File"]:
         files: list[File] = cast(list[File], await Redis.get(f"user:{username}:files", "File"))
         result: list[File] = []
 
         for file in files:
-            if file.deleted_at is not None and not include_trashed:
-                continue
-
-            if file.deleted_at is None and trashed_only:
+            if trash != (file.deleted_at is not None):
                 continue
 
             if directory_id is not None and file.directory_id != directory_id:
@@ -143,7 +126,7 @@ class File(BaseModel):
 
             result.append(file)
 
-        result.sort(key=lambda file: file.name)
+        result.sort(key=lambda f: f.name)
         return result
 
     async def update(self) -> None:

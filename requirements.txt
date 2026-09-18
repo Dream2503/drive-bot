@@ -8,7 +8,6 @@ libtorrent
 passlib[bcrypt]==1.7.4
 psycopg[binary]
 pydantic
-python-dotenv
 python-jose
 redis>=8.1.0
 telethon

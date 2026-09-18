@@ -1,63 +1,22 @@
 from asyncio import CancelledError, Task, create_task, gather, run
-from pathlib import Path
-from shutil import rmtree, which
-from socket import create_connection
+from shutil import rmtree
 from subprocess import Popen, TimeoutExpired
 from threading import Thread
-from time import sleep
 
 from uvicorn import Config, Server
 
 from backend.server.app import app
-from core.config import REDIS_PATH, TRANSFER_PATH
+from core.config import TRANSFER_PATH
 from core.data_center import DataCenter
+from core.utils.binaries import start_redis_server
 from core.utils.discord_ import Discord
 from core.utils.telegram_ import Telegram
 
 
-def start_redis() -> Popen | None:
-    from core.config import FROZEN
-
-    try:
-        with create_connection(("127.0.0.1", 6379), timeout=0.1):
-            return None
-
-    except OSError:
-        pass
-
-    redis_path: Path = REDIS_PATH if FROZEN else Path(which("redis-server") or "")
-
-    if not redis_path.is_file():
-        raise FileNotFoundError(f"Redis executable not found: {redis_path}")
-
-    redis_dir: Path = TRANSFER_PATH.parent / "redis"
-    redis_dir.mkdir(parents=True, exist_ok=True)
-
-    return Popen([
-        str(redis_path),
-        "--bind", "127.0.0.1",
-        "--port", "6379",
-        "--dir", str(redis_dir),
-    ])
-
-
-def wait_for_redis(timeout: float = 30.0) -> None:
-    for _ in range(int(timeout * 10)):
-        try:
-            with create_connection(("127.0.0.1", 6379), timeout=0.1):
-                return
-
-        except OSError:
-            sleep(0.1)
-
-    raise RuntimeError("Redis did not become available on 127.0.0.1:6379")
-
-
 async def main() -> None:
-    redis_process = start_redis()
+    redis_process: Popen | None = start_redis_server()
 
     try:
-        wait_for_redis()
         await DataCenter.initialize_cache()
         await Telegram.main()
 

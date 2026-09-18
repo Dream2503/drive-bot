@@ -86,7 +86,7 @@ async def upload_file(
 ) -> JSONResponse:
     data_center = perform_validation(data_center, "data_center")
     file_name = perform_validation(file_name, "file_name")
-    directory_obj: Directory | None = await Directory.get(path=Path(directory), username=user.username)
+    directory_obj: Directory | None = await Directory.get(user.username, path=Path(directory))
 
     if directory_obj is None:
         raise HTTPException(status_code=404, detail="Directory not found")
@@ -131,7 +131,7 @@ async def upload_file(
 async def upload_link(link: str, data_center: str, directory: str, user: User = Depends(get_current_user)) -> JSONResponse:
     link = perform_validation(link, "link")
     data_center = perform_validation(data_center, "data_center")
-    directory_obj: Directory | None = await Directory.get(path=Path(directory), username=user.username)
+    directory_obj: Directory | None = await Directory.get(user.username, path=Path(directory))
 
     if directory_obj is None:
         raise HTTPException(status_code=404, detail="Directory not found")
@@ -175,18 +175,18 @@ async def create_folder(directory: str, name: str, user: User = Depends(get_curr
 
 @auth.get("/directory")
 async def get_directory(directory: str, user: User = Depends(get_current_user)) -> tuple[list[Directory], list[File]]:
-    directory_obj: Directory | None = await Directory.get(path=Path(directory), username=user.username)
+    directory_obj: Directory | None = await Directory.get(user.username, path=Path(directory))
 
     if directory_obj is None:
         raise HTTPException(status_code=404, detail="Directory not found")
 
-    return await Directory.get_all(user.username, directory=Path(directory)), await File.get_all(user.username, directory_id=directory_obj.id)
+    return await Directory.get_all(user.username, Path(directory)), await File.get_all(user.username, directory_obj.id)
 
 
 @auth.get("/trash")
 async def get_trash(user: User = Depends(get_current_user)) -> tuple[list[Directory], list[File]]:
     await File.purge_expired(user.username)
-    return await Directory.get_all(user.username, trashed_only=True), await File.get_all(user.username, trashed_only=True)
+    return await Directory.get_all(user.username, trash=True), await File.get_all(user.username, trash=True)
 
 
 @auth.delete("/file/{fid}")
@@ -219,7 +219,7 @@ async def directory_delete(did: int, user: User = Depends(get_current_user)) -> 
 
 @auth.delete("/trash/file/{fid}")
 async def permanently_delete(fid: int, user: User = Depends(get_current_user)) -> JSONResponse:
-    file: File | None = await File.get(user.username, fid=fid, trashed_only=True)
+    file: File | None = await File.get(user.username, fid=fid, trash=True)
 
     if file is None or file.username != user.username:
         raise HTTPException(status_code=404, detail="File not found")
@@ -230,15 +230,15 @@ async def permanently_delete(fid: int, user: User = Depends(get_current_user)) -
 
 @auth.delete("/trash/directory/{did}")
 async def permanently_delete_directory(did: int, user: User = Depends(get_current_user)) -> JSONResponse:
-    directory: Directory | None = await Directory.get(user.username, did=did, trashed_only=True)
+    directory: Directory | None = await Directory.get(user.username, did=did, trash=True)
 
     if directory is None or directory.username != user.username:
         raise HTTPException(status_code=404, detail="Directory not found")
 
-    for file in await File.get_all(user.username, directory_id=directory.id, trashed_only=True):
+    for file in await File.get_all(user.username, directory.id, True):
         await file.delete()
 
-    for child in await Directory.get_all(user.username, directory=directory.path, trashed_only=True):
+    for child in await Directory.get_all(user.username, directory.path, True):
         await permanently_delete_directory(cast(int, child.id), user)
 
     await directory.delete()
@@ -247,7 +247,7 @@ async def permanently_delete_directory(did: int, user: User = Depends(get_curren
 
 @auth.post("/trash/file/{fid}/restore")
 async def restore_file(fid: int, user: User = Depends(get_current_user)) -> JSONResponse:
-    file: File | None = await File.get(user.username, fid=fid, trashed_only=True)
+    file: File | None = await File.get(user.username, fid=fid, trash=True)
 
     if file is None or file.username != user.username:
         raise HTTPException(status_code=404, detail="File not found")
@@ -258,7 +258,7 @@ async def restore_file(fid: int, user: User = Depends(get_current_user)) -> JSON
 
 @auth.post("/trash/directory/{did}/restore")
 async def restore_directory(did: int, user: User = Depends(get_current_user)) -> JSONResponse:
-    directory: Directory | None = await Directory.get(user.username, did=did, trashed_only=True)
+    directory: Directory | None = await Directory.get(user.username, did=did, trash=True)
 
     if directory is None or directory.username != user.username:
         raise HTTPException(status_code=404, detail="Directory not found")

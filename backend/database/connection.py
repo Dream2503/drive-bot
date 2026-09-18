@@ -3,7 +3,7 @@ from datetime import datetime
 from psycopg import connect, Connection
 from psycopg.rows import dict_row
 
-from core.config import DATABASE_URL
+from core.utils.env import DATABASE_URL
 
 try:
     UserDict = dict[str, str | datetime]
@@ -62,11 +62,6 @@ try:
             repo_id BIGINT PRIMARY KEY,
             used    BIGINT NOT NULL
         );
-
-        INSERT INTO github_cursor (repo_id, used)
-        SELECT 0, 0
-        WHERE NOT EXISTS (SELECT 1
-                          FROM github_cursor);
         """
     )
     CONNECTION.commit()

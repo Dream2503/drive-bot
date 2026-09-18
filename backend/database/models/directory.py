@@ -29,12 +29,12 @@ class Directory(BaseModel):
         )
 
     async def save(self) -> None:
-        if await Directory.get(path=self.path, username=self.username) is not None:
+        if await Directory.get(self.username, path=self.path) is not None:
             parent: Path = self.path.parent
             name: str = self.path.name
             i: int = 1
 
-            while await Directory.get(path=parent / name, username=self.username) is not None:
+            while await Directory.get(self.username, path=parent / name) is not None:
                 name = f"{self.path.name}({i})"
                 i += 1
 
@@ -64,8 +64,7 @@ class Directory(BaseModel):
             *,
             did: int | None = None,
             path: Path | None = None,
-            include_trashed: bool = False,
-            trashed_only: bool = False
+            trash: bool = False
     ) -> "Directory | None":
         if did is not None:
             try:
@@ -74,25 +73,19 @@ class Directory(BaseModel):
             except KeyError:
                 return None
 
-            if directory.deleted_at is not None and not include_trashed:
-                return None
-
-            if directory.deleted_at is None and trashed_only:
+            if trash != (directory.deleted_at is not None):
                 return None
 
             return directory
 
-        elif path is not None and username is not None:
+        elif path is not None:
             directories: list[Directory] = cast(list[Directory], await Redis.get(f"user:{username}:directories", "Directory"))
 
             for directory in directories:
                 if directory.path != path:
                     continue
 
-                if directory.deleted_at is not None and not include_trashed:
-                    continue
-
-                if directory.deleted_at is None and trashed_only:
+                if trash != (directory.deleted_at is not None):
                     continue
 
                 return directory
@@ -100,31 +93,20 @@ class Directory(BaseModel):
         return None
 
     @classmethod
-    async def get_all(
-            cls,
-            username: str,
-            *,
-            directory: Path | None = None,
-            include_trashed: bool = False,
-            trashed_only: bool = False
-    ) -> list["Directory"]:
+    async def get_all(cls, username: str, directory: Path | None = None, trash: bool = False) -> list["Directory"]:
         directories: list[Directory] = cast(list[Directory], await Redis.get(f"user:{username}:directories", "Directory"))
         result: list[Directory] = []
 
         for data in directories:
-            if data.deleted_at is not None and not include_trashed:
+            if trash and data.deleted_at is None:
                 continue
 
-            if data.deleted_at is None and trashed_only:
+            if directory is not None and data.path.parent != directory:
                 continue
-
-            if directory is not None:
-                if data.path.parent != directory:
-                    continue
 
             result.append(data)
 
-        result.sort(key=lambda directory: str(directory.path))
+        result.sort(key=lambda dir: str(dir.path))
         return result
 
     async def update(self) -> None:

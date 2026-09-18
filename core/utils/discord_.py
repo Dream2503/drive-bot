@@ -8,15 +8,15 @@ from discord import Intents, Message, TextChannel
 from discord.ext.commands import Bot
 
 from core.data_center import ConfigMeta, DataCenter
-from core.utils import getenv
 from core.utils import write_log
+from core.utils.env import DISCORD_TOKEN, DISCORD_FILE_DUMP_ID
 from core.utils.progress import Progress, ProgressStream
 
 
 class Discord(DataCenter, metaclass=ConfigMeta):
     NAME: str = "Discord"
-    TOKEN: str = getenv("DISCORD_TOKEN")
-    FILE_DUMP_ID: int = int(getenv("DISCORD_FILE_DUMP_ID"))
+    TOKEN: str = DISCORD_TOKEN
+    FILE_DUMP_ID: int = DISCORD_FILE_DUMP_ID
     FILE_DUMP: TextChannel
     LOOP: AbstractEventLoop
 

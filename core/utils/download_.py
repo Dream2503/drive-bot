@@ -11,10 +11,11 @@ from yt_dlp import YoutubeDL
 
 import core.transfer
 from backend.database.models import File
-from core.config import FFMPEG_PATH
-from core.config import TRANSFER_PATH, GOOGLE_API_KEY
+from core.config import TRANSFER_PATH
 from core.data_center import DataCenter
 from core.utils import write_log
+from core.utils.binaries import get_ffmpeg_path
+from core.utils.env import GOOGLE_API_KEY
 from core.utils.progress import Progress, upload_growing_file
 
 
@@ -86,6 +87,7 @@ async def download_google_drive(file: File, link: str) -> AsyncGenerator[Progres
 
 
 async def download_youtube(file: File, link: str) -> AsyncGenerator[Progress, None]:
+    ffmpeg_path: Path = get_ffmpeg_path()
     temp_dir: Path = TRANSFER_PATH / file.username / "yt-dlp"
     temp_dir.mkdir(parents=True, exist_ok=True)
 
@@ -142,11 +144,9 @@ async def download_youtube(file: File, link: str) -> AsyncGenerator[Progress, No
             "format": "bestvideo[vcodec^=avc1]+bestaudio[acodec^=mp4a]/best",
             "outtmpl": str(temp_dir / "%(title)s.%(ext)s"),
             "merge_output_format": "mkv",
-            "ffmpeg_location": str(FFMPEG_PATH.parent),
-            "writesubtitles": True,
-            "writeautomaticsub": True,
-            "subtitleslangs": ["en"],
-            "embedsubtitles": True,
+            "ffmpeg_location": str(ffmpeg_path.parent),
+            "socket_timeout": 60,
+            "retries": 10,
             "progress_hooks": [hook],
             "postprocessor_hooks": [postprocessor_hook],
         })) as ydl:

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import cast
@@ -57,7 +59,7 @@ class User(BaseModel):
         return cast(Directory, await Directory.get(path=Path("/home"), username=self.username))
 
     @classmethod
-    async def get(cls, username: str) -> "User | None":
+    async def get(cls, username: str) -> User | None:
         try:
             return cast(User, await Redis.get(f"user:{username}", "User"))
 

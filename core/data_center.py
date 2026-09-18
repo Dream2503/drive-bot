@@ -17,7 +17,6 @@ if TYPE_CHECKING:
 class DataCenter:
     NAME: str
     TOKEN: str
-    ADMIN: int
     FILE_DUMP_ID: int
     MAX_SIZE: int = 10 * 1024 * 1024
 
@@ -31,7 +30,6 @@ class DataCenter:
     def __new__(cls, name: str):
         from core.utils.discord_ import Discord
         from core.utils.telegram_ import Telegram
-        from core.utils.github_ import GitHub
 
         match name:
             case Discord.NAME:
