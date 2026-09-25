@@ -4,7 +4,7 @@ from typing import cast
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from backend.database.connection import CONNECTION
+from backend.database.connection import POOL
 from backend.database.redis_server import Redis
 from core.data_center import Database
 from core.utils import write_log
@@ -49,32 +49,33 @@ class File(BaseModel):
 
             self.name = f"{stem}({i}){extension}"
 
-        try:
-            self.id = cast(dict[str, int], CONNECTION.execute(
-                """
-                INSERT INTO files (directory_id, name, type, size, modified_at, data_center, links, deleted_at, username)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-                RETURNING id;
-                """,
-                (
-                    self.directory_id,
-                    self.name,
-                    self.type,
-                    self.size,
-                    self.modified_at,
-                    self.data_center,
-                    self.links,
-                    self.deleted_at,
-                    self.username,
-                ),
-            ).fetchone())["id"]
-            CONNECTION.commit()
-            await Redis.set(f"user:{self.username}:files", self)
+        with POOL.connection() as connection:
+            try:
+                self.id = cast(dict[str, int], connection.execute(
+                    """
+                    INSERT INTO files (directory_id, name, type, size, modified_at, data_center, links, deleted_at, username)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    RETURNING id;
+                    """,
+                    (
+                        self.directory_id,
+                        self.name,
+                        self.type,
+                        self.size,
+                        self.modified_at,
+                        self.data_center,
+                        self.links,
+                        self.deleted_at,
+                        self.username,
+                    ),
+                ).fetchone())["id"]
+                connection.commit()
+                await Redis.set(f"user:{self.username}:files", self)
 
-        except Exception as e:
-            CONNECTION.rollback()
-            write_log("ERROR", Database, "INSERT FILE", self.username, f"Failed to insert file: {e}")
-            raise
+            except Exception as e:
+                connection.rollback()
+                write_log("ERROR", Database, "INSERT FILE", self.username, f"Failed to insert file: {e}")
+                raise
 
     @classmethod
     async def get(
@@ -102,10 +103,7 @@ class File(BaseModel):
             files: list[File] = cast(list[File], await Redis.get(f"user:{username}:files", "File"))
 
             for file in files:
-                if file.directory_id != did or file.name != name:
-                    continue
-
-                if trash != (file.deleted_at is not None):
+                if file.directory_id != did or file.name != name or trash != (file.deleted_at is not None):
                     continue
 
                 return file
@@ -118,10 +116,7 @@ class File(BaseModel):
         result: list[File] = []
 
         for file in files:
-            if trash != (file.deleted_at is not None):
-                continue
-
-            if directory_id is not None and file.directory_id != directory_id:
+            if trash != (file.deleted_at is not None) or directory_id is not None and file.directory_id != directory_id:
                 continue
 
             result.append(file)
@@ -133,39 +128,40 @@ class File(BaseModel):
         if self.id is None:
             raise ValueError("File has no ID")
 
-        try:
-            CONNECTION.execute(
-                """
-                UPDATE files
-                SET directory_id = %s,
-                    name         = %s,
-                    type         = %s,
-                    size         = %s,
-                    modified_at  = %s,
-                    deleted_at   = %s,
-                    data_center  = %s,
-                    links        = %s
-                WHERE id = %s;
-                """,
-                (
-                    self.directory_id,
-                    self.name,
-                    self.type,
-                    self.size,
-                    self.modified_at,
-                    self.deleted_at,
-                    self.data_center,
-                    self.links,
-                    self.id,
-                ),
-            )
-            CONNECTION.commit()
-            await Redis.set(f"user:{self.username}:files", self)
+        with POOL.connection() as connection:
+            try:
+                connection.execute(
+                    """
+                    UPDATE files
+                    SET directory_id = %s,
+                        name         = %s,
+                        type         = %s,
+                        size         = %s,
+                        modified_at  = %s,
+                        deleted_at   = %s,
+                        data_center  = %s,
+                        links        = %s
+                    WHERE id = %s;
+                    """,
+                    (
+                        self.directory_id,
+                        self.name,
+                        self.type,
+                        self.size,
+                        self.modified_at,
+                        self.deleted_at,
+                        self.data_center,
+                        self.links,
+                        self.id,
+                    ),
+                )
+                connection.commit()
+                await Redis.set(f"user:{self.username}:files", self)
 
-        except Exception as e:
-            CONNECTION.rollback()
-            write_log("ERROR", Database, "UPDATE FILE", self.username, f"Failed to update file: {e}")
-            raise
+            except Exception as e:
+                connection.rollback()
+                write_log("ERROR", Database, "UPDATE FILE", self.username, f"Failed to update file: {e}")
+                raise
 
     async def move_to_trash(self) -> None:
         if self.id is None:
@@ -179,22 +175,23 @@ class File(BaseModel):
         if self.id is None:
             raise ValueError("File has no ID")
 
-        try:
-            CONNECTION.execute(
-                """
-                DELETE
-                FROM files
-                WHERE id = %s;
-                """,
-                (self.id,),
-            )
-            CONNECTION.commit()
-            await Redis.delete(f"user:{self.username}:files {self.id}", "File")
+        with POOL.connection() as connection:
+            try:
+                connection.execute(
+                    """
+                    DELETE
+                    FROM files
+                    WHERE id = %s;
+                    """,
+                    (self.id,),
+                )
+                connection.commit()
+                await Redis.delete(f"user:{self.username}:files {self.id}", "File")
 
-        except Exception as e:
-            CONNECTION.rollback()
-            write_log("ERROR", Database, "DELETE FILE", str(self.id), f"Failed to delete file: {e}")
-            raise
+            except Exception as e:
+                connection.rollback()
+                write_log("ERROR", Database, "DELETE FILE", str(self.id), f"Failed to delete file: {e}")
+                raise
 
     async def restore(self) -> None:
         if self.id is None:
@@ -206,32 +203,34 @@ class File(BaseModel):
 
     @classmethod
     async def purge_expired(cls, username: str, older_than_days: int = 30) -> None:
-        try:
-            files: list[File] = cast(list[File], await Redis.get(f"user:{username}:files", "File"))
-            cutoff: datetime = datetime.now(timezone.utc) - timedelta(days=older_than_days)
-            expired: list[File] = [file for file in files if file.deleted_at is not None and file.deleted_at < cutoff]
+        files: list[File] = cast(list[File], await Redis.get(f"user:{username}:files", "File"))
+        cutoff: datetime = datetime.now(timezone.utc) - timedelta(days=older_than_days)
+        expired: list[File] = [file for file in files if file.deleted_at is not None and file.deleted_at < cutoff]
 
-            if not expired:
-                return
+        if not expired:
+            return
 
-            CONNECTION.execute(
-                """
-                DELETE
-                FROM files
-                WHERE username = %s
-                  AND id = ANY(%s);
-                """,
-                (
-                    username,
-                    [file.id for file in expired],
-                ),
-            )
-            CONNECTION.commit()
+        with POOL.connection() as connection:
+            try:
 
-            for file in expired:
-                await Redis.delete(f"user:{username}:files {file.id}", "File")
+                connection.execute(
+                    """
+                    DELETE
+                    FROM files
+                    WHERE username = %s
+                      AND id = ANY(%s);
+                    """,
+                    (
+                        username,
+                        [file.id for file in expired],
+                    ),
+                )
+                connection.commit()
 
-        except Exception as e:
-            CONNECTION.rollback()
-            write_log("ERROR", Database, "PURGE FILE TRASH", username, f"Failed to purge file trash: {e}")
-            raise
+                for file in expired:
+                    await Redis.delete(f"user:{username}:files {file.id}", "File")
+
+            except Exception as e:
+                connection.rollback()
+                write_log("ERROR", Database, "PURGE FILE TRASH", username, f"Failed to purge file trash: {e}")
+                raise

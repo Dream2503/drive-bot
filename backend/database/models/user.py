@@ -7,11 +7,11 @@ from typing import cast
 from fastapi import HTTPException
 from pydantic import BaseModel, ConfigDict, Field
 
-from backend.database.connection import CONNECTION, UserDict
+from backend.database.connection import POOL, UserDict
 from core.data_center import Database
 from core.utils import write_log
 from .directory import Directory
-from ..redis_server import Redis
+from backend.database.redis_server import Redis
 
 
 class User(BaseModel):
@@ -32,27 +32,28 @@ class User(BaseModel):
         )
 
     async def save(self) -> None:
-        try:
-            CONNECTION.execute(
-                """
-                INSERT INTO users (username, password, first_name, last_name, created_at)
-                VALUES (%s, %s, %s, %s, %s);
-                """,
-                (self.username, self.password, self.first_name, self.last_name, self.created_at),
-            )
-            CONNECTION.execute(
-                """
-                INSERT INTO directories (path, modified_at, deleted_at, username)
-                VALUES (%s, %s, %s, %s);
-                """,
-                ("/home", datetime.now(timezone.utc), None, self.username),
-            )
-            CONNECTION.commit()
+        with POOL.connection() as connection:
+            try:
+                connection.execute(
+                    """
+                    INSERT INTO users (username, password, first_name, last_name, created_at)
+                    VALUES (%s, %s, %s, %s, %s);
+                    """,
+                    (self.username, self.password, self.first_name, self.last_name, self.created_at),
+                )
+                connection.execute(
+                    """
+                    INSERT INTO directories (path, modified_at, deleted_at, username)
+                    VALUES (%s, %s, %s, %s);
+                    """,
+                    ("/home", datetime.now(timezone.utc), None, self.username),
+                )
+                connection.commit()
 
-        except Exception as e:
-            CONNECTION.rollback()
-            write_log("ERROR", Database, "SET USER", self.username, f"Failed to insert user: {e}")
-            raise
+            except Exception as e:
+                connection.rollback()
+                write_log("ERROR", Database, "SET USER", self.username, f"Failed to insert user: {e}")
+                raise
 
     @property
     async def home(self) -> Directory:
@@ -66,14 +67,15 @@ class User(BaseModel):
         except KeyError:
             pass
 
-        row: UserDict | None = CONNECTION.execute(
-            """
-            SELECT username, password, first_name, last_name, created_at
-            FROM users
-            WHERE username = %s;
-            """,
-            (username,),
-        ).fetchone()
+        with POOL.connection() as connection:
+            row: UserDict | None = connection.execute(
+                """
+                SELECT username, password, first_name, last_name, created_at
+                FROM users
+                WHERE username = %s;
+                """,
+                (username,),
+            ).fetchone()
 
         if row is None:
             return None
@@ -83,23 +85,24 @@ class User(BaseModel):
         return user
 
     def update(self) -> None:
-        try:
-            CONNECTION.execute(
-                """
-                UPDATE users
-                SET password   = %s,
-                    first_name = %s,
-                    last_name  = %s
-                WHERE username = %s;
-                """,
-                (self.password, self.first_name, self.last_name, self.username),
-            )
-            CONNECTION.commit()
+        with POOL.connection() as connection:
+            try:
+                connection.execute(
+                    """
+                    UPDATE users
+                    SET password   = %s,
+                        first_name = %s,
+                        last_name  = %s
+                    WHERE username = %s;
+                    """,
+                    (self.password, self.first_name, self.last_name, self.username),
+                )
+                connection.commit()
 
-        except Exception as e:
-            CONNECTION.rollback()
-            write_log("ERROR", Database, "UPDATE USER", self.username, f"Failed to update user: {e}")
-            raise
+            except Exception as e:
+                connection.rollback()
+                write_log("ERROR", Database, "UPDATE USER", self.username, f"Failed to update user: {e}")
+                raise
 
     def verify(self) -> None:
         if not self.username or len(self.username) < 3 or len(self.username) > 32 or not self.username.replace("_", "").replace("-", "").isalnum():
