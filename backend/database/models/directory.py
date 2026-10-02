@@ -96,7 +96,7 @@ class Directory(BaseModel):
         result: list[Directory] = []
 
         for data in directories:
-            if trash and data.deleted_at is None or directory is not None and data.path.parent != directory:
+            if trash != (data.deleted_at is not None) or directory is not None and data.path.parent != directory:
                 continue
 
             result.append(data)

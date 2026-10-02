@@ -3,6 +3,7 @@
 __pycache__/
 *.pyc
 
+backend/database/backup
 core/utils/env.py
 core/transfer/
 

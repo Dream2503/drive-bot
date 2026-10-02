@@ -16,7 +16,17 @@ if TYPE_CHECKING:
 
 class Redis:
     ValueTypes = Literal["Progress", "Directory", "File", "User"]
-    redis: redis.asyncio.Redis = redis.asyncio.Redis.from_url("redis://localhost:6379", decode_responses=True)
+    redis: redis.asyncio.Redis
+
+    @classmethod
+    async def initialize(cls) -> None:
+        cls.redis = redis.asyncio.Redis.from_url("redis://localhost:6379", decode_responses=True)
+        await cls.redis.ping()
+        await cls.redis.flushall()
+
+    @classmethod
+    async def close(cls) -> None:
+        await cls.redis.aclose()
 
     @classmethod
     async def exists(cls, key: str, type: ValueTypes) -> bool:

@@ -5,12 +5,15 @@ fastapi[all]
 filelock
 gdown
 libtorrent
+pandas
 passlib[bcrypt]==1.7.4
 psycopg-pool
 psycopg[binary]
 pydantic
+pyftpdlib
 python-jose
 redis>=8.1.0
+tabulate
 telethon
 requests
 uvicorn

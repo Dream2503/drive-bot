@@ -57,7 +57,7 @@ class User(BaseModel):
 
     @property
     async def home(self) -> Directory:
-        return cast(Directory, await Directory.get(path=Path("/home"), username=self.username))
+        return cast(Directory, await Directory.get(self.username, path=Path("/home")))
 
     @classmethod
     async def get(cls, username: str) -> User | None:

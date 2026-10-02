@@ -1,4 +1,5 @@
 from asyncio import AbstractEventLoop, get_running_loop, run_coroutine_threadsafe, wrap_future, sleep
+from socket import socket, AF_INET, SOCK_DGRAM
 from traceback import format_exc
 from typing import cast
 
@@ -76,6 +77,17 @@ class Discord(DataCenter, metaclass=ConfigMeta):
                 write_log("ERROR", Discord, "INIT", "", f"Failed to fetch FILE_DUMP channel with ID {Discord.FILE_DUMP_ID}. Check bot permissions.")
 
             write_log("INFO", Discord, "INIT", str(Discord.app.user), f"Bot online and ready (id={Discord.app.user.id}).")
+            sock: socket = socket(AF_INET, SOCK_DGRAM)
+            sock.connect(("8.8.8.8", 80))
+            ip: str = sock.getsockname()[0]
+            print('\n' + "=" * 50)
+            print("Servers started")
+            print("=" * 50)
+            print(f"FastAPI : http://{ip}:8000")
+            print(f"Website : http://{ip}:5173")
+            print(f"FTP     : ftp://{ip}:2121")
+            print(f"Redis   : redis://{ip}:6379")
+            print("=" * 50 + '\n')
             Discord.ready = True
 
         except Exception as e:
