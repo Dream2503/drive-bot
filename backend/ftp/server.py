@@ -18,9 +18,7 @@ class StoreLimitlessFTPServer(Thread):
         self.server = FTPServer((host, port), StoreLimitlessHandler)
 
     def run(self) -> None:
-        print(f"[FTP] Listening on {self.server.socket.getsockname()}")
         self.server.serve_forever()
 
     def stop(self) -> None:
-        print("[FTP] Stopping")
         self.server.close_all()

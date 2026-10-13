@@ -1,7 +1,7 @@
 import {useState} from "react";
 import {useNavigate, useSearchParams} from "react-router-dom";
 
-const API_URL = import.meta.env.VITE_API_URL ?? "http://127.0.0.1:8000";
+const API_URL = import.meta.env.VITE_API_URL;
 
 const DATA_CENTERS = ["Discord", "Telegram"];
 
@@ -45,7 +45,7 @@ export default function UploadPage() {
         return new Promise((resolve, reject) => {
             const poll = setInterval(async () => {
                 try {
-                    const statusRes = await fetch(`${API_URL}/auth/upload/${jobId}/status`, {
+                    const statusRes = await fetch(`${API_URL}/public/upload/${jobId}/status`, {
                         headers: {
                             Authorization: `Bearer ${localStorage.getItem("token")}`
                         }

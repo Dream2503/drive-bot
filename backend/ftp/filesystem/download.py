@@ -45,9 +45,6 @@ class FTPDownloadFile:
 
         start = self.position
         end = min(start + size - 1, self.file.size - 1)
-
-        print(f"[FTP HTTP] GET bytes={start}-{end}")
-
         response = self._request(start, end)
 
         try:
@@ -62,9 +59,6 @@ class FTPDownloadFile:
 
             data = bytes(data[:size])
             self.position += len(data)
-
-            print(f"[FTP READ] {start:,} -> {self.position:,} ({len(data):,} bytes)")
-
             return data
         finally:
             response.close()
@@ -84,8 +78,6 @@ class FTPDownloadFile:
 
         if not 0 <= position <= self.file.size:
             raise ValueError("Invalid seek position")
-
-        print(f"[FTP SEEK] {self.position:,} -> {position:,}")
 
         self.position = position
         return position

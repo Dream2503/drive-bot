@@ -38,9 +38,6 @@ class DataCenter:
             case Telegram.NAME:
                 return Telegram
 
-            case GitHub.NAME:
-                return GitHub
-
             case Database.NAME:
                 return Database
 

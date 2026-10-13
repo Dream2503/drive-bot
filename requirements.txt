@@ -13,6 +13,7 @@ pydantic
 pyftpdlib
 python-jose
 redis>=8.1.0
+storelimitless
 tabulate
 telethon
 requests

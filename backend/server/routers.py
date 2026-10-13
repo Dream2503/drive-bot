@@ -63,7 +63,7 @@ async def login(username: str, password: str) -> tuple[dict[str, str], dict[str,
             }, await user.home)
 
 
-@auth.get("/upload/{job_id}/status")
+@public.get("/upload/{job_id}/status")
 async def upload_status(job_id: str) -> JSONResponse:
     progress: Progress = cast(Progress, await Redis.get(job_id, "Progress"))
     completed: bool = "complete" in progress.message.lower()

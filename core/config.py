@@ -23,6 +23,9 @@ else:
     BACKUP_DIR: Path = BASE_DIR / "backend" / "database" / "backup"
     BACKUP_DIR.mkdir(parents=True, exist_ok=True)
 
+RESOURCE_DIR: Path = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent.parent))
+FRONTEND_DIST: Path = RESOURCE_DIR / "frontend" / "dist"
+
 LOG_PATH: Path = BASE_DIR / "logs.log"
 LOG_LOCK_PATH: Path = BASE_DIR / "logs.lock"
 TELEGRAM_SESSION: Path = BASE_DIR / "telegram_bot"
@@ -31,7 +34,6 @@ TRANSFER_PATH.mkdir(parents=True, exist_ok=True)
 
 POSSIBLE_DATACENTERS: frozenset[str] = frozenset({
     "Discord",
-    "GitHub",
     "Telegram",
 })
 
