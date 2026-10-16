@@ -52,7 +52,7 @@ class Redis:
                 if not data:
                     raise KeyError(key)
 
-                progress: Progress = Progress(data["message"], int(data["total"]))
+                progress: Progress = Progress(data["name"], data["message"], int(data["total"]))
                 progress.transfer = int(data["transfer"])
                 return progress
 
@@ -164,7 +164,7 @@ class Redis:
         from backend.database.models import User, Directory, File
 
         if isinstance(value, Progress):
-            await cls.redis.hset(key, mapping={"message": value.message, "transfer": value.transfer, "total": value.total})
+            await cls.redis.hset(key, mapping={"name": value.name, "message": value.message, "transfer": value.transfer, "total": value.total})
 
         elif isinstance(value, User):
             with POOL.connection() as connection:

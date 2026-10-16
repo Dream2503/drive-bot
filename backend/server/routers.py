@@ -114,7 +114,7 @@ async def upload_file(
 
     upload_task: Task[None] = create_task(write_file())
     job_id: str = str(uuid4())
-    await Redis.set(job_id, Progress("Starting", 0))
+    await Redis.set(job_id, Progress(file_name, "Starting", 0))
 
     async def run_upload_job() -> None:
         progress: Progress
@@ -147,7 +147,7 @@ async def upload_link(link: str, data_center: str, directory: str, user: User = 
         username=user.username
     )
     job_id: str = str(uuid4())
-    await Redis.set(job_id, Progress("Starting", 0))
+    await Redis.set(job_id, Progress(file.name, "Starting", 0))
 
     async def run_upload_job() -> None:
         progress: Progress

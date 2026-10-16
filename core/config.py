@@ -3,10 +3,11 @@ import platform
 import sys
 from logging import INFO, WARNING, basicConfig, getLogger
 from pathlib import Path
-from typing import TextIO
+from typing import TextIO, Literal
 
 from filelock import FileLock
 
+HOST: Literal["LOCAL", "CLOUD"] = "CLOUD"
 FROZEN: bool = getattr(sys, "frozen", False)
 
 if FROZEN:

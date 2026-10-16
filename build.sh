@@ -15,6 +15,7 @@ die() {
 usage() {
     echo "Usage: $0 <linux_server:0|1> <windows_server:0|1>"
     echo "Example: $0 1 0"
+    echo "Example: $0 0 1"
     echo "Example: $0 1 1"
     exit 1
 }
@@ -33,16 +34,20 @@ BUILD_WINDOWS="$2"
 
 SPEC="$ROOT/storelimitless-backend.spec"
 REQUIREMENTS="$ROOT/requirements.txt"
-FRONTEND="$ROOT/frontend"
 
 [[ -f "$SPEC" ]] || die "Missing PyInstaller spec: $SPEC"
 [[ -f "$REQUIREMENTS" ]] || die "Missing requirements.txt"
-[[ -f "$FRONTEND/package.json" ]] || die "Missing frontend/package.json"
 
-command -v npm >/dev/null 2>&1 \
-    || die "Node.js and npm are required to build the frontend."
+command -v python3 >/dev/null 2>&1 \
+    || die "python3 is required."
 
-mkdir -p "$ROOT/build" "$ROOT/releases/linux" "$ROOT/releases/windows"
+command -v file >/dev/null 2>&1 \
+    || die "'file' is required."
+
+mkdir -p "$ROOT/build" "$ROOT/dist/linux" "$ROOT/dist/windows"
+mkdir -p "$ROOT/releases/linux" "$ROOT/releases/windows"
+mkdir -p "$ROOT/api/src/storelimitless/bin/linux"
+mkdir -p "$ROOT/api/src/storelimitless/bin/windows"
 
 echo "========================================"
 echo "StoreLimitless Server Build"
@@ -52,39 +57,12 @@ echo "Windows server: $BUILD_WINDOWS"
 echo "========================================"
 
 # --------------------------------------------------
-# Build frontend
-# --------------------------------------------------
-
-echo
-echo "==> Building React frontend"
-
-cd "$FRONTEND"
-
-if [[ ! -d node_modules ]]; then
-    npm ci || npm install
-fi
-
-npm run build
-
-cd "$ROOT"
-
-[[ -f "$FRONTEND/dist/index.html" ]] \
-    || die "Frontend build failed: frontend/dist/index.html not found."
-
-echo "==> Frontend build complete"
-
-# --------------------------------------------------
 # Linux server
 # --------------------------------------------------
 
 if [[ "$BUILD_LINUX" == "1" ]]; then
     echo
     echo "==> Building Linux server"
-
-    command -v python3 >/dev/null 2>&1 \
-        || die "python3 is required."
-    command -v file >/dev/null 2>&1 \
-        || die "'file' is required."
 
     LINUX_VENV="$ROOT/build/venv-linux"
 
@@ -106,65 +84,149 @@ if [[ "$BUILD_LINUX" == "1" ]]; then
     LINUX_BINARY="$ROOT/dist/linux/StoreLimitlessServer"
 
     [[ -f "$LINUX_BINARY" ]] \
-        || die "Linux executable was not generated."
+        || die "Linux executable was not generated. Check the executable name in the PyInstaller spec."
 
     file "$LINUX_BINARY" | grep -q 'ELF .* executable' \
         || die "Linux output is not an ELF executable."
 
-    LINUX_RELEASE="$ROOT/releases/linux"
-    cp "$LINUX_BINARY" "$LINUX_RELEASE/StoreLimitlessServer_$VERSION"
-    chmod +x "$LINUX_RELEASE/StoreLimitlessServer_$VERSION"
+    LINUX_RELEASE="$ROOT/releases/linux/StoreLimitlessServer_$VERSION"
+    LINUX_BIN="$ROOT/api/src/storelimitless/bin/linux/StoreLimitlessServer_$VERSION"
+
+    cp "$LINUX_BINARY" "$LINUX_RELEASE"
+    cp "$LINUX_BINARY" "$LINUX_BIN"
+
+    chmod +x "$LINUX_RELEASE" "$LINUX_BIN"
 
     echo "==> Linux executable ready:"
-    echo "$LINUX_RELEASE/StoreLimitlessServer_$VERSION"
+    echo "$LINUX_RELEASE"
+    echo "$LINUX_BIN"
 fi
 
 # --------------------------------------------------
 # Windows server
-# Build this on Windows or use a verified Windows
-# Python/PyInstaller build environment.
+# Build Windows Python/PyInstaller using Wine.
 # --------------------------------------------------
 
 if [[ "$BUILD_WINDOWS" == "1" ]]; then
     echo
-    echo "==> Building Windows server"
+    echo "==> Building Windows server using Wine"
 
-    if [[ "$(uname -s)" != MINGW* && "$(uname -s)" != MSYS* && "$(uname -s)" != CYGWIN* ]]; then
-        die "Build the Windows executable on Windows with Windows Python/PyInstaller. A Linux PyInstaller build cannot produce a Windows executable."
+    command -v wine >/dev/null 2>&1 \
+        || command -v wine64 >/dev/null 2>&1 \
+        || die "Wine is required. Install Wine before building the Windows server."
+
+    command -v wineboot >/dev/null 2>&1 \
+        || die "wineboot is required."
+
+    command -v winepath >/dev/null 2>&1 \
+        || die "winepath is required."
+
+    if command -v wine >/dev/null 2>&1; then
+        WINE_BIN="wine"
+    else
+        WINE_BIN="wine64"
     fi
 
-    command -v python >/dev/null 2>&1 \
-        || die "Windows Python is required."
-    command -v file >/dev/null 2>&1 \
-        || die "'file' is required."
+    export WINEDEBUG=-all
+    export WINEDLLOVERRIDES="mscoree,mshtml="
 
-    python -m pip install --upgrade pip
-    python -m pip install -r "$REQUIREMENTS"
-    python -m pip install pyinstaller
+    export WINEPREFIX="$ROOT/build/wine-windows"
+    export WINEARCH=win64
+
+    mkdir -p "$WINEPREFIX"
+
+    if [[ ! -f "$WINEPREFIX/system.reg" ]]; then
+        echo "==> Initializing 64-bit Wine prefix"
+        "$WINE_BIN" wineboot --init \
+            || die "Could not initialize the Wine prefix."
+    fi
+
+    "$WINE_BIN" wineboot --wait >/dev/null 2>&1 || true
+
+    WINDOWS_PYTHON="$WINEPREFIX/drive_c/StoreLimitlessPython/python.exe"
+    PYTHON_VERSION="3.13.7"
+    PYTHON_INSTALLER="$ROOT/build/python-${PYTHON_VERSION}-amd64.exe"
+    PYTHON_URL="https://www.python.org/ftp/python/${PYTHON_VERSION}/python-${PYTHON_VERSION}-amd64.exe"
+
+    if [[ ! -f "$WINDOWS_PYTHON" ]]; then
+        echo "==> Downloading Windows Python $PYTHON_VERSION"
+
+        wget -q --show-progress "$PYTHON_URL" \
+            -O "$PYTHON_INSTALLER"
+
+        [[ -s "$PYTHON_INSTALLER" ]] \
+            || die "Windows Python installer download failed."
+
+        file "$PYTHON_INSTALLER" | grep -qi 'PE32' \
+            || die "Downloaded Python installer is not a Windows executable."
+
+        echo "==> Installing Windows Python"
+
+        "$WINE_BIN" "$PYTHON_INSTALLER" \
+            /quiet \
+            InstallAllUsers=0 \
+            TargetDir='C:\StoreLimitlessPython' \
+            PrependPath=0 \
+            Include_pip=1 \
+            Include_test=0 \
+            || die "Windows Python installation failed."
+
+        "$WINE_BIN" wineboot --wait >/dev/null 2>&1 || true
+    fi
+
+    [[ -f "$WINDOWS_PYTHON" ]] \
+        || die "Windows Python was not found after installation."
+
+    echo "==> Windows Python:"
+    "$WINE_BIN" "$WINDOWS_PYTHON" --version
+
+    echo "==> Installing Windows Python dependencies"
+
+    "$WINE_BIN" "$WINDOWS_PYTHON" -m pip install --upgrade pip
+
+    WINDOWS_REQUIREMENTS="$(winepath -w "$REQUIREMENTS")"
+
+    "$WINE_BIN" "$WINDOWS_PYTHON" -m pip install \
+        -r "$WINDOWS_REQUIREMENTS"
+
+    "$WINE_BIN" "$WINDOWS_PYTHON" -m pip install pyinstaller
+
+    echo "==> Windows PyInstaller:"
+    "$WINE_BIN" "$WINDOWS_PYTHON" -m PyInstaller --version
 
     rm -rf "$ROOT/build/pyi-windows" "$ROOT/dist/windows"
     mkdir -p "$ROOT/dist/windows"
 
-    python -m PyInstaller \
+    WINDOWS_SPEC="$(winepath -w "$SPEC")"
+    WINDOWS_WORKPATH="$(winepath -w "$ROOT/build/pyi-windows")"
+    WINDOWS_DISTPATH="$(winepath -w "$ROOT/dist/windows")"
+
+    echo "==> Running Windows PyInstaller"
+
+    "$WINE_BIN" "$WINDOWS_PYTHON" -m PyInstaller \
         --clean \
         --noconfirm \
-        --workpath "$ROOT/build/pyi-windows" \
-        --distpath "$ROOT/dist/windows" \
-        "$SPEC"
+        --workpath "$WINDOWS_WORKPATH" \
+        --distpath "$WINDOWS_DISTPATH" \
+        "$WINDOWS_SPEC"
 
-    WINDOWS_BINARY="$ROOT/dist/windows/storelimitless-backend.exe"
+    WINDOWS_BINARY="$ROOT/dist/windows/StoreLimitlessServer.exe"
 
     [[ -f "$WINDOWS_BINARY" ]] \
-        || die "Windows executable was not generated."
+        || die "Windows executable was not generated. Check the executable name in the PyInstaller spec."
 
     file "$WINDOWS_BINARY" | grep -qi 'PE32' \
         || die "Windows output is not a Windows executable."
 
-    WINDOWS_RELEASE="$ROOT/releases/windows"
-    cp "$WINDOWS_BINARY" "$WINDOWS_RELEASE/StoreLimitlessServer_$VERSION.exe"
+    WINDOWS_RELEASE="$ROOT/releases/windows/StoreLimitlessServer_$VERSION.exe"
+    WINDOWS_BIN="$ROOT/api/src/storelimitless/bin/windows/StoreLimitlessServer_$VERSION.exe"
+
+    cp "$WINDOWS_BINARY" "$WINDOWS_RELEASE"
+    cp "$WINDOWS_BINARY" "$WINDOWS_BIN"
 
     echo "==> Windows executable ready:"
-    echo "$WINDOWS_RELEASE/StoreLimitlessServer_$VERSION.exe"
+    echo "$WINDOWS_RELEASE"
+    echo "$WINDOWS_BIN"
 fi
 
 echo
@@ -172,5 +234,14 @@ echo "========================================"
 echo "Build complete"
 echo "========================================"
 
-find "$ROOT/releases" -maxdepth 1 -type d -print
-find "$ROOT/releases/linux" "$ROOT/releases/windows" -maxdepth 1 -type f -print
+echo
+echo "==> Linux releases:"
+find "$ROOT/releases/linux" -maxdepth 1 -type f -print
+
+echo
+echo "==> Windows releases:"
+find "$ROOT/releases/windows" -maxdepth 1 -type f -print
+
+echo
+echo "==> SDK server binaries:"
+find "$ROOT/api/src/storelimitless/bin" -maxdepth 2 -type f -print

@@ -7,6 +7,7 @@ gdown
 libtorrent
 pandas
 passlib[bcrypt]==1.7.4
+asyncssh
 psycopg-pool
 psycopg[binary]
 pydantic
