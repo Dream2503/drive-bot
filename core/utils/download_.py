@@ -5,11 +5,9 @@ from pathlib import Path
 from traceback import format_exc
 from typing import Any, AsyncGenerator, cast
 
+import core.transfer
 import gdown
 import requests
-from yt_dlp import YoutubeDL
-
-import core.transfer
 from backend.database.models import File
 from core.config import TRANSFER_PATH
 from core.data_center import DataCenter
@@ -17,6 +15,7 @@ from core.utils import write_log
 from core.utils.binaries import get_ffmpeg_path
 from core.utils.env import GOOGLE_API_KEY
 from core.utils.progress import Progress, upload_growing_file
+from yt_dlp import YoutubeDL
 
 
 async def download_google_drive(file: File, link: str) -> AsyncGenerator[Progress, None]:
@@ -29,7 +28,7 @@ async def download_google_drive(file: File, link: str) -> AsyncGenerator[Progres
             path.unlink()
 
     try:
-        progress: Progress = Progress(f"Uploading File", 0)
+        progress: Progress = Progress(file.name, f"Uploading File", 0)
         file_id: str = link.split("/file/d/")[1].split("/")[0]
         response = await to_thread(
             requests.get,
@@ -95,8 +94,8 @@ async def download_youtube(file: File, link: str) -> AsyncGenerator[Progress, No
         if path.is_file():
             path.unlink()
 
-    download_progress: Progress = Progress("Downloading Video", 0)
-    merge_progress: Progress = Progress("Merging Audio and Video", 0)
+    download_progress: Progress = Progress(file.name, "Downloading Video", 0)
+    merge_progress: Progress = Progress(file.name, "Merging Audio and Video", 0)
     current_progress: dict[str, Progress] = {"value": download_progress}
 
     def hook(data: dict) -> None:
@@ -116,7 +115,7 @@ async def download_youtube(file: File, link: str) -> AsyncGenerator[Progress, No
 
         elif acodec != "none" and vcodec == "none":
             if current_progress["value"] is download_progress:
-                current_progress["value"] = Progress("Downloading Audio", 0)
+                current_progress["value"] = Progress(file.name, "Downloading Audio", 0)
 
         progress: Progress = current_progress["value"]
 

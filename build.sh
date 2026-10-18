@@ -29,14 +29,14 @@ done
 BUILD_LINUX="$1"
 BUILD_WINDOWS="$2"
 
-[[ "$BUILD_LINUX" == "1" || "$BUILD_WINDOWS" == "1" ]] \
-    || die "Nothing to build."
+if [[ "$BUILD_LINUX" != "1" && "$BUILD_WINDOWS" != "1" ]]; then
+    die "Nothing to build."
+fi
 
 SPEC="$ROOT/storelimitless-backend.spec"
 REQUIREMENTS="$ROOT/requirements.txt"
-
-[[ -f "$SPEC" ]] || die "Missing PyInstaller spec: $SPEC"
-[[ -f "$REQUIREMENTS" ]] || die "Missing requirements.txt"
+FRONTEND="$ROOT/frontend"
+FRONTEND_DIST="$FRONTEND/dist"
 
 command -v python3 >/dev/null 2>&1 \
     || die "python3 is required."
@@ -44,10 +44,12 @@ command -v python3 >/dev/null 2>&1 \
 command -v file >/dev/null 2>&1 \
     || die "'file' is required."
 
-mkdir -p "$ROOT/build" "$ROOT/dist/linux" "$ROOT/dist/windows"
-mkdir -p "$ROOT/releases/linux" "$ROOT/releases/windows"
-mkdir -p "$ROOT/api/src/storelimitless/bin/linux"
-mkdir -p "$ROOT/api/src/storelimitless/bin/windows"
+command -v npm >/dev/null 2>&1 \
+    || die "npm is required to build the frontend."
+
+[[ -f "$SPEC" ]] || die "Missing PyInstaller spec: $SPEC"
+[[ -f "$REQUIREMENTS" ]] || die "Missing requirements.txt"
+[[ -f "$FRONTEND/package.json" ]] || die "Missing frontend/package.json"
 
 echo "========================================"
 echo "StoreLimitless Server Build"
@@ -55,6 +57,35 @@ echo "Version: $VERSION"
 echo "Linux server:   $BUILD_LINUX"
 echo "Windows server: $BUILD_WINDOWS"
 echo "========================================"
+
+# --------------------------------------------------
+# Build frontend
+# --------------------------------------------------
+
+echo
+echo "==> Building React frontend"
+
+(
+    cd "$FRONTEND"
+
+    if [[ -f package-lock.json ]]; then
+        npm ci
+    else
+        npm install
+    fi
+
+    npm run build
+)
+
+[[ -f "$FRONTEND_DIST/index.html" ]] \
+    || die "Frontend build failed: frontend/dist/index.html not found."
+
+echo "==> Frontend build ready: $FRONTEND_DIST"
+
+mkdir -p "$ROOT/build" "$ROOT/dist/linux" "$ROOT/dist/windows"
+mkdir -p "$ROOT/releases/linux" "$ROOT/releases/windows"
+mkdir -p "$ROOT/api/src/storelimitless/bin/linux"
+mkdir -p "$ROOT/api/src/storelimitless/bin/windows"
 
 # --------------------------------------------------
 # Linux server
@@ -67,6 +98,7 @@ if [[ "$BUILD_LINUX" == "1" ]]; then
     LINUX_VENV="$ROOT/build/venv-linux"
 
     python3 -m venv "$LINUX_VENV"
+
     "$LINUX_VENV/bin/python" -m pip install --upgrade pip
     "$LINUX_VENV/bin/python" -m pip install -r "$REQUIREMENTS"
     "$LINUX_VENV/bin/python" -m pip install pyinstaller
@@ -121,6 +153,9 @@ if [[ "$BUILD_WINDOWS" == "1" ]]; then
     command -v winepath >/dev/null 2>&1 \
         || die "winepath is required."
 
+    command -v wget >/dev/null 2>&1 \
+        || die "wget is required to download Windows Python."
+
     if command -v wine >/dev/null 2>&1; then
         WINE_BIN="wine"
     else
@@ -137,6 +172,7 @@ if [[ "$BUILD_WINDOWS" == "1" ]]; then
 
     if [[ ! -f "$WINEPREFIX/system.reg" ]]; then
         echo "==> Initializing 64-bit Wine prefix"
+
         "$WINE_BIN" wineboot --init \
             || die "Could not initialize the Wine prefix."
     fi

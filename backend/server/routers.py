@@ -1,14 +1,5 @@
-from asyncio import Task, create_task
-from datetime import datetime, timezone
-from mimetypes import guess_type
-from pathlib import Path
-from typing import cast
-from urllib.parse import quote
-from uuid import uuid4
-
-from fastapi import APIRouter, Depends, HTTPException, Request, Header
-from fastapi.responses import Response, StreamingResponse, JSONResponse
-
+import aiofiles
+from asyncio import create_task, gather
 from backend.database.models import Directory, File, User
 from backend.database.redis_server import Redis
 from backend.server.jwt_handler import create_access_token, get_current_user
@@ -19,9 +10,19 @@ from core.stream import Stream
 from core.transfer import link_upload, file_upload
 from core.utils.discord_ import Discord
 from core.utils.progress import Progress
+from datetime import datetime, timezone
+from fastapi import APIRouter, Depends, HTTPException, Request, Header
+from fastapi.responses import Response, StreamingResponse, JSONResponse
+from mimetypes import guess_type
+from pathlib import Path
+from typing import cast
+from urllib.parse import quote
+from uuid import uuid4
 
 auth: APIRouter = APIRouter(prefix="/auth")
 public: APIRouter = APIRouter(prefix="/public")
+
+PENDING_UPLOADS: dict[str, tuple[File, Path]] = {}
 
 
 @public.get("/ready")
@@ -65,20 +66,32 @@ async def login(username: str, password: str) -> tuple[dict[str, str], dict[str,
 
 @public.get("/upload/{job_id}/status")
 async def upload_status(job_id: str) -> JSONResponse:
-    progress: Progress = cast(Progress, await Redis.get(job_id, "Progress"))
+    progress: Progress | None = cast(Progress | None, await Redis.get(job_id, "Progress"))
+
+    if progress is None:
+        raise HTTPException(status_code=404, detail="Upload job not found")
+
     completed: bool = "complete" in progress.message.lower()
+    file_id: int | None = None
+
+    if completed and "id=" in progress.message:
+        try:
+            file_id = int(progress.message.split("id=")[-1].split()[0])
+
+        except (ValueError, IndexError):
+            file_id = None
+
     return JSONResponse({
         "status": "completed" if completed else "uploading",
         "message": " ".join(progress.message.split()[:2]) if completed else progress.message,
         "transfer": progress.transfer,
         "total": progress.total,
-        "file_id": int(progress.message.split("id=")[-1]) if completed else None,
+        "file_id": file_id,
     })
 
 
 @auth.post("/upload")
 async def upload_file(
-        request: Request,
         data_center: str = Header(..., alias="X-Data-Center"),
         directory: str = Header(..., alias="X-Directory"),
         file_name: str = Header(..., alias="X-File-Name"),
@@ -93,7 +106,7 @@ async def upload_file(
 
     file_path: Path = TRANSFER_PATH / user.username / file_name
     file_path.parent.mkdir(parents=True, exist_ok=True)
-    file_path.touch()
+
     file: File = File(
         directory_id=cast(int, directory_obj.id),
         name=file_name,
@@ -105,26 +118,62 @@ async def upload_file(
         username=user.username
     )
 
-    async def write_file() -> None:
-        with file_path.open("wb") as buffer:
-            chunk: bytes
+    job_id: str = str(uuid4())
+    PENDING_UPLOADS[job_id] = (file, file_path)
 
+    await Redis.set(job_id, Progress(file_name, "Waiting for upload", 0))
+
+    return JSONResponse({"job_id": job_id})
+
+
+@public.put("/upload/{job_id}/content")
+async def upload_content(job_id: str, request: Request, user: User = Depends(get_current_user)) -> JSONResponse:
+    pending: tuple[File, Path] | None = PENDING_UPLOADS.get(job_id)
+
+    if pending is None:
+        raise HTTPException(status_code=404, detail="Upload job not found")
+
+    file, file_path = pending
+
+    if file.username != user.username:
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    PENDING_UPLOADS.pop(job_id)
+    file_path.parent.mkdir(parents=True, exist_ok=True)
+
+    await Redis.set(job_id, Progress(file.name, "Receiving and uploading", 0))
+
+    async def write_file() -> None:
+        size = 0
+
+        async with aiofiles.open(file_path, "wb") as buffer:
             async for chunk in request.stream():
-                buffer.write(chunk)
+                if chunk:
+                    await buffer.write(chunk)
+                    await buffer.flush()
+                    size += len(chunk)
+                    file.size = size
 
     upload_task: Task[None] = create_task(write_file())
-    job_id: str = str(uuid4())
-    await Redis.set(job_id, Progress(file_name, "Starting", 0))
 
     async def run_upload_job() -> None:
-        progress: Progress
-
         async for progress in file_upload(file, file_path, upload_task):
             await Redis.set(job_id, progress)
 
-    create_task(run_upload_job())
-    await upload_task
-    return JSONResponse({"job_id": job_id})
+    upload_job_task: Task[None] = create_task(run_upload_job())
+
+    try:
+        await gather(upload_task, upload_job_task)
+
+    except Exception:
+        for task in (upload_task, upload_job_task):
+            if not task.done():
+                task.cancel()
+
+        await gather(upload_task, upload_job_task, return_exceptions=True)
+        raise
+
+    return JSONResponse({"job_id": job_id, "status": "completed"})
 
 
 @auth.post("/upload-link")

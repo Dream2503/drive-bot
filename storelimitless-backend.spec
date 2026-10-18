@@ -1,6 +1,8 @@
+
 # -*- mode: python ; coding: utf-8 -*-
 
 from pathlib import Path
+from PyInstaller.utils.hooks import collect_all, copy_metadata
 
 ROOT = Path(SPECPATH).resolve()
 FRONTEND_DIST = ROOT / "frontend" / "dist"
@@ -12,19 +14,30 @@ if not FRONTEND_DIST.is_dir():
     )
 
 frontend_datas = [
-    (str(path), str(Path("frontend") / path.relative_to(FRONTEND_DIST).parent))
+    (
+        str(path),
+        str(
+            Path("frontend")
+            / "dist"
+            / path.relative_to(FRONTEND_DIST).parent
+        ),
+    )
     for path in FRONTEND_DIST.rglob("*")
     if path.is_file()
 ]
 
+# Collect gdown's package files, binaries, hidden imports, and metadata.
+gdown_datas, gdown_binaries, gdown_hiddenimports = collect_all("gdown")
+gdown_datas += copy_metadata("gdown")
+
 a = Analysis(
     ["core/main.py"],
     pathex=[str(ROOT)],
-    binaries=[],
-    datas=frontend_datas,
+    binaries=gdown_binaries,
+    datas=frontend_datas + gdown_datas,
     hiddenimports=[
         "passlib.handlers.bcrypt",
-    ],
+    ] + gdown_hiddenimports,
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],

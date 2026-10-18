@@ -41,107 +41,193 @@ export default function UploadPage() {
     const [status, setStatus] = useState("idle");
     const [dragOver, setDragOver] = useState(false);
 
-    const pollJobStatus = (jobId) => {
-        return new Promise((resolve, reject) => {
-            const poll = setInterval(async () => {
-                try {
-                    const statusRes = await fetch(`${API_URL}/public/upload/${jobId}/status`, {
-                        headers: {
-                            Authorization: `Bearer ${localStorage.getItem("token")}`
-                        }
-                    });
+    const sleep = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
 
-                    if (!statusRes.ok) {
-                        if (statusRes.status === 404) return;
+    const pollJobStatus = async (jobId) => {
+        let consecutiveErrors = 0;
 
-                        clearInterval(poll);
-                        reject(new Error(`Status check failed: ${statusRes.status}`));
-                        return;
+        while (true) {
+            try {
+                const statusRes = await fetch(`${API_URL}/public/upload/${jobId}/status`, {
+                    headers: {
+                        Authorization: `Bearer ${localStorage.getItem("token")}`,
+                    }, cache: "no-store",
+                });
+
+                if (!statusRes.ok) {
+                    if (statusRes.status === 404) {
+                        // The content request may not have reached the server yet.
+                        await sleep(500);
+                        continue;
                     }
 
-                    const data = await statusRes.json();
-
-                    if (data.status === "error") {
-                        clearInterval(poll);
-                        reject(new Error(data.error || "Upload failed"));
-                        return;
-                    }
-
-                    if (data.message !== undefined && data.transfer !== undefined && data.total !== undefined) {
-                        setMessage(data.message);
-                        setTransfer(data.transfer);
-                        setTotal(data.total);
-                        setProgress(data.total ? (data.transfer / data.total) * 100 : 0);
-                    }
-
-                    if (data.status === "completed" || data.message?.startsWith("Upload complete")) {
-                        clearInterval(poll);
-                        setProgress(100);
-                        resolve();
-                    }
-
-                } catch (error) {
-                    clearInterval(poll);
-                    reject(error);
+                    throw new Error(`Status check failed: ${statusRes.status}`);
                 }
-            }, 100);
-        });
+
+                const data = await statusRes.json();
+                consecutiveErrors = 0;
+
+                if (data.status === "error") {
+                    throw new Error(data.error || data.message || "Upload failed");
+                }
+
+                if (data.message !== undefined) {
+                    setMessage(data.message);
+                }
+
+                if (Number.isFinite(data.transfer) && Number.isFinite(data.total)) {
+                    setTransfer(data.transfer);
+                    setTotal(data.total);
+
+                    // Do not let a stale server-side status response move progress
+                    // backwards while the browser is sending the file.
+                    if (data.total > 0) {
+                        setProgress((current) => Math.max(current, Math.min(99, (data.transfer / data.total) * 100)));
+                    }
+                }
+
+                if (data.status === "completed" || data.message?.toLowerCase().startsWith("upload complete")) {
+                    setProgress(100);
+                    return;
+                }
+            } catch (error) {
+                if (error instanceof TypeError) {
+                    // Transient network errors should not immediately kill polling.
+                    consecutiveErrors += 1;
+
+                    if (consecutiveErrors >= 10) {
+                        throw new Error("Unable to reach the upload status endpoint.");
+                    }
+                } else {
+                    throw error;
+                }
+            }
+
+            // Sequential polling: the next request starts only after the previous
+            // request has completed, preventing overlapping status requests.
+            await sleep(500);
+        }
     };
+
+    const uploadFileWithProgress = (jobId, selectedFile) => new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+
+        xhr.open("PUT", `${API_URL}/public/upload/${jobId}/content`);
+        xhr.setRequestHeader("Authorization", `Bearer ${localStorage.getItem("token")}`);
+        xhr.setRequestHeader("Content-Type", selectedFile.type || "application/octet-stream");
+
+        xhr.upload.onloadstart = () => {
+            setMessage("Sending file to server");
+        };
+
+        xhr.upload.onprogress = (event) => {
+            if (!event.lengthComputable || event.total <= 0) {
+                setMessage("Sending file to server");
+                return;
+            }
+
+            const percentage = (event.loaded / event.total) * 100;
+
+            setMessage(event.loaded >= event.total ? "File sent; processing upload" : "Sending file to server");
+            setTransfer(event.loaded);
+            setTotal(event.total);
+            setProgress(0);
+        };
+
+        xhr.onload = () => {
+            if (xhr.status >= 200 && xhr.status < 300) {
+                resolve();
+                return;
+            }
+
+            let errorMessage = `File transfer failed (${xhr.status})`;
+
+            try {
+                const response = JSON.parse(xhr.responseText);
+                errorMessage = response.detail || response.error || errorMessage;
+            } catch {
+                // Keep the HTTP status message if the response is not JSON.
+            }
+
+            reject(new Error(errorMessage));
+        };
+
+        xhr.onerror = () => {
+            reject(new Error("Network error while sending the file."));
+        };
+
+        xhr.onabort = () => {
+            reject(new Error("File upload was cancelled."));
+        };
+
+        xhr.send(selectedFile);
+    });
 
     const handleUpload = async () => {
         if (!dataCenter) return;
-
         if (uploadMode === "file" && !file) return;
-
         if (uploadMode === "link" && !link.trim()) return;
 
         setStatus("uploading");
         setProgress(0);
-        setMessage("");
+        setMessage(uploadMode === "file" ? "Creating upload job" : "Starting import");
         setTransfer(0);
-        setTotal(0);
+        setTotal(uploadMode === "file" && file ? file.size : 0);
 
         try {
+            const token = localStorage.getItem("token");
             let res;
 
             if (uploadMode === "file") {
                 res = await fetch(`${API_URL}/auth/upload`, {
                     method: "POST", headers: {
-                        Authorization: `Bearer ${localStorage.getItem("token")}`,
-                        "Content-Type": file.type || "application/octet-stream",
-                        "X-File-Name": file.name,
-                        "X-Data-Center": dataCenter,
-                        "X-Directory": directory,
-                    }, body: file,
+                        Authorization: `Bearer ${token}`, "X-File-Name": file.name, "X-Data-Center": dataCenter, "X-Directory": directory,
+                    },
                 });
             } else {
-                res = await fetch(`${API_URL}/auth/upload-link?link=${encodeURIComponent(link.trim())}&data_center=${encodeURIComponent(dataCenter)}&directory=${encodeURIComponent(directory)}`, {
+                const params = new URLSearchParams({
+                    link: link.trim(), data_center: dataCenter, directory,
+                });
+
+                res = await fetch(`${API_URL}/auth/upload-link?${params.toString()}`, {
                     method: "POST", headers: {
-                        Authorization: `Bearer ${localStorage.getItem("token")}`,
+                        Authorization: `Bearer ${token}`,
                     },
                 });
             }
 
             if (!res.ok) {
-                let errorMessage = "Upload failed";
+                let errorMessage = `Upload setup failed (${res.status})`;
 
                 try {
                     const errorData = await res.json();
                     errorMessage = errorData.detail || errorData.error || errorMessage;
                 } catch {
-                    // Ignore JSON parsing errors
+                    // Ignore non-JSON error responses.
                 }
 
-                console.error("Upload failed:", errorMessage);
-                setStatus("error");
-                return;
+                throw new Error(errorMessage);
             }
 
-            const {job_id} = await res.json();
+            const responseData = await res.json();
+            const jobId = responseData.job_id;
 
-            await pollJobStatus(job_id);
+            if (!jobId) {
+                throw new Error("The server did not return an upload job ID.");
+            }
+
+            if (uploadMode === "file") {
+                setMessage("Sending file to server");
+
+                // Start both tasks together. Status polling is sequential, while
+                // XMLHttpRequest reports actual browser-to-server upload progress.
+                await Promise.all([uploadFileWithProgress(jobId, file), pollJobStatus(jobId),]);
+            } else {
+                await pollJobStatus(jobId);
+            }
 
             setProgress(100);
+            setMessage("Upload complete");
             setStatus("done");
 
             setTimeout(() => {
@@ -151,9 +237,9 @@ export default function UploadPage() {
                     navigate("/dashboard");
                 }
             }, 1200);
-
         } catch (error) {
             console.error("Upload error:", error);
+            setMessage(error instanceof Error ? error.message : "Upload failed");
             setStatus("error");
         }
     };
