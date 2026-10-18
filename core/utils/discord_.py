@@ -1,5 +1,4 @@
 from asyncio import AbstractEventLoop, get_running_loop, run_coroutine_threadsafe, wrap_future, sleep
-from socket import socket, AF_INET, SOCK_DGRAM
 from traceback import format_exc
 from typing import cast
 

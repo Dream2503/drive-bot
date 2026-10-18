@@ -5,13 +5,12 @@ from os import stat_result
 from stat import S_IFDIR, S_IFREG
 from time import time
 
-from pyftpdlib.filesystems import AbstractedFS, FilesystemError
-
 from backend.database.models import Directory, File
 from backend.ftp.filesystem.download import FTPDownloadFile
 from backend.ftp.filesystem.upload import FTPUploadFile
 from core.config import TRANSFER_PATH
 from core.transfer import file_upload
+from pyftpdlib.filesystems import AbstractedFS, FilesystemError
 
 
 class StoreLimitlessFS(AbstractedFS):

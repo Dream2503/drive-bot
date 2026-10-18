@@ -1,6 +1,16 @@
 import subprocess
 import sys
 from asyncio import CancelledError, Task, create_task, gather, get_running_loop, run, sleep, to_thread
+from os import environ, execv
+from pathlib import Path
+from shutil import rmtree
+from socket import AF_INET, SOCK_DGRAM, socket
+from subprocess import Popen, TimeoutExpired, DEVNULL
+from threading import Thread
+
+from fastapi.middleware.cors import CORSMiddleware
+from uvicorn import Config, Server
+
 from backend.database.redis_server import Redis
 from backend.ftp.server import StoreLimitlessFTPServer
 from backend.server.app import app
@@ -10,14 +20,6 @@ from core.data_center import DataCenter
 from core.utils.binaries import start_redis_server, start_cloudflare_tunnel
 from core.utils.discord_ import Discord
 from core.utils.telegram_ import Telegram
-from fastapi.middleware.cors import CORSMiddleware
-from os import environ, execv
-from pathlib import Path
-from shutil import rmtree
-from socket import AF_INET, SOCK_DGRAM, socket
-from subprocess import Popen, TimeoutExpired, DEVNULL
-from threading import Thread
-from uvicorn import Config, Server
 
 
 async def main() -> None:

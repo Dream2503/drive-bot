@@ -7,6 +7,7 @@ filelock
 gdown
 libtorrent
 pandas
+pandas-stubs
 passlib[bcrypt]==1.7.4
 asyncssh
 psycopg-pool

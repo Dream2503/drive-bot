@@ -1,21 +1,20 @@
 import os
 import platform
-import re
 import shutil
-import subprocess
-from core.config import TRANSFER_PATH
-from core.data_center import Binaries
-from core.utils import write_log
-from getpass import getpass
-from os import chmod, environ
+from os import chmod
 from pathlib import Path
 from queue import Empty, Queue
+from re import search
 from socket import create_connection
-from subprocess import DEVNULL, PIPE, STDOUT, Popen, TimeoutExpired
+from subprocess import PIPE, STDOUT, Popen, TimeoutExpired, CalledProcessError, run
 from threading import Thread
 from time import monotonic, sleep
 from urllib import request
 from zipfile import ZipFile
+
+from core.config import TRANSFER_PATH
+from core.data_center import Binaries
+from core.utils import write_log
 
 
 def get_ffmpeg_path():
@@ -55,10 +54,10 @@ def get_ffmpeg_path():
         write_log('INFO', Binaries, 'GET_FFMPEG_PATH', "server", "FFmpeg is not installed. Installing FFmpeg for you...")
 
         try:
-            subprocess.run(["sudo", "apt", "update"], check=True)
-            subprocess.run(["sudo", "apt", "install", "-y", "ffmpeg"], check=True)
+            run(["sudo", "apt", "update"], check=True)
+            run(["sudo", "apt", "install", "-y", "ffmpeg"], check=True)
 
-        except subprocess.CalledProcessError as e:
+        except CalledProcessError as e:
             raise RuntimeError(
                 "FFmpeg is required to download YouTube videos, but StoreLimitless could not install it automatically.\n\n"
                 "Please install it manually by running:\n"
@@ -129,10 +128,10 @@ def start_redis_server():
                 is_root: bool = hasattr(os, "geteuid") and os.geteuid() == 0
                 apt_prefix: list[str] = [] if is_root else ["sudo"]
 
-                subprocess.run(apt_prefix + ["apt-get", "update"], check=True)
-                subprocess.run(apt_prefix + ["apt-get", "install", "-y", "redis-server"], check=True)
+                run(apt_prefix + ["apt-get", "update"], check=True)
+                run(apt_prefix + ["apt-get", "install", "-y", "redis-server"], check=True)
 
-            except (subprocess.CalledProcessError, FileNotFoundError) as e:
+            except (CalledProcessError, FileNotFoundError) as e:
                 raise RuntimeError(
                     "Redis is required, but StoreLimitless could not install it automatically.\n\n"
                     "Please install it manually by running:\n"
@@ -154,7 +153,7 @@ def start_redis_server():
 
     redis_data_dir: Path = TRANSFER_PATH.parent / "redis"
     redis_data_dir.mkdir(parents=True, exist_ok=True)
-    redis_process: subprocess.Popen = subprocess.Popen([str(redis_path), "--bind", "127.0.0.1", "--port", "6379", "--dir", str(redis_data_dir)])
+    redis_process: Popen = Popen([str(redis_path), "--bind", "127.0.0.1", "--port", "6379", "--dir", str(redis_data_dir)])
 
     deadline: float = monotonic() + 10
 
@@ -298,7 +297,7 @@ def start_cloudflare_tunnel(service_url: str, label: str) -> tuple[Popen, str]:
         for line in process.stdout:
             write_log('INFO', Binaries, 'START_CLOUDFLARE_TUNNEL', "server", f"[Cloudflare:{label}] {line.rstrip()}")
 
-            match = re.search(
+            match = search(
                 r"https://[a-zA-Z0-9-]+\.trycloudflare\.com",
                 line,
             )

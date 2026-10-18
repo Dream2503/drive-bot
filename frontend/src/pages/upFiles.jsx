@@ -1,9 +1,15 @@
-import {useState} from "react";
+import {useRef, useState} from "react";
 import {useNavigate, useSearchParams} from "react-router-dom";
 
-const API_URL = import.meta.env.VITE_API_URL;
+const API_URL = window.STORELIMITLESS_CONFIG?.API_URL ?? import.meta.env.VITE_API_URL
 
 const DATA_CENTERS = ["Discord", "Telegram"];
+
+// Each chunk is its own PUT; the server writes it to disk as it arrives.
+const CHUNK_SIZE = 1024 * 1024;
+// How many chunks are in flight at once (browsers allow ~6 connections per host).
+const PARALLEL_CHUNKS = 8;
+const MAX_CHUNK_ATTEMPTS = 3;
 
 const formatBytes = (bytes) => {
     if (bytes < 1024) return `${bytes} B`;
@@ -41,12 +47,21 @@ export default function UploadPage() {
     const [status, setStatus] = useState("idle");
     const [dragOver, setDragOver] = useState(false);
 
+    // Every in-flight request, so a failure can abort all of them.
+    const activeXhrs = useRef(new Set());
+
     const sleep = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
 
-    const pollJobStatus = async (jobId) => {
+    // ==========================================
+    // Poll the server for cloud upload progress.
+    // `transfer` = bytes uploaded to the cloud so far
+    // `total`    = bytes written to the server's disk so far (it keeps growing)
+    // The percentage is allowed to go DOWN when the disk gets ahead of the cloud.
+    // ==========================================
+    const pollJobStatus = async (jobId, cancelToken) => {
         let consecutiveErrors = 0;
 
-        while (true) {
+        while (!cancelToken.cancelled) {
             try {
                 const statusRes = await fetch(`${API_URL}/public/upload/${jobId}/status`, {
                     headers: {
@@ -54,9 +69,11 @@ export default function UploadPage() {
                     }, cache: "no-store",
                 });
 
+                if (cancelToken.cancelled) return;
+
                 if (!statusRes.ok) {
                     if (statusRes.status === 404) {
-                        // The content request may not have reached the server yet.
+                        // The first chunk may not have reached the server yet.
                         await sleep(500);
                         continue;
                     }
@@ -67,7 +84,7 @@ export default function UploadPage() {
                 const data = await statusRes.json();
                 consecutiveErrors = 0;
 
-                if (data.status === "error") {
+                if (data.status === "error" || data.message?.toLowerCase().startsWith("upload failed")) {
                     throw new Error(data.error || data.message || "Upload failed");
                 }
 
@@ -79,11 +96,10 @@ export default function UploadPage() {
                     setTransfer(data.transfer);
                     setTotal(data.total);
 
-                    // Do not let a stale server-side status response move progress
-                    // backwards while the browser is sending the file.
-                    if (data.total > 0) {
-                        setProgress((current) => Math.max(current, Math.min(99, (data.transfer / data.total) * 100)));
-                    }
+                    // No Math.max here: the value is allowed to decrease when `total`
+                    // grows faster than `transfer`. It stays below 100 until the server
+                    // reports completion, so catching up with the disk is not shown as done.
+                    setProgress(data.total > 0 ? Math.min(99, (data.transfer / data.total) * 100) : 0);
                 }
 
                 if (data.status === "completed" || data.message?.toLowerCase().startsWith("upload complete")) {
@@ -105,42 +121,32 @@ export default function UploadPage() {
 
             // Sequential polling: the next request starts only after the previous
             // request has completed, preventing overlapping status requests.
-            await sleep(500);
+            await sleep(100);
         }
     };
 
-    const uploadFileWithProgress = (jobId, selectedFile) => new Promise((resolve, reject) => {
+    // ==========================================
+    // Send ONE chunk (several of these run in parallel)
+    // ==========================================
+    const sendChunk = (jobId, blob, offset, totalSize) => new Promise((resolve, reject) => {
         const xhr = new XMLHttpRequest();
+        activeXhrs.current.add(xhr);
 
-        xhr.open("PUT", `${API_URL}/public/upload/${jobId}/content`);
+        const done = () => activeXhrs.current.delete(xhr);
+
+        xhr.open("PUT", `${API_URL}/public/upload/${jobId}/chunk?offset=${offset}&total=${totalSize}`);
         xhr.setRequestHeader("Authorization", `Bearer ${localStorage.getItem("token")}`);
-        xhr.setRequestHeader("Content-Type", selectedFile.type || "application/octet-stream");
-
-        xhr.upload.onloadstart = () => {
-            setMessage("Sending file to server");
-        };
-
-        xhr.upload.onprogress = (event) => {
-            if (!event.lengthComputable || event.total <= 0) {
-                setMessage("Sending file to server");
-                return;
-            }
-
-            const percentage = (event.loaded / event.total) * 100;
-
-            setMessage(event.loaded >= event.total ? "File sent; processing upload" : "Sending file to server");
-            setTransfer(event.loaded);
-            setTotal(event.total);
-            setProgress(0);
-        };
+        xhr.setRequestHeader("Content-Type", "application/octet-stream");
 
         xhr.onload = () => {
+            done();
+
             if (xhr.status >= 200 && xhr.status < 300) {
                 resolve();
                 return;
             }
 
-            let errorMessage = `File transfer failed (${xhr.status})`;
+            let errorMessage = `Chunk upload failed (${xhr.status})`;
 
             try {
                 const response = JSON.parse(xhr.responseText);
@@ -149,19 +155,66 @@ export default function UploadPage() {
                 // Keep the HTTP status message if the response is not JSON.
             }
 
-            reject(new Error(errorMessage));
+            const error = new Error(errorMessage);
+            // 4xx errors will not be fixed by retrying.
+            error.fatal = xhr.status >= 400 && xhr.status < 500;
+            reject(error);
         };
 
         xhr.onerror = () => {
+            done();
             reject(new Error("Network error while sending the file."));
         };
 
         xhr.onabort = () => {
-            reject(new Error("File upload was cancelled."));
+            done();
+            const error = new Error("File upload was cancelled.");
+            error.fatal = true;
+            reject(error);
         };
 
-        xhr.send(selectedFile);
+        xhr.send(blob);
     });
+
+    const uploadFileInChunks = async (jobId, selectedFile, cancelToken) => {
+        const totalSize = selectedFile.size;
+        // An empty file still sends one (empty) chunk so the server can finish.
+        const chunkCount = Math.max(1, Math.ceil(totalSize / CHUNK_SIZE));
+        let nextIndex = 0;
+
+        // Each lane keeps taking the next unsent chunk, so chunks start in order.
+        const lane = async () => {
+            while (!cancelToken.cancelled) {
+                const index = nextIndex++;
+
+                if (index >= chunkCount) return;
+
+                const start = index * CHUNK_SIZE;
+                const end = Math.min(start + CHUNK_SIZE, totalSize);
+                const blob = selectedFile.slice(start, end);
+
+                for (let attempt = 1; ; attempt++) {
+                    if (cancelToken.cancelled) {
+                        throw new Error("File upload was cancelled.");
+                    }
+
+                    try {
+                        await sendChunk(jobId, blob, start, totalSize);
+                        break;
+                    } catch (error) {
+                        if (error.fatal || cancelToken.cancelled || attempt >= MAX_CHUNK_ATTEMPTS) {
+                            throw error;
+                        }
+
+                        setMessage(`Retrying chunk (attempt ${attempt + 1} of ${MAX_CHUNK_ATTEMPTS})`);
+                        await sleep(1000 * attempt);
+                    }
+                }
+            }
+        };
+
+        await Promise.all(Array.from({length: Math.min(PARALLEL_CHUNKS, chunkCount)}, lane));
+    };
 
     const handleUpload = async () => {
         if (!dataCenter) return;
@@ -173,6 +226,8 @@ export default function UploadPage() {
         setMessage(uploadMode === "file" ? "Creating upload job" : "Starting import");
         setTransfer(0);
         setTotal(uploadMode === "file" && file ? file.size : 0);
+
+        const cancelToken = {cancelled: false};
 
         try {
             const token = localStorage.getItem("token");
@@ -219,11 +274,11 @@ export default function UploadPage() {
             if (uploadMode === "file") {
                 setMessage("Sending file to server");
 
-                // Start both tasks together. Status polling is sequential, while
-                // XMLHttpRequest reports actual browser-to-server upload progress.
-                await Promise.all([uploadFileWithProgress(jobId, file), pollJobStatus(jobId),]);
+                // Chunks stream to the server's disk in parallel while the server
+                // uploads the growing file to the cloud. Polling reports the cloud side.
+                await Promise.all([uploadFileInChunks(jobId, file, cancelToken), pollJobStatus(jobId, cancelToken),]);
             } else {
-                await pollJobStatus(jobId);
+                await pollJobStatus(jobId, cancelToken);
             }
 
             setProgress(100);
@@ -238,6 +293,12 @@ export default function UploadPage() {
                 }
             }, 1200);
         } catch (error) {
+            cancelToken.cancelled = true;
+
+            for (const xhr of activeXhrs.current) {
+                xhr.abort();
+            }
+
             console.error("Upload error:", error);
             setMessage(error instanceof Error ? error.message : "Upload failed");
             setStatus("error");
@@ -251,6 +312,8 @@ export default function UploadPage() {
         event.preventDefault();
 
         setDragOver(false);
+
+        if (status === "uploading") return;
 
         const droppedFile = event.dataTransfer.files?.[0];
 

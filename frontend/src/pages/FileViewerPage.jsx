@@ -1,7 +1,7 @@
 import {useEffect, useState} from "react";
 import {useNavigate, useParams, useSearchParams} from "react-router-dom";
 
-const API_URL = import.meta.env.VITE_API_URL;
+const API_URL = window.STORELIMITLESS_CONFIG?.API_URL ?? import.meta.env.VITE_API_URL
 
 function getToken() {
     return localStorage.getItem("token");

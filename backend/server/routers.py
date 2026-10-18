@@ -1,5 +1,18 @@
+from asyncio import Event, Task, sleep
+from asyncio import create_task
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
+from mimetypes import guess_type
+from pathlib import Path
+from time import monotonic
+from typing import cast
+from urllib.parse import quote
+from uuid import uuid4
+
 import aiofiles
-from asyncio import create_task, gather
+from fastapi import APIRouter, Depends, HTTPException, Request, Header, Query
+from fastapi.responses import Response, StreamingResponse, JSONResponse
+
 from backend.database.models import Directory, File, User
 from backend.database.redis_server import Redis
 from backend.server.jwt_handler import create_access_token, get_current_user
@@ -10,19 +23,61 @@ from core.stream import Stream
 from core.transfer import link_upload, file_upload
 from core.utils.discord_ import Discord
 from core.utils.progress import Progress
-from datetime import datetime, timezone
-from fastapi import APIRouter, Depends, HTTPException, Request, Header
-from fastapi.responses import Response, StreamingResponse, JSONResponse
-from mimetypes import guess_type
-from pathlib import Path
-from typing import cast
-from urllib.parse import quote
-from uuid import uuid4
 
 auth: APIRouter = APIRouter(prefix="/auth")
 public: APIRouter = APIRouter(prefix="/public")
 
 PENDING_UPLOADS: dict[str, tuple[File, Path]] = {}
+UPLOAD_IDLE_TIMEOUT: int = 120
+
+
+@dataclass
+class UploadSession:
+    file: File
+    file_path: Path
+    total: int
+    finished: Event
+    ranges: list[tuple[int, int]] = field(default_factory=list)  # merged, written byte ranges
+    contiguous: int = 0  # bytes written from 0 with no gaps
+    last_activity: float = field(default_factory=monotonic)
+    upload_task: Task[None] | None = None
+    job_task: Task[None] | None = None
+
+
+UPLOAD_SESSIONS: dict[str, UploadSession] = {}
+
+
+def mark_written(session: UploadSession, start: int, end: int) -> None:
+    if end > start:
+        session.ranges.append((start, end))
+        session.ranges.sort()
+        merged: list[tuple[int, int]] = []
+
+        for range_start, range_end in session.ranges:
+            if merged and range_start <= merged[-1][1]:
+                merged[-1] = (merged[-1][0], max(merged[-1][1], range_end))
+
+            else:
+                merged.append((range_start, range_end))
+
+        session.ranges = merged
+
+    if session.ranges and session.ranges[0][0] == 0:
+        session.contiguous = session.ranges[0][1]
+
+    session.file.size = session.contiguous
+    session.last_activity = monotonic()
+
+    if session.contiguous >= session.total:
+        session.finished.set()
+
+
+async def wait_for_all_chunks(session: UploadSession) -> None:
+    while not session.finished.is_set():
+        if monotonic() - session.last_activity > UPLOAD_IDLE_TIMEOUT:
+            raise TimeoutError("No data received from the browser")
+
+        await sleep(0.25)
 
 
 @public.get("/ready")
@@ -126,54 +181,81 @@ async def upload_file(
     return JSONResponse({"job_id": job_id})
 
 
-@public.put("/upload/{job_id}/content")
-async def upload_content(job_id: str, request: Request, user: User = Depends(get_current_user)) -> JSONResponse:
-    pending: tuple[File, Path] | None = PENDING_UPLOADS.get(job_id)
+@public.put("/upload/{job_id}/chunk")
+async def upload_chunk(
+        job_id: str,
+        request: Request,
+        offset: int = Query(..., ge=0),
+        total: int = Query(..., ge=0),
+        user: User = Depends(get_current_user)
+) -> JSONResponse:
+    session: UploadSession | None = UPLOAD_SESSIONS.get(job_id)
 
-    if pending is None:
-        raise HTTPException(status_code=404, detail="Upload job not found")
+    if session is None:
+        pending: tuple[File, Path] | None = PENDING_UPLOADS.get(job_id)
 
-    file, file_path = pending
+        if pending is None:
+            raise HTTPException(status_code=404, detail="Upload job not found")
 
-    if file.username != user.username:
+        file, file_path = pending
+
+        if file.username != user.username:
+            raise HTTPException(status_code=403, detail="Access denied")
+
+        PENDING_UPLOADS.pop(job_id)
+        file_path.parent.mkdir(parents=True, exist_ok=True)
+        file_path.write_bytes(b"")
+
+        session: UploadSession = UploadSession(file=file, file_path=file_path, total=total, finished=Event())
+        UPLOAD_SESSIONS[job_id] = session
+
+        await Redis.set(job_id, Progress(file.name, "Receiving and uploading", 0))
+
+        session.upload_task = create_task(wait_for_all_chunks(session))
+
+        async def run_upload_job() -> None:
+            try:
+                async for progress in file_upload(session.file, session.file_path, session.upload_task):
+                    await Redis.set(job_id, progress)
+
+            except Exception as error:
+                await Redis.set(job_id, Progress(session.file.name, f"Upload failed: {error}", 0))
+
+            finally:
+                if session.upload_task is not None and not session.upload_task.done():
+                    session.upload_task.cancel()
+
+                UPLOAD_SESSIONS.pop(job_id, None)
+
+        session.job_task = create_task(run_upload_job())
+
+    elif session.file.username != user.username:
         raise HTTPException(status_code=403, detail="Access denied")
 
-    PENDING_UPLOADS.pop(job_id)
-    file_path.parent.mkdir(parents=True, exist_ok=True)
+    if total != session.total:
+        raise HTTPException(status_code=409, detail="File size changed during upload")
 
-    await Redis.set(job_id, Progress(file.name, "Receiving and uploading", 0))
+    position = offset
 
-    async def write_file() -> None:
-        size = 0
+    async with aiofiles.open(session.file_path, "r+b") as buffer:
+        await buffer.seek(offset)
 
-        async with aiofiles.open(file_path, "wb") as buffer:
-            async for chunk in request.stream():
-                if chunk:
-                    await buffer.write(chunk)
-                    await buffer.flush()
-                    size += len(chunk)
-                    file.size = size
+        async for chunk in request.stream():
+            if not chunk:
+                continue
 
-    upload_task: Task[None] = create_task(write_file())
+            if position + len(chunk) > session.total:
+                raise HTTPException(status_code=413, detail="Chunk exceeds declared file size")
 
-    async def run_upload_job() -> None:
-        async for progress in file_upload(file, file_path, upload_task):
-            await Redis.set(job_id, progress)
+            await buffer.write(chunk)
+            await buffer.flush()
 
-    upload_job_task: Task[None] = create_task(run_upload_job())
+            mark_written(session, position, position + len(chunk))
+            position += len(chunk)
 
-    try:
-        await gather(upload_task, upload_job_task)
+    mark_written(session, offset, position)
 
-    except Exception:
-        for task in (upload_task, upload_job_task):
-            if not task.done():
-                task.cancel()
-
-        await gather(upload_task, upload_job_task, return_exceptions=True)
-        raise
-
-    return JSONResponse({"job_id": job_id, "status": "completed"})
+    return JSONResponse({"job_id": job_id, "contiguous": session.contiguous})
 
 
 @auth.post("/upload-link")

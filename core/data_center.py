@@ -188,5 +188,6 @@ class Database(DataCenter, metaclass=ConfigMeta):
 class BackEnd(Database, metaclass=ConfigMeta):
     NAME: str = "BackEnd"
 
+
 class Binaries(Database, metaclass=ConfigMeta):
     NAME: str = "Binaries"

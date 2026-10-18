@@ -2,12 +2,11 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import cast
 
-from pydantic import BaseModel, ConfigDict, Field
-
 from backend.database.connection import POOL
 from backend.database.redis_server import Redis
 from core.data_center import Database
 from core.utils import write_log
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class File(BaseModel):
@@ -54,8 +53,7 @@ class File(BaseModel):
                 self.id = cast(dict[str, int], connection.execute(
                     """
                     INSERT INTO files (directory_id, name, type, size, modified_at, data_center, links, deleted_at, username)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-                    RETURNING id;
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id;
                     """,
                     (
                         self.directory_id,
@@ -218,7 +216,7 @@ class File(BaseModel):
                     DELETE
                     FROM files
                     WHERE username = %s
-                      AND id = ANY(%s);
+                      AND id = ANY (%s);
                     """,
                     (
                         username,

@@ -2,12 +2,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import cast
 
-from pydantic import BaseModel, ConfigDict, Field
-
 from backend.database.connection import POOL
 from backend.database.redis_server import Redis
 from core.data_center import Database
 from core.utils import write_log
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class Directory(BaseModel):
@@ -45,8 +44,7 @@ class Directory(BaseModel):
                 self.id = cast(dict[str, int], connection.execute(
                     """
                     INSERT INTO directories (path, modified_at, deleted_at, username)
-                    VALUES (%s, %s, %s, %s)
-                    RETURNING id;
+                    VALUES (%s, %s, %s, %s) RETURNING id;
                     """,
                     (str(self.path), self.modified_at, self.deleted_at, self.username),
                 ).fetchone())["id"]
