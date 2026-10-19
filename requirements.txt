@@ -1,5 +1,6 @@
 aiohttp
 aiofiles
+asyncssh
 bcrypt==4.0.1
 discord-py
 fastapi[all]
@@ -9,14 +10,13 @@ libtorrent
 pandas
 pandas-stubs
 passlib[bcrypt]==1.7.4
-asyncssh
 psycopg-pool
 psycopg[binary]
 pydantic
 pyftpdlib
 python-jose
 redis>=8.1.0
-storelimitless
+sqlalchemy
 tabulate
 telethon
 requests

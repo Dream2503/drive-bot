@@ -53,7 +53,7 @@ try:
                 size         BIGINT      NOT NULL,
                 modified_at  TIMESTAMPTZ NOT NULL,
                 data_center  TEXT        NOT NULL,
-                links        TEXT []     NOT NULL,
+                links        TEXT[]      NOT NULL,
                 deleted_at   TIMESTAMPTZ,
                 username     TEXT        NOT NULL,
 
@@ -64,11 +64,6 @@ try:
                 CONSTRAINT fk_files_user
                     FOREIGN KEY (username)
                         REFERENCES users (username)
-            );
-
-            CREATE TABLE IF NOT EXISTS github_cursor (
-                repo_id BIGINT PRIMARY KEY,
-                used    BIGINT NOT NULL
             );
             """
         )
