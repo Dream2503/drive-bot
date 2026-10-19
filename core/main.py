@@ -1,7 +1,7 @@
 import subprocess
 import sys
 from asyncio import CancelledError, Task, create_task, gather, get_running_loop, run, sleep, to_thread
-from os import environ, execv
+from os import environ, execv, system
 from pathlib import Path
 from shutil import rmtree
 from socket import AF_INET, SOCK_DGRAM, socket
@@ -23,7 +23,7 @@ from core.utils.telegram_ import Telegram
 
 
 async def main() -> None:
-    subprocess.run(["clear"], check=False)
+    system("cls" if sys.platform == "win32" else "clear")
 
     redis_process: Popen | None = start_redis_server()
     frontend_process: Popen | None = None

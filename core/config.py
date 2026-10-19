@@ -7,7 +7,7 @@ from typing import TextIO, Literal
 
 from filelock import FileLock
 
-HOST: Literal["LOCAL", "CLOUD"] = "CLOUD"
+HOST: Literal["LOCAL", "CLOUD"] = "LOCAL"
 FROZEN: bool = getattr(sys, "frozen", False)
 
 if FROZEN:
