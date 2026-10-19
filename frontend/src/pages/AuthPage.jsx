@@ -1,6 +1,10 @@
 import {useState} from "react";
 import {useNavigate} from "react-router-dom";
 
+// Supabase-style field styling
+const labelClass = "block text-sm text-[#b4b4b4] mb-2";
+const inputClass = "w-full h-[38px] rounded-md border border-[#363636] bg-white/[0.026] px-3 text-sm text-[#fafafa] placeholder:text-[#707070] outline-none transition-colors focus:border-[#707070] focus:ring-2 focus:ring-[#4d4d4d]/50";
+
 export default function AuthPage() {
     const navigate = useNavigate();
     const [isLogin, setIsLogin] = useState(true);
@@ -8,6 +12,7 @@ export default function AuthPage() {
         first_name: "", last_name: "", username: "", password: ""
     });
     const [message, setMessage] = useState("");
+    const [messageIsError, setMessageIsError] = useState(true);
     const [loading, setLoading] = useState(false);
 
     const API_URL = window.STORELIMITLESS_CONFIG?.API_URL ?? import.meta.env.VITE_API_URL
@@ -38,106 +43,131 @@ export default function AuthPage() {
                 navigate("/dashboard");
             } else {
                 setIsLogin(true);
+                setMessageIsError(false);
                 setMessage("Registration successful. Please login.");
             }
         } catch (error) {
+            setMessageIsError(true);
             setMessage(error.message);
         } finally {
             setLoading(false);
         }
     };
 
-    return (<div className="min-h-screen flex items-center justify-center bg-background px-4">
-        {/* Background glow */}
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-            <div className="absolute top-[-20%] left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-primary/10 rounded-full blur-[120px]"/>
-        </div>
-
-        <div className="relative w-full max-w-md">
-            {/* Logo */}
-            <div className="flex items-center justify-center gap-3 mb-8">
-                <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center">
-                    <span className="material-symbols-outlined text-on-primary" style={{fontVariationSettings: "'FILL' 1"}}>cloud</span>
+    return (<div
+        className="min-h-screen flex flex-col bg-[#171717] text-[#fafafa]"
+        style={{fontFamily: "Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif"}}
+    >
+        {/* Header */}
+        <header className="h-16 flex items-center px-6">
+            <div className="flex items-center gap-2.5">
+                <div className="w-7 h-7 rounded-md bg-[#3ecf8e] flex items-center justify-center">
+                    <span
+                        className="material-symbols-outlined text-[#0f0f0f] text-[18px]"
+                        style={{fontVariationSettings: "'FILL' 1"}}
+                    >
+                        cloud
+                    </span>
                 </div>
-                <h1 className="text-2xl font-bold text-primary">DriveBot</h1>
+                <span className="text-[15px] font-medium tracking-tight">DriveBot</span>
             </div>
+        </header>
 
-            {/* Card */}
-            <div className="glass-panel rounded-2xl p-8 card-shadow border border-outline-variant/20">
-                <h2 className="text-xl font-semibold text-on-surface mb-1">
-                    {isLogin ? "Welcome back" : "Create your account"}
-                </h2>
-                <p className="text-sm text-on-surface-variant mb-6">
-                    {isLogin ? "Sign in to access your files." : "Join DriveBot to manage your files."}
+        {/* Form */}
+        <main className="flex-1 flex items-center justify-center px-6 pb-16">
+            <div className="w-full max-w-[340px]">
+                <h1 className="text-2xl font-medium tracking-tight">
+                    {isLogin ? "Welcome back" : "Get started"}
+                </h1>
+                <p className="text-sm text-[#898989] mt-2 mb-8">
+                    {isLogin ? "Sign in to your account" : "Create a new account"}
                 </p>
 
                 <form onSubmit={handleSubmit} className="space-y-4">
-                    {!isLogin && (<div className="grid grid-cols-2 gap-3">
+                    {!isLogin && (<>
                         <div>
-                            <label className="block text-xs font-medium text-on-surface-variant mb-1 uppercase tracking-widest">First
-                                Name</label>
+                            <label htmlFor="first_name" className={labelClass}>First name</label>
                             <input
+                                id="first_name"
                                 type="text" name="first_name"
                                 value={formData.first_name} onChange={handleChange} required
-                                className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2 px-3 text-sm text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/30 transition-all placeholder:text-on-surface-variant/40"
+                                autoComplete="given-name"
+                                className={inputClass}
                                 placeholder="John"
                             />
                         </div>
                         <div>
-                            <label className="block text-xs font-medium text-on-surface-variant mb-1 uppercase tracking-widest">Last
-                                Name</label>
+                            <label htmlFor="last_name" className={labelClass}>Last name</label>
                             <input
+                                id="last_name"
                                 type="text" name="last_name"
                                 value={formData.last_name} onChange={handleChange} required
-                                className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2 px-3 text-sm text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/30 transition-all placeholder:text-on-surface-variant/40"
+                                autoComplete="family-name"
+                                className={inputClass}
                                 placeholder="Doe"
                             />
                         </div>
-                    </div>)}
+                    </>)}
+
                     <div>
-                        <label className="block text-xs font-medium text-on-surface-variant mb-1 uppercase tracking-widest">Username</label>
+                        <label htmlFor="username" className={labelClass}>Username</label>
                         <input
+                            id="username"
                             type="text" name="username"
                             value={formData.username} onChange={handleChange} required
-                            className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2 px-3 text-sm text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/30 transition-all placeholder:text-on-surface-variant/40"
+                            autoComplete="username"
+                            className={inputClass}
                             placeholder="your_username"
                         />
                     </div>
+
                     <div>
-                        <label className="block text-xs font-medium text-on-surface-variant mb-1 uppercase tracking-widest">Password</label>
+                        <label htmlFor="password" className={labelClass}>Password</label>
                         <input
+                            id="password"
                             type="password" name="password"
                             value={formData.password} onChange={handleChange} required
-                            className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2 px-3 text-sm text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/30 transition-all placeholder:text-on-surface-variant/40"
+                            autoComplete={isLogin ? "current-password" : "new-password"}
+                            className={inputClass}
                             placeholder="••••••••"
                         />
                     </div>
 
-                    {message && (<p className="text-xs text-error bg-error-container/20 border border-error/20 rounded-lg px-3 py-2">
-                        {message}
-                    </p>)}
+                    {message && (<div
+                        className={`flex items-start gap-2 rounded-md border px-3 py-2.5 text-sm ${messageIsError ? "border-[#e5484d]/30 bg-[#e5484d]/10 text-[#ff6369]" : "border-[#3ecf8e]/30 bg-[#3ecf8e]/10 text-[#3ecf8e]"}`}
+                    >
+                        <span className="material-symbols-outlined text-[18px] mt-px">
+                            {messageIsError ? "error" : "check_circle"}
+                        </span>
+                        <p>{message}</p>
+                    </div>)}
 
                     <button
                         type="submit" disabled={loading}
-                        className="w-full bg-primary text-on-primary py-2.5 rounded-xl font-medium text-sm hover:bg-primary/90 transition-colors shadow-[0_0_20px_rgba(192,193,255,0.2)] disabled:opacity-60 mt-2"
+                        className="w-full h-[38px] flex items-center justify-center gap-2 rounded-md border border-[#3ecf8e]/40 bg-[#006239] text-sm text-[#fafafa] transition-colors hover:border-[#3ecf8e]/70 hover:bg-[#007a46] disabled:opacity-50 disabled:cursor-not-allowed mt-2"
                     >
-                        {loading ? "Processing..." : isLogin ? "Sign In" : "Create Account"}
+                        {loading && (<span className="material-symbols-outlined text-[16px] animate-spin">
+                            autorenew
+                        </span>)}
+                        {loading ? "Processing..." : isLogin ? "Sign In" : "Sign Up"}
                     </button>
                 </form>
 
-                <p className="text-center mt-5 text-sm text-on-surface-variant">
-                    {isLogin ? "Don't have an account?" : "Already have an account?"}
+                <p className="text-center mt-8 text-sm text-[#898989]">
+                    {isLogin ? "Don't have an account?" : "Have an account?"}
                     <button
+                        type="button"
                         onClick={() => {
                             setIsLogin(!isLogin);
                             setMessage("");
+                            setMessageIsError(true);
                         }}
-                        className="ml-2 text-primary font-semibold hover:underline underline-offset-2"
+                        className="ml-1.5 text-[#fafafa] underline underline-offset-4 decoration-[#4d4d4d] hover:decoration-[#fafafa] transition-colors"
                     >
-                        {isLogin ? "Sign Up" : "Sign In"}
+                        {isLogin ? "Sign Up Now" : "Sign In Now"}
                     </button>
                 </p>
             </div>
-        </div>
+        </main>
     </div>);
 }

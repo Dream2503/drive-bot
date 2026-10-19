@@ -11,6 +11,12 @@ const CHUNK_SIZE = 1024 * 1024;
 const PARALLEL_CHUNKS = 8;
 const MAX_CHUNK_ATTEMPTS = 3;
 
+// Supabase-style classes
+const labelClass = "block text-sm text-[#b4b4b4] mb-2";
+const optionBase = "flex items-center justify-center gap-2 h-[38px] rounded-md border px-4 text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-50";
+const optionOff = "border-[#363636] bg-white/[0.026] text-[#898989] hover:border-[#4d4d4d] hover:text-[#fafafa]";
+const optionOn = "border-[#3ecf8e]/50 bg-[#3ecf8e]/10 text-[#fafafa]";
+
 const formatBytes = (bytes) => {
     if (bytes < 1024) return `${bytes} B`;
 
@@ -327,25 +333,28 @@ export default function UploadPage() {
     // ==========================================
     const isUploadDisabled = !dataCenter || status === "uploading" || (uploadMode === "file" && !file) || (uploadMode === "link" && !link.trim());
 
-    return (<div className="min-h-screen bg-background text-on-surface flex flex-col">
+    return (<div
+        className="min-h-screen bg-[#171717] text-[#fafafa] flex flex-col"
+        style={{fontFamily: "Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif"}}
+    >
 
         {/* ==========================================
             TOP BAR
         ========================================== */}
-        <header className="h-16 border-b border-outline-variant/10 bg-surface/70 backdrop-blur-md flex items-center px-6 gap-4">
+        <header className="h-14 border-b border-[#2e2e2e] bg-[#171717] flex items-center px-6 gap-4">
             <button
                 onClick={() => navigate("/dashboard")}
-                className="flex items-center gap-2 text-on-surface-variant hover:text-primary transition-colors text-sm"
+                className="flex items-center gap-1.5 text-[#898989] hover:text-[#fafafa] transition-colors text-sm"
             >
-                <span className="material-symbols-outlined text-[20px]">
+                <span className="material-symbols-outlined text-[18px]">
                     arrow_back
                 </span>
                 Back to Dashboard
             </button>
-            <div className="flex items-center gap-2 ml-4">
-                <div className="w-7 h-7 rounded-lg bg-primary flex items-center justify-center">
+            <div className="flex items-center gap-2.5 ml-4">
+                <div className="w-7 h-7 rounded-md bg-[#3ecf8e] flex items-center justify-center">
                     <span
-                        className="material-symbols-outlined text-on-primary text-[16px]"
+                        className="material-symbols-outlined text-[#0f0f0f] text-[18px]"
                         style={{
                             fontVariationSettings: "'FILL' 1",
                         }}
@@ -353,7 +362,7 @@ export default function UploadPage() {
                         cloud
                     </span>
                 </div>
-                <span className="font-bold text-primary">
+                <span className="text-sm font-medium tracking-tight">
                     DriveBot
                 </span>
             </div>
@@ -363,11 +372,11 @@ export default function UploadPage() {
             MAIN CONTENT
         ========================================== */}
         <div className="flex-1 flex items-center justify-center px-4 py-12">
-            <div className="w-full max-w-lg">
-                <h1 className="text-2xl font-semibold text-on-surface mb-1">
+            <div className="w-full max-w-[480px]">
+                <h1 className="text-2xl font-medium tracking-tight text-[#fafafa] mb-2">
                     Upload File
                 </h1>
-                <p className="text-sm text-on-surface-variant mb-8">
+                <p className="text-sm text-[#898989] mb-8">
                     Select a data center and choose how you want to upload your file.
                 </p>
 
@@ -375,8 +384,8 @@ export default function UploadPage() {
                     SELECT DATA CENTER
                 ========================================== */}
                 <div className="mb-6">
-                    <p className="text-xs font-geist uppercase tracking-widest text-on-surface-variant mb-3">
-                        Select Data Center
+                    <p className={labelClass}>
+                        Data center
                     </p>
                     <div className="flex gap-3">
                         {DATA_CENTERS.map((dc) => (<button
@@ -384,9 +393,9 @@ export default function UploadPage() {
                             type="button"
                             onClick={() => setDataCenter(dc)}
                             disabled={status === "uploading"}
-                            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl border text-sm font-medium transition-all ${dataCenter === dc ? "bg-primary/10 border-primary text-primary shadow-[0_0_12px_rgba(192,193,255,0.15)]" : "border-outline-variant/30 text-on-surface-variant hover:border-primary/50 hover:text-on-surface"}`}
+                            className={`${optionBase} ${dataCenter === dc ? optionOn : optionOff}`}
                         >
-                                <span className="material-symbols-outlined text-[18px]">
+                                <span className={`material-symbols-outlined text-[18px] ${dataCenter === dc ? "text-[#3ecf8e]" : ""}`}>
                                     {dc === "Discord" ? "forum" : "send"}
                                 </span>
                             {dc}
@@ -398,8 +407,8 @@ export default function UploadPage() {
                     SELECT UPLOAD METHOD
                 ========================================== */}
                 <div className="mb-6">
-                    <p className="text-xs font-geist uppercase tracking-widest text-on-surface-variant mb-3">
-                        Upload Method
+                    <p className={labelClass}>
+                        Upload method
                     </p>
                     <div className="flex gap-3">
 
@@ -412,9 +421,9 @@ export default function UploadPage() {
                                 setProgress(0);
                                 setStatus("idle");
                             }}
-                            className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl border text-sm font-medium transition-all ${uploadMode === "file" ? "bg-primary/10 border-primary text-primary" : "border-outline-variant/30 text-on-surface-variant hover:border-primary/50 hover:text-on-surface"}`}
+                            className={`${optionBase} flex-1 ${uploadMode === "file" ? optionOn : optionOff}`}
                         >
-                            <span className="material-symbols-outlined text-[18px]">
+                            <span className={`material-symbols-outlined text-[18px] ${uploadMode === "file" ? "text-[#3ecf8e]" : ""}`}>
                                 upload_file
                             </span>
                             Upload File
@@ -429,9 +438,9 @@ export default function UploadPage() {
                                 setProgress(0);
                                 setStatus("idle");
                             }}
-                            className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl border text-sm font-medium transition-all ${uploadMode === "link" ? "bg-primary/10 border-primary text-primary" : "border-outline-variant/30 text-on-surface-variant hover:border-primary/50 hover:text-on-surface"}`}
+                            className={`${optionBase} flex-1 ${uploadMode === "link" ? optionOn : optionOff}`}
                         >
-                            <span className="material-symbols-outlined text-[18px]">
+                            <span className={`material-symbols-outlined text-[18px] ${uploadMode === "link" ? "text-[#3ecf8e]" : ""}`}>
                                 add_link
                             </span>
                             Link
@@ -443,8 +452,8 @@ export default function UploadPage() {
                     LOCAL FILE UPLOAD
                 ========================================== */}
                 {uploadMode === "file" && (<div className="mb-6">
-                    <p className="text-xs font-geist uppercase tracking-widest text-on-surface-variant mb-3">
-                        Select File
+                    <p className={labelClass}>
+                        File
                     </p>
                     <label
                         htmlFor="file-input"
@@ -457,28 +466,28 @@ export default function UploadPage() {
                         }}
                         onDragLeave={() => setDragOver(false)}
                         onDrop={handleDrop}
-                        className={`flex flex-col items-center justify-center w-full h-40 rounded-2xl border-2 border-dashed cursor-pointer transition-all ${dragOver ? "border-primary bg-primary/10" : file ? "border-primary/40 bg-primary/5" : "border-outline-variant/30 bg-surface-container-low hover:border-primary/40 hover:bg-surface-container"} ${status === "uploading" ? "opacity-60 cursor-not-allowed" : ""}`}
+                        className={`flex flex-col items-center justify-center w-full h-40 rounded-lg border border-dashed cursor-pointer transition-colors ${dragOver ? "border-[#3ecf8e] bg-[#3ecf8e]/5" : file ? "border-[#3ecf8e]/40 bg-[#1f1f1f]" : "border-[#363636] bg-[#1f1f1f] hover:border-[#4d4d4d] hover:bg-[#232323]"} ${status === "uploading" ? "opacity-60 cursor-not-allowed" : ""}`}
                     >
                             <span
-                                className={`material-symbols-outlined text-[40px] mb-2 ${file ? "text-primary" : "text-on-surface-variant/40"}`}
+                                className={`material-symbols-outlined text-[36px] mb-2 ${file ? "text-[#3ecf8e]" : "text-[#4d4d4d]"}`}
                             >
                                 {file ? "check_circle" : "cloud_upload"}
                             </span>
-                        {file ? (<div className="text-center">
-                            <p className="text-sm font-medium text-primary">
+                        {file ? (<div className="text-center px-4">
+                            <p className="text-sm text-[#fafafa] break-all">
                                 {file.name}
                             </p>
-                            <p className="text-xs text-on-surface-variant mt-1">
-                                {(file.size / 1024).toFixed(1)} KB
+                            <p className="text-xs text-[#898989] mt-1">
+                                {formatBytes(file.size)}
                             </p>
                         </div>) : (<div className="text-center">
-                            <p className="text-sm text-on-surface-variant">
+                            <p className="text-sm text-[#898989]">
                                 Drop file here or{" "}
-                                <span className="text-primary">
+                                <span className="text-[#fafafa] underline underline-offset-4 decoration-[#4d4d4d]">
                                     browse
                                 </span>
                             </p>
-                            <p className="text-xs text-on-surface-variant/50 mt-1">
+                            <p className="text-xs text-[#707070] mt-1">
                                 Any file type supported
                             </p>
                         </div>)}
@@ -501,21 +510,21 @@ export default function UploadPage() {
                     LINK INPUT
                 ========================================== */}
                 {uploadMode === "link" && (<div className="mb-6">
-                    <p className="text-xs font-geist uppercase tracking-widest text-on-surface-variant mb-3">
-                        File Link
+                    <p className={labelClass}>
+                        File link
                     </p>
-                    <div className="bg-surface-container-low border border-outline-variant/30 rounded-2xl p-4">
+                    <div className="bg-[#1f1f1f] border border-[#2e2e2e] rounded-lg p-4">
                         <div className="flex items-center gap-3 mb-4">
-                            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                                <span className="material-symbols-outlined text-primary">
+                            <div className="w-9 h-9 rounded-md border border-[#363636] bg-[#242424] flex items-center justify-center">
+                                <span className="material-symbols-outlined text-[18px] text-[#898989]">
                                     link
                                 </span>
                             </div>
                             <div>
-                                <p className="text-sm font-medium text-on-surface">
+                                <p className="text-sm text-[#fafafa]">
                                     Import from Link
                                 </p>
-                                <p className="text-xs text-on-surface-variant">
+                                <p className="text-xs text-[#898989]">
                                     Paste a link to the file.
                                 </p>
                             </div>
@@ -523,7 +532,7 @@ export default function UploadPage() {
 
                         {/* LINK INPUT */}
                         <div className="relative">
-                            <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant">
+                            <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[18px] text-[#707070]">
                                 link
                             </span>
                             <input
@@ -532,12 +541,12 @@ export default function UploadPage() {
                                 disabled={status === "uploading"}
                                 onChange={(event) => setLink(event.target.value)}
                                 placeholder="https://..."
-                                className="w-full bg-surface-container border border-outline-variant/30 rounded-xl pl-11 pr-4 py-3 text-sm text-on-surface placeholder:text-on-surface-variant/50 outline-none focus:border-primary transition-colors"
+                                className="w-full h-[38px] rounded-md border border-[#363636] bg-white/[0.026] pl-10 pr-3 text-sm text-[#fafafa] placeholder:text-[#707070] outline-none transition-colors focus:border-[#707070] focus:ring-2 focus:ring-[#4d4d4d]/50 disabled:opacity-60"
                             />
                         </div>
 
                         {/* LINK DETECTED */}
-                        {link.trim() && (<div className="flex items-center gap-2 mt-3 text-primary">
+                        {link.trim() && (<div className="flex items-center gap-1.5 mt-3 text-[#3ecf8e]">
                             <span className="material-symbols-outlined text-[16px]">
                                 check_circle
                             </span>
@@ -545,7 +554,7 @@ export default function UploadPage() {
                                 Link added
                             </p>
                         </div>)}
-                        <p className="text-xs text-on-surface-variant/60 mt-3 leading-relaxed">
+                        <p className="text-xs text-[#707070] mt-3 leading-relaxed">
                             Make sure the link is publicly accessible.
                         </p>
                     </div>
@@ -557,15 +566,15 @@ export default function UploadPage() {
                 <button
                     onClick={handleUpload}
                     disabled={isUploadDisabled}
-                    className="w-full bg-primary text-on-primary py-3 rounded-xl font-medium text-sm hover:bg-primary/90 transition-colors shadow-[0_0_20px_rgba(192,193,255,0.2)] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    className="w-full h-[38px] flex items-center justify-center gap-2 rounded-md border border-[#3ecf8e]/40 bg-[#006239] text-sm text-[#fafafa] transition-colors hover:border-[#3ecf8e]/70 hover:bg-[#007a46] disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                     {status === "uploading" ? (<>
-                        <span className="material-symbols-outlined text-[18px] animate-spin">
+                        <span className="material-symbols-outlined text-[16px] animate-spin">
                             autorenew
                         </span>
                         {uploadMode === "link" ? "Importing..." : "Uploading..."}
                     </>) : (<>
-                        <span className="material-symbols-outlined text-[18px]">
+                        <span className="material-symbols-outlined text-[16px]">
                             cloud_upload
                         </span>
                         {uploadMode === "link" ? "Import File" : "Upload File"}
@@ -575,22 +584,22 @@ export default function UploadPage() {
                 {/* ==========================================
                     PROGRESS PANEL
                 ========================================== */}
-                {status !== "idle" && (<div className="mt-6 glass-panel rounded-2xl p-4 border border-outline-variant/10">
-                    <div className="flex justify-between text-xs text-on-surface-variant mb-2">
-                        <span className="font-geist uppercase tracking-widest">
-                            {status === "uploading" && `${message || (uploadMode === "link" ? "Importing" : "Uploading")}:`}
-                            {status === "done" && "✓ Completed:"}
-                            {status === "error" && "✗ Failed:"}
+                {status !== "idle" && (<div className="mt-6 rounded-lg border border-[#2e2e2e] bg-[#1f1f1f] p-4">
+                    <div className="flex justify-between gap-4 text-xs text-[#898989] mb-3">
+                        <span className={status === "error" ? "text-[#ff6369]" : status === "done" ? "text-[#3ecf8e]" : ""}>
+                            {status === "uploading" && `${message || (uploadMode === "link" ? "Importing" : "Uploading")}`}
+                            {status === "done" && "✓ Completed"}
+                            {status === "error" && `✗ Failed${message ? `: ${message}` : ""}`}
                         </span>
-                        <span>
-                            {total > 0 ? `${formatBytes(transfer)} / ${formatBytes(total)}    ${progress.toFixed(1)}%` : `${progress.toFixed(1)}%`}
+                        <span className="shrink-0 font-mono">
+                            {total > 0 ? `${formatBytes(transfer)} / ${formatBytes(total)}   ${progress.toFixed(1)}%` : `${progress.toFixed(1)}%`}
                         </span>
                     </div>
 
                     {/* PROGRESS BAR */}
-                    <div className="w-full bg-surface-container-high h-1 rounded-full overflow-hidden">
+                    <div className="w-full bg-[#2e2e2e] h-1 rounded-full overflow-hidden">
                         <div
-                            className={`h-full rounded-full transition-all duration-300 ${status === "error" ? "bg-error" : "bg-primary"}`}
+                            className={`h-full rounded-full transition-all duration-300 ${status === "error" ? "bg-[#e5484d]" : "bg-[#3ecf8e]"}`}
                             style={{
                                 width: `${progress}%`,
                             }}
@@ -598,12 +607,12 @@ export default function UploadPage() {
                     </div>
 
                     {/* SUCCESS */}
-                    {status === "done" && (<p className="text-xs text-primary mt-2 text-center">
+                    {status === "done" && (<p className="text-xs text-[#3ecf8e] mt-3 text-center">
                         Upload completed. Redirecting to dashboard...
                     </p>)}
 
                     {/* ERROR */}
-                    {status === "error" && (<p className="text-xs text-error mt-2 text-center">
+                    {status === "error" && (<p className="text-xs text-[#ff6369] mt-3 text-center">
                         Upload failed. Please try again.
                     </p>)}
                 </div>)}

@@ -8,24 +8,31 @@ const NAV_ITEMS = [{id: "files", icon: "folder_open", label: "All Files", enable
     id: "trash", icon: "delete", label: "Trash", enabled: true
 },];
 
+// Shared Supabase-style button / input classes
+const btnSecondary = "inline-flex h-8 items-center gap-1.5 rounded-md border border-[#363636] bg-[#242424] px-3 text-xs text-[#fafafa] transition-colors hover:border-[#4d4d4d] hover:bg-[#2a2a2a] disabled:cursor-not-allowed disabled:opacity-50";
+const btnPrimary = "inline-flex h-8 items-center gap-1.5 rounded-md border border-[#3ecf8e]/40 bg-[#006239] px-3 text-xs text-[#fafafa] transition-colors hover:border-[#3ecf8e]/70 hover:bg-[#007a46] disabled:cursor-not-allowed disabled:opacity-50";
+const iconBtn = "flex h-7 w-7 items-center justify-center rounded-md text-[#898989] transition-colors hover:bg-[#2a2a2a] hover:text-[#fafafa] disabled:opacity-50";
+const iconBtnDanger = "flex h-7 w-7 items-center justify-center rounded-md text-[#898989] transition-colors hover:bg-[#e5484d]/10 hover:text-[#ff6369] disabled:opacity-50";
+const inputClass = "w-full h-[38px] rounded-md border border-[#363636] bg-white/[0.026] px-3 text-sm text-[#fafafa] placeholder:text-[#707070] outline-none transition-colors focus:border-[#707070] focus:ring-2 focus:ring-[#4d4d4d]/50 disabled:opacity-60";
+
 const FILE_ICONS = {
-    pdf: {icon: "picture_as_pdf", color: "text-error"},
-    jpg: {icon: "image", color: "text-secondary"},
-    jpeg: {icon: "image", color: "text-secondary"},
-    png: {icon: "image", color: "text-secondary"},
-    gif: {icon: "image", color: "text-secondary"},
-    webp: {icon: "image", color: "text-secondary"},
-    txt: {icon: "subject", color: "text-outline"},
-    zip: {icon: "folder_zip", color: "text-tertiary"},
-    rar: {icon: "folder_zip", color: "text-tertiary"},
-    mp4: {icon: "movie", color: "text-primary"},
-    mkv: {icon: "movie", color: "text-primary"},
-    mp3: {icon: "music_note", color: "text-primary"},
-    wav: {icon: "music_note", color: "text-primary"},
-    py: {icon: "code", color: "text-primary"},
-    js: {icon: "javascript", color: "text-primary"},
-    jsx: {icon: "code", color: "text-primary"},
-    default: {icon: "draft", color: "text-on-surface-variant"},
+    pdf: {icon: "picture_as_pdf", color: "text-[#ff6369]"},
+    jpg: {icon: "image", color: "text-[#3ecf8e]"},
+    jpeg: {icon: "image", color: "text-[#3ecf8e]"},
+    png: {icon: "image", color: "text-[#3ecf8e]"},
+    gif: {icon: "image", color: "text-[#3ecf8e]"},
+    webp: {icon: "image", color: "text-[#3ecf8e]"},
+    txt: {icon: "subject", color: "text-[#898989]"},
+    zip: {icon: "folder_zip", color: "text-[#f5a524]"},
+    rar: {icon: "folder_zip", color: "text-[#f5a524]"},
+    mp4: {icon: "movie", color: "text-[#70b8ff]"},
+    mkv: {icon: "movie", color: "text-[#70b8ff]"},
+    mp3: {icon: "music_note", color: "text-[#70b8ff]"},
+    wav: {icon: "music_note", color: "text-[#70b8ff]"},
+    py: {icon: "code", color: "text-[#b4b4b4]"},
+    js: {icon: "javascript", color: "text-[#b4b4b4]"},
+    jsx: {icon: "code", color: "text-[#b4b4b4]"},
+    default: {icon: "draft", color: "text-[#898989]"},
 };
 
 function getFileIcon(filename) {
@@ -67,153 +74,79 @@ function getToken() {
 /* -------------------------------------------------------------------- */
 
 function Sidebar({activeTab, onTabSelect, onUpload, onLogout}) {
-    return (<nav className="flex h-screen w-72 flex-col gap-4 border-r border-outline-variant/20 bg-surface/70 p-6 backdrop-blur-xl">
-        <div className="mb-4 flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary">
+    return (<nav className="flex h-screen w-60 flex-col border-r border-[#2e2e2e] bg-[#171717]">
+        {/* Brand */}
+        <div className="flex h-14 items-center gap-2.5 border-b border-[#2e2e2e] px-4">
+            <div className="flex h-7 w-7 items-center justify-center rounded-md bg-[#3ecf8e]">
                     <span
-                        className="material-symbols-outlined text-on-primary"
+                        className="material-symbols-outlined text-[18px] text-[#0f0f0f]"
                         style={{fontVariationSettings: "'FILL' 1"}}
                         aria-hidden="true"
                     >
                         cloud
                     </span>
             </div>
-            <div>
-                <h1 className="text-lg font-bold text-primary">DriveBot</h1>
-                <p className="font-geist text-xs uppercase tracking-widest text-on-surface-variant">
-                    File Management
-                </p>
+            <div className="leading-tight">
+                <h1 className="text-sm font-medium tracking-tight text-[#fafafa]">DriveBot</h1>
+                <p className="text-[11px] text-[#707070]">File Management</p>
             </div>
         </div>
 
-        <button
-            type="button"
-            onClick={onUpload}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-medium text-on-primary shadow-[0_0_15px_rgba(192,193,255,0.2)] transition-colors hover:bg-primary/90"
-        >
-                <span className="material-symbols-outlined text-[18px]" aria-hidden="true">
-                    add
-                </span>
-            Upload Files
-        </button>
-
-        <div className="mt-2 flex flex-1 flex-col gap-1">
-            {NAV_ITEMS.map(({id, icon, label, enabled}) => {
-                const isActive = activeTab === id;
-                return (<button
-                    key={id}
-                    type="button"
-                    disabled={!enabled}
-                    onClick={enabled ? () => onTabSelect(id) : undefined}
-                    title={enabled ? undefined : "Coming soon"}
-                    className={`flex items-center gap-3 rounded-xl px-3 py-2 text-left text-sm transition-all ${isActive ? "bg-primary-container/30 font-semibold text-primary" : enabled ? "text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface" : "cursor-not-allowed text-on-surface-variant/40"}`}
-                >
-                            <span className="material-symbols-outlined text-[20px]" aria-hidden="true">
-                                {icon}
-                            </span>
-                    {label}
-                </button>);
-            })}
-        </div>
-
-        <div className="flex flex-col gap-1 border-t border-outline-variant/10 pt-4">
+        <div className="flex flex-1 flex-col gap-4 p-3">
             <button
                 type="button"
-                className="flex items-center gap-3 rounded-xl px-3 py-2 text-sm text-on-surface-variant transition-colors hover:bg-surface-container-high hover:text-on-surface"
+                onClick={onUpload}
+                className={`${btnPrimary} h-9 w-full justify-center text-sm`}
             >
-                    <span className="material-symbols-outlined text-[20px]" aria-hidden="true">
-                        help_outline
+                    <span className="material-symbols-outlined text-[18px]" aria-hidden="true">
+                        add
                     </span>
-                Help
+                Upload Files
             </button>
 
-            <button
-                type="button"
-                onClick={onLogout}
-                className="flex items-center gap-3 rounded-xl px-3 py-2 text-sm text-on-surface-variant transition-colors hover:bg-error/10 hover:text-error"
-            >
-                    <span className="material-symbols-outlined text-[20px]" aria-hidden="true">
-                        logout
-                    </span>
-                Sign Out
-            </button>
-        </div>
-    </nav>);
-}
+            <div className="flex flex-1 flex-col gap-0.5">
+                {NAV_ITEMS.map(({id, icon, label, enabled}) => {
+                    const isActive = activeTab === id;
+                    return (<button
+                        key={id}
+                        type="button"
+                        disabled={!enabled}
+                        onClick={enabled ? () => onTabSelect(id) : undefined}
+                        title={enabled ? undefined : "Coming soon"}
+                        className={`flex h-8 items-center gap-2.5 rounded-md px-2.5 text-left text-sm transition-colors ${isActive ? "bg-[#2a2a2a] text-[#fafafa]" : enabled ? "text-[#898989] hover:bg-[#232323] hover:text-[#fafafa]" : "cursor-not-allowed text-[#4d4d4d]"}`}
+                    >
+                                <span className="material-symbols-outlined text-[18px]" aria-hidden="true">
+                                    {icon}
+                                </span>
+                        {label}
+                    </button>);
+                })}
+            </div>
 
-/* -------------------------------------------------------------------- */
-/* Stream Preview Modal                                                */
-
-/* -------------------------------------------------------------------- */
-
-function StreamModal({file, streamUrl, onClose}) {
-    useEffect(() => {
-        const onKeyDown = (e) => {
-            if (e.key === "Escape") onClose();
-        };
-        window.addEventListener("keydown", onKeyDown);
-        return () => window.removeEventListener("keydown", onKeyDown);
-    }, [onClose]);
-
-    const ext = file.name.split(".").pop()?.toLowerCase();
-    const isVideo = ["mp4", "mkv", "webm", "mov"].includes(ext);
-    const isAudio = ["mp3", "wav", "ogg"].includes(ext);
-    const isImage = ["jpg", "jpeg", "png", "gif", "webp"].includes(ext);
-    const isPdf = ext === "pdf";
-
-    return (<div
-        className="fixed inset-0 z-[110] flex items-center justify-center bg-black/80 px-4 backdrop-blur-md"
-        onClick={onClose}
-    >
-        <div
-            className="relative flex max-h-[90vh] w-full max-w-4xl flex-col rounded-2xl border border-outline-variant/20 bg-surface p-4 shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-        >
-            <div className="mb-3 flex items-center justify-between border-b border-outline-variant/10 pb-3">
-                <div className="flex items-center gap-2">
-                        <span className="material-symbols-outlined text-primary" aria-hidden="true">
-                            play_circle
-                        </span>
-                    <h3 className="truncate font-medium text-on-surface">{file.name}</h3>
-                </div>
+            <div className="flex flex-col gap-0.5 border-t border-[#2e2e2e] pt-3">
                 <button
                     type="button"
-                    onClick={onClose}
-                    className="rounded-lg p-1 text-on-surface-variant hover:bg-surface-container hover:text-on-surface"
+                    className="flex h-8 items-center gap-2.5 rounded-md px-2.5 text-sm text-[#898989] transition-colors hover:bg-[#232323] hover:text-[#fafafa]"
                 >
-                    <span className="material-symbols-outlined">close</span>
+                        <span className="material-symbols-outlined text-[18px]" aria-hidden="true">
+                            help_outline
+                        </span>
+                    Help
+                </button>
+
+                <button
+                    type="button"
+                    onClick={onLogout}
+                    className="flex h-8 items-center gap-2.5 rounded-md px-2.5 text-sm text-[#898989] transition-colors hover:bg-[#e5484d]/10 hover:text-[#ff6369]"
+                >
+                        <span className="material-symbols-outlined text-[18px]" aria-hidden="true">
+                            logout
+                        </span>
+                    Sign Out
                 </button>
             </div>
-
-            <div className="flex flex-1 items-center justify-center overflow-auto rounded-xl bg-black/40 p-2">
-                {isVideo && (<video controls autoPlay className="max-h-[70vh] w-full rounded-lg">
-                    <source src={streamUrl}/>
-                    Your browser does not support playing this video format.
-                </video>)}
-                {isAudio && (<div className="py-12">
-                    <audio controls autoPlay className="w-96">
-                        <source src={streamUrl}/>
-                        Your browser does not support audio playback.
-                    </audio>
-                </div>)}
-                {isImage && (<img
-                    src={streamUrl}
-                    alt={file.name}
-                    className="max-h-[70vh] max-w-full rounded-lg object-contain"
-                />)}
-                {isPdf && (<iframe
-                    src={streamUrl}
-                    title={file.name}
-                    className="h-[70vh] w-full rounded-lg border-0"
-                />)}
-                {!isVideo && !isAudio && !isImage && !isPdf && (<iframe
-                    src={streamUrl}
-                    title={file.name}
-                    className="h-[70vh] w-full rounded-lg bg-surface p-4 font-mono text-xs text-on-surface"
-                />)}
-            </div>
         </div>
-    </div>);
+    </nav>);
 }
 
 /* -------------------------------------------------------------------- */
@@ -263,14 +196,14 @@ function CreateFolderModal({targetPath, onClose, onCreate}) {
         onClick={() => !creating && onClose()}
     >
         <div
-            className="w-full max-w-md rounded-2xl border border-outline-variant/20 bg-surface p-6 shadow-2xl"
+            className="w-full max-w-md rounded-lg border border-[#2e2e2e] bg-[#1c1c1c] p-6 shadow-2xl"
             onClick={(e) => e.stopPropagation()}
         >
-            <div className="mb-5 flex items-center justify-between">
+            <div className="mb-5 flex items-start justify-between gap-4">
                 <div>
-                    <h2 className="text-lg font-semibold text-on-surface">Create New Folder</h2>
-                    <p className="mt-1 text-sm text-on-surface-variant">
-                        Will be created inside <span className="font-medium text-on-surface">{targetPath || "Root"}</span>.
+                    <h2 className="text-base font-medium text-[#fafafa]">Create New Folder</h2>
+                    <p className="mt-1 text-sm text-[#898989]">
+                        Will be created inside <span className="text-[#fafafa]">{targetPath || "Root"}</span>.
                     </p>
                 </div>
                 <button
@@ -278,9 +211,9 @@ function CreateFolderModal({targetPath, onClose, onCreate}) {
                     onClick={onClose}
                     disabled={creating}
                     aria-label="Close"
-                    className="text-on-surface-variant hover:text-on-surface disabled:opacity-50"
+                    className={iconBtn}
                 >
-                    <span className="material-symbols-outlined" aria-hidden="true">close</span>
+                    <span className="material-symbols-outlined text-[18px]" aria-hidden="true">close</span>
                 </button>
             </div>
 
@@ -295,22 +228,22 @@ function CreateFolderModal({targetPath, onClose, onCreate}) {
                     placeholder="Folder name"
                     autoFocus
                     disabled={creating}
-                    className="w-full rounded-xl border border-outline-variant/30 bg-surface-container-low px-4 py-3 text-sm text-on-surface focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/30 disabled:opacity-60"
+                    className={inputClass}
                 />
-                {error && <p className="mt-2 text-sm text-error">{error}</p>}
-                <div className="mt-6 flex justify-end gap-3">
+                {error && <p className="mt-2 text-sm text-[#ff6369]">{error}</p>}
+                <div className="mt-6 flex justify-end gap-2">
                     <button
                         type="button"
                         onClick={onClose}
                         disabled={creating}
-                        className="rounded-xl px-4 py-2 text-sm text-on-surface-variant hover:bg-surface-container disabled:opacity-50"
+                        className={btnSecondary}
                     >
                         Cancel
                     </button>
                     <button
                         type="submit"
                         disabled={creating}
-                        className="rounded-xl bg-primary px-5 py-2 text-sm font-medium text-on-primary transition-colors hover:bg-primary/90 disabled:opacity-60"
+                        className={btnPrimary}
                     >
                         {creating ? "Creating…" : "Create Folder"}
                     </button>
@@ -330,37 +263,36 @@ function FileActionsMenu({file, position, onCopy, onCut, onPreview, onDelete, on
         };
     }, [onClose]);
 
+    const itemClass = "flex w-full items-center gap-2 px-3 py-1.5 text-sm text-[#fafafa] hover:bg-[#2a2a2a]";
+
     return createPortal(<div
-        className="fixed z-[200] w-40 overflow-hidden rounded-xl border border-outline-variant/20 bg-surface shadow-xl"
+        className="fixed z-[200] w-40 overflow-hidden rounded-md border border-[#363636] bg-[#1f1f1f] py-1 shadow-xl"
         style={{top: position.top, left: position.left}}
         onClick={(e) => e.stopPropagation()}
     >
         <button type="button" onClick={() => {
             onCopy(file);
             onClose();
-        }}
-                className="flex w-full items-center gap-2 px-3 py-2 text-sm text-on-surface hover:bg-surface-container-high">
-            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">content_copy</span>Copy
+        }} className={itemClass}>
+            <span className="material-symbols-outlined text-[16px] text-[#898989]" aria-hidden="true">content_copy</span>Copy
         </button>
         <button type="button" onClick={() => {
             onCut(file);
             onClose();
-        }}
-                className="flex w-full items-center gap-2 px-3 py-2 text-sm text-on-surface hover:bg-surface-container-high">
-            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">content_cut</span>Cut
+        }} className={itemClass}>
+            <span className="material-symbols-outlined text-[16px] text-[#898989]" aria-hidden="true">content_cut</span>Cut
         </button>
         <button type="button" onClick={() => {
             onPreview(file);
             onClose();
-        }}
-                className="flex w-full items-center gap-2 px-3 py-2 text-sm text-on-surface hover:bg-surface-container-high">
-            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">visibility</span>Preview
+        }} className={itemClass}>
+            <span className="material-symbols-outlined text-[16px] text-[#898989]" aria-hidden="true">visibility</span>Preview
         </button>
         <button type="button" onClick={() => {
             onDelete(file);
             onClose();
         }}
-                className="flex w-full items-center gap-2 px-3 py-2 text-sm text-error hover:bg-error/10">
+                className="flex w-full items-center gap-2 px-3 py-1.5 text-sm text-[#ff6369] hover:bg-[#e5484d]/10">
             <span className="material-symbols-outlined text-[16px]" aria-hidden="true">delete</span>Delete
         </button>
     </div>, document.body);
@@ -383,7 +315,6 @@ export default function DashboardPage() {
     const [pageError, setPageError] = useState("");
     const [showFolderModal, setShowFolderModal] = useState(false);
     const [deletingId, setDeletingId] = useState(null);
-    const [streamData, setStreamData] = useState(null);
     const [openMenuFileId, setOpenMenuFileId] = useState(null);
     const [clipboard, setClipboard] = useState(null);
     const [menuPosition, setMenuPosition] = useState(null);
@@ -452,8 +383,9 @@ export default function DashboardPage() {
 
     const handleFileClick = (file) => {
         const kind = getFileKind(file.name);
-        if (!kind) return;
-        navigate(`/view/${file.id}?kind=${kind}&name=${encodeURIComponent(file.name)}`);
+        const params = new URLSearchParams({name: file.name});
+        if (kind) params.set("kind", kind);
+        navigate(`/view/${file.id}?${params}`);
     };
 
     useEffect(() => {
@@ -468,26 +400,6 @@ export default function DashboardPage() {
         window.addEventListener("keydown", onKeyDown);
         return () => window.removeEventListener("keydown", onKeyDown);
     }, [sidebarOpen]);
-
-    /* ----------------------------- stream/play ---------------------------- */
-
-    const startStreaming = async (file) => {
-        const token = getToken();
-        if (!token) {
-            navigate("/");
-            return;
-        }
-
-        try {
-            const {public_token} = await (await fetch(`${API_URL}/auth/file/${file.id}/public-link`, {
-                method: "POST", headers: {Authorization: `Bearer ${token}`},
-            })).json();
-            setStreamData({file, url: `${API_URL}/public/stream/${public_token}`});
-        } catch (error) {
-            console.error("Stream init error:", error);
-            alert(error.message || "Could not stream file.");
-        }
-    };
 
     /* ----------------------------- download ------------------------------ */
 
@@ -749,7 +661,10 @@ export default function DashboardPage() {
 
     const isEmpty = filteredFiles.length === 0 && filteredFolders.length === 0;
 
-    return (<div className="flex h-screen overflow-hidden bg-background text-on-surface">
+    return (<div
+        className="flex h-screen overflow-hidden bg-[#1c1c1c] text-[#fafafa]"
+        style={{fontFamily: "Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif"}}
+    >
         {/* Desktop sidebar */}
         <div className="fixed left-0 top-0 hidden h-screen md:flex">
             <Sidebar
@@ -774,20 +689,20 @@ export default function DashboardPage() {
                 />
             </div>
             <div
-                className="flex-1 bg-black/50"
+                className="flex-1 bg-black/60"
                 onClick={() => setSidebarOpen(false)}
                 aria-hidden="true"
             />
         </div>)}
 
-        <div className="flex h-screen flex-1 flex-col md:ml-72">
+        <div className="flex h-screen flex-1 flex-col md:ml-60">
             {/* Header */}
             <header
-                className="fixed top-0 right-0 z-40 flex h-16 w-full items-center justify-between border-b border-outline-variant/10 bg-surface/70 px-6 backdrop-blur-md md:w-[calc(100%-288px)]">
+                className="fixed top-0 right-0 z-40 flex h-14 w-full items-center justify-between border-b border-[#2e2e2e] bg-[#171717] px-6 md:w-[calc(100%-240px)]">
                 <div className="flex w-full max-w-md items-center gap-4">
                     <button
                         type="button"
-                        className="text-on-surface-variant transition-colors hover:text-primary md:hidden"
+                        className="text-[#898989] transition-colors hover:text-[#fafafa] md:hidden"
                         onClick={() => setSidebarOpen(true)}
                         aria-label="Open menu"
                     >
@@ -798,8 +713,8 @@ export default function DashboardPage() {
 
                     <div className="relative hidden w-full sm:block">
                             <span
-                                className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant"
-                                style={{fontSize: 20}}
+                                className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[#707070]"
+                                style={{fontSize: 18}}
                                 aria-hidden="true"
                             >
                                 search
@@ -810,14 +725,14 @@ export default function DashboardPage() {
                             onChange={(event) => setSearchQuery(event.target.value)}
                             placeholder={isTrash ? "Search trash…" : "Search files…"}
                             aria-label="Search files"
-                            className="w-full rounded-xl border border-outline-variant/30 bg-surface-container-low py-2 pl-10 pr-3 text-sm text-on-surface placeholder:text-on-surface-variant/50 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/50"
+                            className="h-8 w-full rounded-md border border-[#363636] bg-white/[0.026] pl-9 pr-3 text-sm text-[#fafafa] outline-none transition-colors placeholder:text-[#707070] focus:border-[#707070] focus:ring-2 focus:ring-[#4d4d4d]/50"
                         />
                     </div>
                 </div>
 
                 <div className="flex items-center gap-3">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-full border border-primary/30 bg-primary/20">
-                            <span className="material-symbols-outlined text-[18px] text-primary" aria-hidden="true">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-full border border-[#363636] bg-[#242424]">
+                            <span className="material-symbols-outlined text-[18px] text-[#898989]" aria-hidden="true">
                                 person
                             </span>
                     </div>
@@ -825,20 +740,20 @@ export default function DashboardPage() {
             </header>
 
             {/* Main View Area */}
-            <main className="flex-1 overflow-y-auto bg-gradient-to-br from-background to-surface-container-lowest px-4 pb-8 pt-24 md:px-8">
-                <div className="mb-8 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+            <main className="flex-1 overflow-y-auto bg-[#1c1c1c] px-4 pb-8 pt-20 md:px-8">
+                <div className="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
                     <div>
-                        <h2 className="text-2xl font-semibold tracking-tight text-on-surface">
+                        <h2 className="text-xl font-medium tracking-tight text-[#fafafa]">
                             {isTrash ? "Trash Bin" : "Your Files"}
                         </h2>
-                        {!isTrash && currentFolder && (<div className="mb-4 flex items-center gap-1 text-sm text-on-surface-variant">
-                            <button onClick={() => setCurrentFolder("")} className="hover:text-primary hover:underline">
+                        {!isTrash && currentFolder && (<div className="mt-2 flex items-center gap-1 text-sm text-[#898989]">
+                            <button onClick={() => setCurrentFolder("")} className="transition-colors hover:text-[#fafafa]">
                                 All Files
                             </button>
                             {breadcrumbSegments.map(({label, path}, i) => (<span key={path} className="flex items-center gap-1">
-                                            <span className="text-on-surface-variant/40">/</span>
-                                {i === breadcrumbSegments.length - 1 ? (<span className="font-medium text-on-surface">{label}</span>) : (
-                                    <button onClick={() => openFolder(path)} className="hover:text-primary hover:underline">
+                                            <span className="text-[#4d4d4d]">/</span>
+                                {i === breadcrumbSegments.length - 1 ? (<span className="text-[#fafafa]">{label}</span>) : (
+                                    <button onClick={() => openFolder(path)} className="transition-colors hover:text-[#fafafa]">
                                         {label}
                                     </button>)}
                                         </span>))}
@@ -849,7 +764,7 @@ export default function DashboardPage() {
                         <button
                             type="button"
                             onClick={() => setShowFolderModal(true)}
-                            className="flex items-center gap-1 rounded-xl border border-outline-variant/20 bg-surface-container-high px-4 py-2 text-xs font-medium text-on-surface transition-colors hover:bg-surface-container-highest"
+                            className={btnSecondary}
                         >
                                     <span className="material-symbols-outlined text-[16px]" aria-hidden="true">
                                         create_new_folder
@@ -860,7 +775,7 @@ export default function DashboardPage() {
                         <button
                             type="button"
                             onClick={() => navigate(`/upload?directory=${encodeURIComponent(currentFolder || "/home")}`)}
-                            className="flex items-center gap-1 rounded-xl bg-primary px-4 py-2 text-xs font-medium text-on-primary shadow-[0_0_15px_rgba(192,193,255,0.15)] transition-colors hover:bg-primary/90"
+                            className={btnPrimary}
                         >
                                     <span className="material-symbols-outlined text-[16px]" aria-hidden="true">
                                         cloud_upload
@@ -873,61 +788,65 @@ export default function DashboardPage() {
                 {!isTrash && currentFolder && (<button
                     type="button"
                     onClick={goBack}
-                    className="mb-4 flex items-center gap-2 text-sm text-primary hover:underline"
+                    className="mb-4 flex items-center gap-1.5 text-sm text-[#898989] transition-colors hover:text-[#fafafa]"
                 >
-                    <span className="material-symbols-outlined" aria-hidden="true">arrow_back</span>
+                    <span className="material-symbols-outlined text-[18px]" aria-hidden="true">arrow_back</span>
                     Back
                 </button>)}
 
                 {pageError && (<div
-                    className="mb-6 flex items-center justify-between rounded-xl border border-error/30 bg-error-container/20 px-4 py-3 text-sm text-error">
+                    className="mb-6 flex items-center justify-between rounded-md border border-[#e5484d]/30 bg-[#e5484d]/10 px-4 py-3 text-sm text-[#ff6369]">
                     <span>{pageError}</span>
-                    <button type="button" onClick={fetchFiles} className="text-xs font-semibold underline">
+                    <button type="button" onClick={fetchFiles} className="text-xs underline underline-offset-4">
                         Retry
                     </button>
                 </div>)}
 
-                {loadingFiles ? (<div className="flex flex-col items-center justify-center py-24 text-on-surface-variant">
-                            <span className="material-symbols-outlined mb-4 animate-spin text-[48px]" aria-hidden="true">
+                {loadingFiles ? (<div className="flex flex-col items-center justify-center py-24 text-sm text-[#898989]">
+                            <span className="material-symbols-outlined mb-3 animate-spin text-[32px]" aria-hidden="true">
                                 progress_activity
                             </span>
                     Loading files…
                 </div>) : (<>
                     {filteredFolders.length > 0 && (<div className="mb-8">
-                        <h3 className="mb-4 flex items-center gap-2 font-semibold text-on-surface">
-                                        <span className="material-symbols-outlined text-primary" aria-hidden="true">
+                        <h3 className="mb-3 flex items-center gap-2 text-sm font-medium text-[#b4b4b4]">
+                                        <span className="material-symbols-outlined text-[18px] text-[#898989]" aria-hidden="true">
                                             folder
                                         </span>
                             Folders
                         </h3>
 
-                        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+                        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
                             {filteredFolders.map(({path, id}) => {
                                 const displayName = path.split("/").pop();
                                 return (<div
                                     key={path}
-                                    className="group relative rounded-2xl border border-outline-variant/10 bg-surface-container-lowest p-4 text-left transition-all hover:border-primary/30 hover:bg-surface-container-low"
+                                    className="group relative rounded-lg border border-[#2e2e2e] bg-[#1f1f1f] p-4 text-left transition-colors hover:border-[#4d4d4d] hover:bg-[#232323]"
                                 >
                                     <button
                                         type="button"
                                         onClick={() => !isTrash && openFolder(path)}
                                         className={`block w-full text-left ${isTrash ? "cursor-default" : ""}`}
                                     >
-                                                        <span className="material-symbols-outlined text-[42px] text-primary" aria-hidden="true">
+                                                        <span
+                                                            className="material-symbols-outlined text-[36px] text-[#898989] transition-colors group-hover:text-[#3ecf8e]"
+                                                            style={{fontVariationSettings: "'FILL' 1"}}
+                                                            aria-hidden="true"
+                                                        >
                                                             folder
                                                         </span>
-                                        <p className="mt-3 truncate text-sm font-medium text-on-surface">
+                                        <p className="mt-3 truncate text-sm text-[#fafafa]">
                                             {displayName}
                                         </p>
                                     </button>
                                     <div
-                                        className="absolute right-2 top-2 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                                        className="absolute right-2 top-2 flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
                                         {isTrash ? (<>
                                             <button
                                                 type="button"
                                                 onClick={() => restoreFolder(id)}
                                                 title="Restore Folder"
-                                                className="rounded-lg p-1 text-on-surface-variant hover:bg-primary/10 hover:text-primary"
+                                                className={iconBtn}
                                             >
                                                 <span className="material-symbols-outlined text-[16px]">restore</span>
                                             </button>
@@ -935,7 +854,7 @@ export default function DashboardPage() {
                                                 type="button"
                                                 onClick={() => deleteFolder(id, path, true)}
                                                 title="Delete Permanently"
-                                                className="rounded-lg p-1 text-on-surface-variant hover:bg-error/10 hover:text-error"
+                                                className={iconBtnDanger}
                                             >
                                                 <span className="material-symbols-outlined text-[16px]">delete_forever</span>
                                             </button>
@@ -944,7 +863,7 @@ export default function DashboardPage() {
                                             onClick={() => deleteFolder(id, path, false)}
                                             disabled={deletingId === `folder-${id}`}
                                             title="Move to Trash"
-                                            className="rounded-lg p-1 text-on-surface-variant hover:bg-error/10 hover:text-error"
+                                            className={iconBtnDanger}
                                         >
                                                                 <span className="material-symbols-outlined text-[16px]">
                                                                     {deletingId === `folder-${id}` ? "progress_activity" : "delete"}
@@ -956,43 +875,36 @@ export default function DashboardPage() {
                         </div>
                     </div>)}
 
-                    {isEmpty ? (<div className="flex flex-col items-center justify-center py-24 text-on-surface-variant">
-                                    <span className="material-symbols-outlined mb-4 text-[64px] text-outline/40" aria-hidden="true">
+                    {isEmpty ? (<div className="flex flex-col items-center justify-center py-24 text-[#898989]">
+                                    <span className="material-symbols-outlined mb-4 text-[48px] text-[#4d4d4d]" aria-hidden="true">
                                         {isTrash ? "auto_delete" : "cloud_off"}
                                     </span>
-                        <p className="text-lg font-medium text-on-surface">
+                        <p className="text-sm font-medium text-[#fafafa]">
                             {isTrash ? "Trash is empty" : searchQuery ? "No matching files" : "No files yet"}
                         </p>
                     </div>) : (filteredFiles.length > 0 && (<div>
-                        <h3 className="mb-4 flex items-center gap-2 font-semibold text-on-surface">
-                                            <span className="material-symbols-outlined text-primary/70" aria-hidden="true">
+                        <h3 className="mb-3 flex items-center gap-2 text-sm font-medium text-[#b4b4b4]">
+                                            <span className="material-symbols-outlined text-[18px] text-[#898989]" aria-hidden="true">
                                                 description
                                             </span>
                             Files
                         </h3>
 
-                        <div
-                            className="glass-panel overflow-hidden rounded-2xl border border-outline-variant/10 bg-surface-container-lowest">
-                            <div
-                                className="grid grid-cols-12 gap-2 border-b border-outline-variant/10 bg-surface-container-low/50 p-3 px-4">
-                                <div
-                                    className="col-span-5 font-geist text-xs uppercase tracking-widest text-on-surface-variant sm:col-span-4">
+                        <div className="overflow-hidden rounded-lg border border-[#2e2e2e] bg-[#1c1c1c]">
+                            <div className="grid grid-cols-12 gap-2 border-b border-[#2e2e2e] bg-[#1f1f1f] px-4 py-2.5">
+                                <div className="col-span-5 text-xs font-medium text-[#898989] sm:col-span-4">
                                     Name
                                 </div>
-                                <div
-                                    className="col-span-2 hidden font-geist text-xs uppercase tracking-widest text-on-surface-variant sm:block">
+                                <div className="col-span-2 hidden text-xs font-medium text-[#898989] sm:block">
                                     Size
                                 </div>
-                                <div
-                                    className="col-span-2 hidden font-geist text-xs uppercase tracking-widest text-on-surface-variant sm:block">
+                                <div className="col-span-2 hidden text-xs font-medium text-[#898989] sm:block">
                                     Location
                                 </div>
-                                <div
-                                    className="col-span-4 font-geist text-xs uppercase tracking-widest text-on-surface-variant sm:col-span-2">
+                                <div className="col-span-4 text-xs font-medium text-[#898989] sm:col-span-2">
                                     Data Center
                                 </div>
-                                <div
-                                    className="col-span-3 text-right font-geist text-xs uppercase tracking-widest text-on-surface-variant sm:col-span-2">
+                                <div className="col-span-3 text-right text-xs font-medium text-[#898989] sm:col-span-2">
                                     Actions
                                 </div>
                             </div>
@@ -1004,100 +916,88 @@ export default function DashboardPage() {
 
                                 return (<div
                                     key={file.id}
-                                    className={`group grid grid-cols-12 items-center gap-2 p-3 px-4 transition-colors hover:bg-surface-container-low/30 ${isLast ? "" : "border-b border-outline-variant/5"}`}
+                                    className={`group grid grid-cols-12 items-center gap-2 px-4 py-2.5 transition-colors hover:bg-[#232323] ${isLast ? "" : "border-b border-[#2e2e2e]"}`}
                                 >
                                     {/* File Name & Mobile Metadata */}
-                                    <div className="col-span-5 flex items-center gap-3 sm:col-span-4">
-                                                            <span className={`material-symbols-outlined text-[20px] ${color}`} aria-hidden="true">
+                                    <div className="col-span-5 flex min-w-0 items-center gap-3 sm:col-span-4">
+                                                            <span className={`material-symbols-outlined text-[18px] ${color}`} aria-hidden="true">
                                                                 {icon}
                                                             </span>
                                         <div className="min-w-0">
-                                            {getFileKind(file.name) ? (<button
+                                            {isTrash ? (<p className="truncate text-sm text-[#fafafa]">{file.name}</p>) : (<button
                                                 type="button"
                                                 onClick={() => handleFileClick(file)}
-                                                className="truncate text-left text-sm text-on-surface transition-colors group-hover:text-primary hover:underline"
+                                                className="block max-w-full truncate text-left text-sm text-[#fafafa] transition-colors hover:underline hover:underline-offset-4"
                                             >
                                                 {file.name}
-                                            </button>) : (<p className="truncate text-sm text-on-surface transition-colors group-hover:text-primary">
-                                                {file.name}
-                                            </p>)}
-                                            <p className="mt-0.5 text-xs text-on-surface-variant sm:hidden">
+                                            </button>)}
+                                            <p className="mt-0.5 text-xs text-[#707070] sm:hidden">
                                                 {formatFileSize(file.size)} • {formatDate(file.modified_at)}
                                             </p>
                                         </div>
+                                    </div>
 
-                                        {/* Desktop File Size */}
-                                        <div className="col-span-2 hidden font-mono text-xs text-on-surface-variant sm:block">
-                                            {formatFileSize(file.size)}
-                                        </div>
+                                    {/* Desktop File Size */}
+                                    <div className="col-span-2 hidden font-mono text-xs text-[#898989] sm:block">
+                                        {formatFileSize(file.size)}
+                                    </div>
 
-                                        {/* Location */}
-                                        <div className="col-span-2 hidden truncate text-sm text-on-surface-variant sm:block">
-                                            {file.directory || "Root"}
-                                        </div>
+                                    {/* Location */}
+                                    <div className="col-span-2 hidden truncate text-sm text-[#898989] sm:block">
+                                        {file.directory || "Root"}
+                                    </div>
 
-                                        {/* Data Center */}
-                                        <div className="col-span-4 sm:col-span-2">
+                                    {/* Data Center */}
+                                    <div className="col-span-4 sm:col-span-2">
                                                             <span
-                                                                className="inline-block max-w-full truncate rounded-full bg-primary/10 px-2 py-0.5 font-geist text-xs text-primary">
+                                                                className="inline-block max-w-full truncate rounded border border-[#363636] bg-[#242424] px-2 py-0.5 text-xs text-[#b4b4b4]">
                                                                 {file.data_center || "—"}
                                                             </span>
-                                        </div>
+                                    </div>
 
-                                        {/* Actions */}
-                                        <div
-                                            className="col-span-3 flex justify-end gap-1 opacity-100 transition-opacity sm:col-span-2 sm:opacity-0 sm:group-hover:opacity-100">
-                                            {isTrash ? (<>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => restoreItem(file.id)}
-                                                    title="Restore File"
-                                                    className="rounded-lg p-1.5 text-on-surface-variant hover:bg-primary/10 hover:text-primary"
-                                                >
-                                                    <span className="material-symbols-outlined text-[18px]">restore</span>
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => deleteFile(file.id, file.name, true)}
-                                                    title="Delete Permanently"
-                                                    className="rounded-lg p-1.5 text-on-surface-variant hover:bg-error/10 hover:text-error"
-                                                >
-                                                    <span className="material-symbols-outlined text-[18px]">delete_forever</span>
-                                                </button>
-                                            </>) : (<>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => startStreaming(file)}
-                                                    title="Stream / View file"
-                                                    className="rounded-lg p-1.5 text-on-surface-variant transition-colors hover:bg-primary/10 hover:text-primary"
-                                                >
-                                                                        <span className="material-symbols-outlined text-[18px]">
-                                                                            play_circle
-                                                                        </span>
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => downloadFile(file.id)}
-                                                    title="Download"
-                                                    className="rounded-lg p-1.5 text-on-surface-variant transition-colors hover:bg-primary/10 hover:text-primary"
-                                                >
-                                                                        <span className="material-symbols-outlined text-[18px]">
-                                                                            download
-                                                                        </span>
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => deleteFile(file.id, file.name, false)}
-                                                    disabled={isDeleting}
-                                                    title="Move to Trash"
-                                                    className="rounded-lg p-1.5 text-on-surface-variant transition-colors hover:bg-error/10 hover:text-error disabled:opacity-50"
-                                                >
-                                                                        <span className="material-symbols-outlined text-[18px]">
-                                                                            {isDeleting ? "progress_activity" : "delete"}
-                                                                        </span>
-                                                </button>
-                                            </>)}
-                                        </div>
+                                    {/* Actions */}
+                                    <div
+                                        className="col-span-3 flex justify-end gap-0.5 opacity-100 transition-opacity sm:col-span-2 sm:opacity-0 sm:group-hover:opacity-100">
+                                        {isTrash ? (<>
+                                            <button
+                                                type="button"
+                                                onClick={() => restoreItem(file.id)}
+                                                title="Restore File"
+                                                className={iconBtn}
+                                            >
+                                                <span className="material-symbols-outlined text-[18px]">restore</span>
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => deleteFile(file.id, file.name, true)}
+                                                title="Delete Permanently"
+                                                className={iconBtnDanger}
+                                            >
+                                                <span className="material-symbols-outlined text-[18px]">delete_forever</span>
+                                            </button>
+                                        </>) : (<>
+                                            <button
+                                                type="button"
+                                                onClick={() => downloadFile(file.id)}
+                                                title="Download"
+                                                className={iconBtn}
+                                            >
+                                                                    <span className="material-symbols-outlined text-[18px]">
+                                                                        download
+                                                                    </span>
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => deleteFile(file.id, file.name, false)}
+                                                disabled={isDeleting}
+                                                title="Move to Trash"
+                                                className={iconBtnDanger}
+                                            >
+                                                                    <span className="material-symbols-outlined text-[18px]">
+                                                                        {isDeleting ? "progress_activity" : "delete"}
+                                                                    </span>
+                                            </button>
+                                        </>)}
                                     </div>
                                 </div>);
                             })}
@@ -1106,12 +1006,6 @@ export default function DashboardPage() {
                 </>)}
             </main>
         </div>
-
-        {streamData && (<StreamModal
-            file={streamData.file}
-            streamUrl={streamData.url}
-            onClose={() => setStreamData(null)}
-        />)}
 
         {showFolderModal && (<CreateFolderModal
             targetPath={currentFolder}
