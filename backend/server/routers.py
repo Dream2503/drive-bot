@@ -17,8 +17,9 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Header, Query
 from fastapi.responses import Response, StreamingResponse, JSONResponse
 from mimetypes import guess_type
 from pathlib import Path
+from pydantic import BaseModel
 from time import monotonic
-from typing import cast
+from typing import Literal, cast
 from urllib.parse import quote
 from uuid import uuid4
 
@@ -43,6 +44,16 @@ class UploadSession:
 
 
 UPLOAD_SESSIONS: dict[str, UploadSession] = {}
+
+
+class MoveItemRequest(BaseModel):
+    type: Literal["file", "folder"]
+    id: int
+
+
+class BulkMoveRequest(BaseModel):
+    directory: str
+    items: list[MoveItemRequest]
 
 
 def mark_written(session: UploadSession, start: int, end: int) -> None:
@@ -115,6 +126,21 @@ async def login(username: str, password: str) -> tuple[dict[str, str], dict[str,
                 "first_name": user.first_name,
                 "last_name": user.last_name,
             }, await user.home)
+
+
+@auth.get("/metadata")
+async def get_metadata(user: User = Depends(get_current_user)) -> JSONResponse:
+    """Return account metadata. Add future account-level metadata fields here."""
+    active_files: list[File] = await File.get_all(user.username)
+    trashed_files: list[File] = await File.get_all(user.username, trash=True)
+
+    # Include trashed files because they still occupy storage until permanently deleted.
+    storage_used_bytes: int = sum(
+        max(0, int(file.size or 0))
+        for file in (*active_files, *trashed_files)
+    )
+
+    return JSONResponse({"storage_used_bytes": storage_used_bytes})
 
 
 @public.get("/upload/{job_id}/status")
@@ -343,6 +369,253 @@ async def get_directory(directory: str, user: User = Depends(get_current_user)) 
 async def get_trash(user: User = Depends(get_current_user)) -> tuple[list[Directory], list[File]]:
     await File.purge_expired(user.username)
     return await Directory.get_all(user.username, trash=True), await File.get_all(user.username, trash=True)
+
+
+def _clean_name(name: str, entity: str) -> str:
+    """Validate a single file/folder name shared by rename operations."""
+    clean_name = perform_validation(name.strip(), "file_name")
+    if not clean_name or clean_name in {".", ".."} or "/" in clean_name or "\\" in clean_name:
+        raise HTTPException(status_code=422, detail=f"Invalid {entity} name")
+    return clean_name
+
+
+async def _update_file_fields(file: File, *, name: str | None = None, directory_id: int | None = None) -> None:
+    """Persist supported file changes for both rename and move operations."""
+    if name is not None:
+        file.name = name
+    if directory_id is not None:
+        file.directory_id = directory_id
+    await file.update()
+
+
+async def _rewrite_directory_tree_path(user: User, directory: Directory, new_path: Path) -> None:
+    """Update a directory path and its descendant paths after rename or move."""
+    old_path = Path(directory.path)
+    if old_path == new_path:
+        return
+
+    # Snapshot descendants before changing the parent's stored path.
+    all_directories: list[Directory] = await Directory.get_all(user.username)
+    descendants: list[tuple[Directory, Path]] = []
+    for candidate in all_directories:
+        if candidate.id == directory.id or candidate.username != user.username:
+            continue
+        try:
+            relative_path = Path(candidate.path).relative_to(old_path)
+        except ValueError:
+            continue
+        if relative_path != Path("."):
+            descendants.append((candidate, relative_path))
+
+    directory.path = new_path
+    await directory.update()
+
+    # Update deepest paths first to minimize collisions if the database enforces
+    # uniqueness on the stored directory path.
+    for child, relative_path in sorted(
+            descendants,
+            key=lambda entry: len(entry[1].parts),
+            reverse=True,
+    ):
+        child.path = new_path / relative_path
+        await child.update()
+
+
+@auth.patch("/file/{fid}/rename")
+async def rename_file(
+        fid: int,
+        name: str = Query(..., min_length=1, max_length=255),
+        user: User = Depends(get_current_user),
+) -> JSONResponse:
+    """Rename a file owned by the authenticated user."""
+    file: File | None = await File.get(user.username, fid=fid)
+    if file is None or file.username != user.username:
+        raise HTTPException(status_code=404, detail="File not found")
+
+    clean_name = _clean_name(name, "file")
+    if clean_name != file.name:
+        same_directory_files: list[File] = await File.get_all(
+            user.username,
+            directory_id=file.directory_id,
+        )
+        if any(candidate.id != file.id and candidate.name == clean_name for candidate in same_directory_files):
+            raise HTTPException(status_code=409, detail="A file with that name already exists in this directory")
+        await _update_file_fields(file, name=clean_name)
+
+    return JSONResponse({"message": "File renamed successfully", "id": fid, "name": file.name})
+
+
+@auth.patch("/directory/{did}/rename")
+async def rename_directory(
+        did: int,
+        name: str = Query(..., min_length=1, max_length=255),
+        user: User = Depends(get_current_user),
+) -> JSONResponse:
+    """Rename a directory using the shared path-rewrite helper."""
+    directory: Directory | None = await Directory.get(user.username, did=did)
+    if directory is None or directory.username != user.username:
+        raise HTTPException(status_code=404, detail="Directory not found")
+
+    old_path = Path(directory.path)
+    if old_path == Path("/home"):
+        raise HTTPException(status_code=400, detail="The home directory cannot be renamed")
+
+    clean_name = _clean_name(name, "directory")
+    new_path = old_path.with_name(clean_name)
+    if new_path == old_path:
+        return JSONResponse({
+            "message": "Directory name unchanged",
+            "id": did,
+            "name": clean_name,
+            "path": str(old_path),
+        })
+
+    existing: Directory | None = await Directory.get(user.username, path=new_path)
+    if existing is not None and existing.id != did:
+        raise HTTPException(status_code=409, detail="A folder with that name already exists")
+
+    await _rewrite_directory_tree_path(user, directory, new_path)
+    return JSONResponse({
+        "message": "Directory renamed successfully",
+        "id": did,
+        "name": clean_name,
+        "path": str(new_path),
+    })
+
+
+async def _resolve_move_destination(user: User, directory_path: str) -> Directory:
+    destination: Directory | None = await Directory.get(user.username, path=Path(directory_path))
+    if destination is None or destination.username != user.username:
+        raise HTTPException(status_code=404, detail="Destination directory not found")
+    return destination
+
+
+async def _move_file_to_directory(user: User, fid: int, destination: Directory) -> dict[str, object]:
+    """Move one owned file to a destination, shared by single and bulk routes."""
+    file: File | None = await File.get(user.username, fid=fid)
+    if file is None or file.username != user.username:
+        raise HTTPException(status_code=404, detail="File not found")
+
+    if file.directory_id == destination.id:
+        return {
+            "status": "unchanged", "type": "file", "id": fid, "name": file.name,
+            "message": "File is already in that directory", "directory": str(destination.path),
+        }
+
+    destination_files: list[File] = await File.get_all(user.username, directory_id=destination.id)
+    if any(candidate.id != file.id and candidate.name == file.name for candidate in destination_files):
+        raise HTTPException(status_code=409, detail=f'A file named "{file.name}" already exists in the destination')
+
+    await _update_file_fields(file, directory_id=destination.id)
+    return {
+        "status": "moved", "type": "file", "id": fid, "name": file.name,
+        "message": "File moved successfully", "directory_id": destination.id,
+        "directory": str(destination.path),
+    }
+
+
+async def _move_directory_to_destination(user: User, did: int, destination: Directory) -> dict[str, object]:
+    """Move one owned directory, preserving descendant paths."""
+    source: Directory | None = await Directory.get(user.username, did=did)
+    if source is None or source.username != user.username:
+        raise HTTPException(status_code=404, detail="Directory not found")
+
+    old_path = Path(source.path)
+    if old_path == Path("/home"):
+        raise HTTPException(status_code=400, detail="The home directory cannot be moved")
+
+    destination_path = Path(destination.path)
+    try:
+        destination_path.relative_to(old_path)
+    except ValueError:
+        pass
+    else:
+        raise HTTPException(status_code=400, detail="A folder cannot be moved into itself or one of its descendants")
+
+    new_path = destination_path / old_path.name
+    if new_path == old_path:
+        return {
+            "status": "unchanged", "type": "folder", "id": did, "name": old_path.name,
+            "message": "Directory is already in that location", "path": str(old_path),
+        }
+
+    existing: Directory | None = await Directory.get(user.username, path=new_path)
+    if existing is not None and existing.id != did:
+        raise HTTPException(status_code=409, detail=f'A folder named "{new_path.name}" already exists in the destination')
+
+    await _rewrite_directory_tree_path(user, source, new_path)
+    return {
+        "status": "moved", "type": "folder", "id": did, "name": new_path.name,
+        "message": "Directory moved successfully", "path": str(new_path),
+    }
+
+
+@auth.patch("/file/{fid}/move")
+async def move_file(
+        fid: int,
+        directory: str = Query(..., min_length=1),
+        user: User = Depends(get_current_user),
+) -> JSONResponse:
+    destination = await _resolve_move_destination(user, directory)
+    result = await _move_file_to_directory(user, fid, destination)
+    return JSONResponse(result)
+
+
+@auth.patch("/directory/{did}/move")
+async def move_directory(
+        did: int,
+        directory: str = Query(..., min_length=1),
+        user: User = Depends(get_current_user),
+) -> JSONResponse:
+    destination = await _resolve_move_destination(user, directory)
+    result = await _move_directory_to_destination(user, did, destination)
+    return JSONResponse(result)
+
+
+@auth.patch("/move")
+async def move_items(
+        request: BulkMoveRequest,
+        user: User = Depends(get_current_user),
+) -> JSONResponse:
+    """Move a mixed selection of files and folders into one destination.
+
+    Each item is validated independently. The response lists successful moves,
+    items that were already in the destination, and individual failures.
+    """
+    if not request.items:
+        raise HTTPException(status_code=422, detail="Select at least one file or folder to move")
+
+    destination = await _resolve_move_destination(user, request.directory)
+    moved: list[dict[str, object]] = []
+    unchanged: list[dict[str, object]] = []
+    failed: list[dict[str, object]] = []
+    seen: set[tuple[str, int]] = set()
+
+    for item in request.items:
+        identity = (item.type, item.id)
+        if identity in seen:
+            continue
+        seen.add(identity)
+        try:
+            result = await (
+                _move_file_to_directory(user, item.id, destination)
+                if item.type == "file"
+                else _move_directory_to_destination(user, item.id, destination)
+            )
+            if result.get("status") == "unchanged":
+                unchanged.append(result)
+            else:
+                moved.append(result)
+        except HTTPException as error:
+            failed.append({"type": item.type, "id": item.id, "error": error.detail, "status_code": error.status_code})
+
+    return JSONResponse({
+        "message": "Bulk move completed",
+        "destination": str(destination.path),
+        "moved": moved,
+        "unchanged": unchanged,
+        "failed": failed,
+    })
 
 
 @auth.delete("/file/{fid}")

@@ -40,7 +40,7 @@ export default function AuthPage() {
             if (isLogin) {
                 const [loginData, homeDirectory] = data;
                 localStorage.setItem("token", loginData.access_token);
-                navigate("/dashboard");
+                navigate("/home");
             } else {
                 setIsLogin(true);
                 setMessageIsError(false);

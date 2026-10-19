@@ -17,6 +17,12 @@ const optionBase = "flex items-center justify-center gap-2 h-[38px] rounded-md b
 const optionOff = "border-[#363636] bg-white/[0.026] text-[#898989] hover:border-[#4d4d4d] hover:text-[#fafafa]";
 const optionOn = "border-[#3ecf8e]/50 bg-[#3ecf8e]/10 text-[#fafafa]";
 
+const directoryToRoute = (directory) => {
+    const segments = (directory || "/home").split("/").filter(Boolean);
+    const relativeSegments = segments[0] === "home" ? segments.slice(1) : segments;
+    return `/home${relativeSegments.length ? `/${relativeSegments.map(encodeURIComponent).join("/")}` : ""}`;
+};
+
 const formatBytes = (bytes) => {
     if (bytes < 1024) return `${bytes} B`;
 
@@ -314,7 +320,7 @@ export default function UploadPage() {
                 await createJob(null);
             }
 
-            navigate(directory && directory !== "/home" ? `/dashboard?directory=${encodeURIComponent(directory)}` : "/dashboard");
+            navigate(directoryToRoute(directory));
         } catch (error) {
             console.error("Upload setup error:", error);
             setMessage(error instanceof Error ? error.message : "Upload failed");
@@ -350,16 +356,7 @@ export default function UploadPage() {
             TOP BAR
         ========================================== */}
         <header className="h-14 border-b border-[#2e2e2e] bg-[#171717] flex items-center px-6 gap-4">
-            <button
-                onClick={() => navigate("/dashboard")}
-                className="flex items-center gap-1.5 text-[#898989] hover:text-[#fafafa] transition-colors text-sm"
-            >
-                <span className="material-symbols-outlined text-[18px]">
-                    arrow_back
-                </span>
-                Back to Dashboard
-            </button>
-            <div className="flex items-center gap-2.5 ml-4">
+            <div className="flex items-center gap-2.5">
                 <div className="w-7 h-7 rounded-md bg-[#3ecf8e] flex items-center justify-center">
                     <span
                         className="material-symbols-outlined text-[#0f0f0f] text-[18px]"
