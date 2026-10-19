@@ -744,13 +744,17 @@ export default function DashboardPage() {
                         });
                         if (!response.ok) return job;
                         const data = await response.json();
+                        const progressName = typeof data.name === "string" ? data.name.trim() : "";
                         const message = String(data.message || "");
                         const isComplete = data.status === "completed" || /upload\s+complete/i.test(message) || /complete/i.test(message) && Number(data.total) > 0 && Number(data.transfer) >= Number(data.total);
                         const isError = data.status === "error" || /upload\s+failed/i.test(message);
                         const transfer = Number.isFinite(Number(data.transfer)) ? Number(data.transfer) : (job.transfer || 0);
                         const total = Number.isFinite(Number(data.total)) ? Number(data.total) : (job.total || 0);
                         return {
-                            ...job,
+                            ...job, // Adopt the backend's current progress name. For link imports,
+                            // this changes the displayed URL to the actual YouTube title
+                            // as soon as yt-dlp resolves it.
+                            name: progressName || job.name,
                             transfer,
                             total,
                             progress: isComplete ? 100 : total > 0 ? Math.min(99, transfer / total * 100) : (job.progress || 0),
@@ -2431,12 +2435,6 @@ export default function DashboardPage() {
                     <span
                         className="rounded-full bg-[#2a2a2a] px-2 py-0.5 text-[11px] text-[#b4b4b4]">{uploadJobs.filter(job => job.status === "uploading").length} active</span>
                 </div>
-                <button type="button" onClick={() => setUploadJobs(current => {
-                    const next = current.filter(job => job.status === "uploading");
-                    localStorage.setItem("storelimitless_upload_jobs", JSON.stringify(next));
-                    return next;
-                })} className="text-xs text-[#898989] transition-colors hover:text-[#fafafa]" title="Hide completed uploads">Clear completed
-                </button>
             </div>
             <div className="max-h-72 space-y-1 overflow-y-auto p-2">
                 {uploadJobs.slice().reverse().map((job) => {

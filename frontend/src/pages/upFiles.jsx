@@ -52,10 +52,7 @@ export default function UploadPage() {
 
     // Other states
     const [dataCenter, setDataCenter] = useState("Discord");
-    const [progress, setProgress] = useState(0);
     const [message, setMessage] = useState("");
-    const [transfer, setTransfer] = useState(0);
-    const [total, setTotal] = useState(0);
     const [status, setStatus] = useState("idle");
     const [dragOver, setDragOver] = useState(false);
 
@@ -63,79 +60,6 @@ export default function UploadPage() {
     const activeXhrs = useRef(new Set());
 
     const sleep = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
-
-    // ==========================================
-    // Poll the server for cloud upload progress.
-    // `transfer` = bytes uploaded to the cloud so far
-    // `total`    = bytes written to the server's disk so far (it keeps growing)
-    // The percentage is allowed to go DOWN when the disk gets ahead of the cloud.
-    // ==========================================
-    const pollJobStatus = async (jobId, cancelToken) => {
-        let consecutiveErrors = 0;
-
-        while (!cancelToken.cancelled) {
-            try {
-                const statusRes = await fetch(`${API_URL}/public/upload/${jobId}/status`, {
-                    headers: {
-                        Authorization: `Bearer ${localStorage.getItem("token")}`,
-                    }, cache: "no-store",
-                });
-
-                if (cancelToken.cancelled) return;
-
-                if (!statusRes.ok) {
-                    if (statusRes.status === 404) {
-                        // The first chunk may not have reached the server yet.
-                        await sleep(500);
-                        continue;
-                    }
-
-                    throw new Error(`Status check failed: ${statusRes.status}`);
-                }
-
-                const data = await statusRes.json();
-                consecutiveErrors = 0;
-
-                if (data.status === "error" || data.message?.toLowerCase().startsWith("upload failed")) {
-                    throw new Error(data.error || data.message || "Upload failed");
-                }
-
-                if (data.message !== undefined) {
-                    setMessage(data.message);
-                }
-
-                if (Number.isFinite(data.transfer) && Number.isFinite(data.total)) {
-                    setTransfer(data.transfer);
-                    setTotal(data.total);
-
-                    // No Math.max here: the value is allowed to decrease when `total`
-                    // grows faster than `transfer`. It stays below 100 until the server
-                    // reports completion, so catching up with the disk is not shown as done.
-                    setProgress(data.total > 0 ? Math.min(99, (data.transfer / data.total) * 100) : 0);
-                }
-
-                if (data.status === "completed" || data.message?.toLowerCase().startsWith("upload complete")) {
-                    setProgress(100);
-                    return;
-                }
-            } catch (error) {
-                if (error instanceof TypeError) {
-                    // Transient network errors should not immediately kill polling.
-                    consecutiveErrors += 1;
-
-                    if (consecutiveErrors >= 10) {
-                        throw new Error("Unable to reach the upload status endpoint.");
-                    }
-                } else {
-                    throw error;
-                }
-            }
-
-            // Sequential polling: the next request starts only after the previous
-            // request has completed, preventing overlapping status requests.
-            await sleep(100);
-        }
-    };
 
     // ==========================================
     // Send ONE chunk (several of these run in parallel)
@@ -218,7 +142,6 @@ export default function UploadPage() {
                             throw error;
                         }
 
-                        setMessage(`Retrying chunk (attempt ${attempt + 1} of ${MAX_CHUNK_ATTEMPTS})`);
                         await sleep(1000 * attempt);
                     }
                 }
@@ -234,10 +157,6 @@ export default function UploadPage() {
         if (uploadMode === "link" && !link.trim()) return;
 
         setStatus("uploading");
-        setProgress(0);
-        setMessage(uploadMode === "file" ? `Preparing ${files.length} file(s)` : "Starting import");
-        setTransfer(0);
-        setTotal(uploadMode === "file" ? files.reduce((sum, selectedFile) => sum + selectedFile.size, 0) : 0);
 
         const jobsKey = "storelimitless_upload_jobs";
         const token = localStorage.getItem("token");
@@ -301,9 +220,7 @@ export default function UploadPage() {
                         for (const xhr of activeXhrs.current) xhr.abort();
                         const jobs = JSON.parse(localStorage.getItem(jobsKey) || "[]");
                         localStorage.setItem(jobsKey, JSON.stringify(jobs.map(item => item.jobId === jobId ? {
-                            ...item,
-                            status: "error",
-                            message: error instanceof Error ? error.message : "Upload failed"
+                            ...item, status: "error", message: error instanceof Error ? error.message : "Upload failed"
                         } : item)));
                         console.error(`Upload transfer failed (${selectedFile.name}):`, error);
                     });
@@ -423,7 +340,6 @@ export default function UploadPage() {
                             disabled={status === "uploading"}
                             onClick={() => {
                                 setUploadMode("file");
-                                setProgress(0);
                                 setStatus("idle");
                             }}
                             className={`${optionBase} flex-1 ${uploadMode === "file" ? optionOn : optionOff}`}
@@ -440,7 +356,6 @@ export default function UploadPage() {
                             disabled={status === "uploading"}
                             onClick={() => {
                                 setUploadMode("link");
-                                setProgress(0);
                                 setStatus("idle");
                             }}
                             className={`${optionBase} flex-1 ${uploadMode === "link" ? optionOn : optionOff}`}
@@ -592,41 +507,9 @@ export default function UploadPage() {
                     </>)}
                 </button>
 
-                {/* ==========================================
-                    PROGRESS PANEL
-                ========================================== */}
-                {status !== "idle" && (<div className="mt-6 rounded-lg border border-[#2e2e2e] bg-[#1f1f1f] p-4">
-                    <div className="flex justify-between gap-4 text-xs text-[#898989] mb-3">
-                        <span className={status === "error" ? "text-[#ff6369]" : status === "done" ? "text-[#3ecf8e]" : ""}>
-                            {status === "uploading" && `${message || (uploadMode === "link" ? "Importing" : "Uploading")}`}
-                            {status === "done" && "✓ Completed"}
-                            {status === "error" && `✗ Failed${message ? `: ${message}` : ""}`}
-                        </span>
-                        <span className="shrink-0 font-mono">
-                            {total > 0 ? `${formatBytes(transfer)} / ${formatBytes(total)}   ${progress.toFixed(1)}%` : `${progress.toFixed(1)}%`}
-                        </span>
-                    </div>
-
-                    {/* PROGRESS BAR */}
-                    <div className="w-full bg-[#2e2e2e] h-1 rounded-full overflow-hidden">
-                        <div
-                            className={`h-full rounded-full transition-all duration-300 ${status === "error" ? "bg-[#e5484d]" : "bg-[#3ecf8e]"}`}
-                            style={{
-                                width: `${progress}%`,
-                            }}
-                        />
-                    </div>
-
-                    {/* SUCCESS */}
-                    {status === "done" && (<p className="text-xs text-[#3ecf8e] mt-3 text-center">
-                        Upload completed. Redirecting to dashboard...
-                    </p>)}
-
-                    {/* ERROR */}
-                    {status === "error" && (<p className="text-xs text-[#ff6369] mt-3 text-center">
-                        Upload failed. Please try again.
-                    </p>)}
-                </div>)}
+                {status === "error" && (<p role="alert" className="mt-3 text-sm text-[#ff6369]">
+                    {message || "Upload setup failed. Please try again."}
+                </p>)}
             </div>
         </div>
     </div>);

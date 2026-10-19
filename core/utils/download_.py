@@ -1,13 +1,7 @@
-from asyncio import Task, to_thread, create_task, sleep
-from datetime import datetime, timezone
-from mimetypes import guess_type
-from pathlib import Path
-from traceback import format_exc
-from typing import Any, AsyncGenerator, cast
-
 import core.transfer
 import gdown
 import requests
+from asyncio import Task, to_thread, create_task, sleep
 from backend.database.models import File
 from core.config import TRANSFER_PATH
 from core.data_center import DataCenter
@@ -15,6 +9,11 @@ from core.utils import write_log
 from core.utils.binaries import get_ffmpeg_path
 from core.utils.env import GOOGLE_API_KEY
 from core.utils.progress import Progress, upload_growing_file
+from datetime import datetime, timezone
+from mimetypes import guess_type
+from pathlib import Path
+from traceback import format_exc
+from typing import Any, AsyncGenerator, cast
 from yt_dlp import YoutubeDL
 
 
@@ -47,6 +46,7 @@ async def download_google_drive(file: File, link: str) -> AsyncGenerator[Progres
 
         file.name = data.get("name") or file_id
         total_size: int = int(data["size"])
+        progress.name = file.name
         progress.total = total_size
         download_task: Task[Any] = create_task(to_thread(gdown.download, link, output=str(temp_dir), quiet=True))
 
@@ -95,32 +95,89 @@ async def download_youtube(file: File, link: str) -> AsyncGenerator[Progress, No
             path.unlink()
 
     download_progress: Progress = Progress(file.name, "Downloading Video", 0)
+    audio_progress: Progress = Progress(file.name, "Downloading Audio", 0)
     merge_progress: Progress = Progress(file.name, "Merging Audio and Video", 0)
     current_progress: dict[str, Progress] = {"value": download_progress}
 
+    def update_progress_name(name: str) -> None:
+        if not name:
+            return
+
+        file.name = name
+        download_progress.name = name
+        audio_progress.name = name
+        merge_progress.name = name
+        current_progress["value"].name = name
+
+    def get_download_name(data: dict) -> str | None:
+        info: dict = data.get("info_dict") or {}
+
+        raw_filename: str = (data.get("tmpfilename") or data.get("filename") or "")
+
+        if not raw_filename:
+            return None
+
+        filename = Path(raw_filename).name
+
+        if filename.endswith(".part"):
+            filename = filename[:-len(".part")]
+
+        temp_path = Path(filename)
+        extension = temp_path.suffix
+        title: str | None = info.get("title")
+        vcodec: str | None = info.get("vcodec")
+        acodec: str | None = info.get("acodec")
+        separate_stream = (vcodec not in (None, "none") and acodec == "none") or (acodec not in (None, "none") and vcodec == "none")
+
+        if separate_stream:
+            extension = ".mkv"
+
+        if title:
+            return f"{title}{extension}" if extension else title
+
+        stem = temp_path.stem
+        format_id = str(info.get("format_id") or "")
+
+        if format_id:
+            for marker in (f".f{format_id}", f".{format_id}"):
+                if stem.endswith(marker):
+                    stem = stem[:-len(marker)]
+                    break
+        else:
+            possible_id = stem.rsplit(".f", 1)
+
+            if (len(possible_id) == 2 and possible_id[1].isdigit()):
+                stem = possible_id[0]
+
+        return f"{stem}{extension}" if extension else stem
+
     def hook(data: dict) -> None:
+        info: dict = data.get("info_dict") or {}
+        resolved_name = get_download_name(data)
+
+        if resolved_name and resolved_name != file.name:
+            update_progress_name(resolved_name)
+
         filename: str = data.get("filename", "")
 
         if filename.endswith((".vtt", ".srt", ".ass", ".ttml", ".srv1", ".srv2", ".srv3")):
             return
 
-        info: dict = data.get("info_dict", {})
         vcodec: str | None = info.get("vcodec")
         acodec: str | None = info.get("acodec")
 
-        if vcodec != "none" and acodec == "none":
-            if current_progress["value"] is not download_progress:
-                current_progress["value"] = download_progress
-                download_progress.message = "Downloading Video"
+        if vcodec not in (None, "none") and acodec == "none":
+            current_progress["value"] = download_progress
+            download_progress.message = "Downloading Video"
 
-        elif acodec != "none" and vcodec == "none":
-            if current_progress["value"] is download_progress:
-                current_progress["value"] = Progress(file.name, "Downloading Audio", 0)
+        elif acodec not in (None, "none") and vcodec == "none":
+            current_progress["value"] = audio_progress
+            audio_progress.message = "Downloading Audio"
 
         progress: Progress = current_progress["value"]
 
         if data["status"] == "downloading":
-            progress.total = data.get("total_bytes") or data.get("total_bytes_estimate") or 0
+            progress.total = (data.get("total_bytes") or data.get("total_bytes_estimate") or 0)
             progress.transfer = data.get("downloaded_bytes", 0)
 
         elif data["status"] == "finished":
@@ -166,9 +223,11 @@ async def download_youtube(file: File, link: str) -> AsyncGenerator[Progress, No
             raise OSError("YouTube download produced no file")
 
         output: Path = max(files, key=lambda path: path.stat().st_size)
-        file.name = output.name
+        update_progress_name(output.name)
+
         file.size = output.stat().st_size
         file.type = guess_type(file.name)[0] or "application/octet-stream"
+
         yield current_progress["value"]
         progress: Progress
 
@@ -180,88 +239,3 @@ async def download_youtube(file: File, link: str) -> AsyncGenerator[Progress, No
             for path in temp_dir.iterdir():
                 if path.is_file():
                     path.unlink()
-
-# async def download_torrent(file: File, link: str) -> AsyncGenerator[float | int, None]:
-#     data_center: type[DataCenter] = DataCenter(file.data_center)
-#     write_log("INFO", data_center, "DOWNLOAD", str(file.username), f"Starting torrent download: {link}")
-#
-#     try:
-#         loop = asyncio.get_running_loop()
-#         queue: asyncio.Queue[float | None] = asyncio.Queue()
-#         next_log = 10.0
-#         next_yield = 1.0
-#
-#         def download():
-#             session = lt.session()
-#             params = lt.parse_magnet_uri(link)
-#             params.save_path = str(TRANSFER_PATH)
-#             handle = session.add_torrent(params)
-#
-#             while True:
-#                 status = handle.status()
-#                 value = round(status.progress * 100, 2)
-#                 loop.call_soon_threadsafe(queue.put_nowait, value)
-#
-#                 if status.is_seeding:
-#                     break
-#
-#                 import time
-#                 time.sleep(0.5)
-#
-#             return session, handle
-#
-#         download_task = asyncio.create_task(asyncio.to_thread(download))
-#
-#         while not download_task.done():
-#             try:
-#                 value = await asyncio.wait_for(queue.get(), timeout=0.1)
-#
-#                 if value is None:
-#                     continue
-#
-#                 if value >= next_log:
-#                     write_log("INFO", data_center, "DOWNLOAD", str(file.username), f"Torrent download ({value:.1f}%)")
-#                     next_log += 10
-#
-#                 if value >= next_yield:
-#                     yield value
-#                     next_yield += 1
-#
-#             except asyncio.TimeoutError:
-#                 pass
-#
-#         session, handle = await download_task
-#
-#         while not queue.empty():
-#             value = queue.get_nowait()
-#
-#             if value is not None and value >= next_yield:
-#                 yield value
-#                 next_yield += 1
-#
-#         if not handle.is_valid():
-#             raise OSError("Torrent download failed")
-#
-#         torrent_info = handle.torrent_file()
-#
-#         if torrent_info is None:
-#             raise OSError("Failed to obtain torrent metadata")
-#
-#         if torrent_info.num_files() != 1:
-#             raise OSError("Only single-file torrents are supported")
-#
-#         file.name = Path(torrent_info.layout().file_path(0)).name
-#
-#         target_path = TRANSFER_PATH / file.name
-#         downloaded_path = TRANSFER_PATH / torrent_info.layout().file_path(0)
-#
-#         if downloaded_path != target_path:
-#             downloaded_path.replace(target_path)
-#
-#         write_log("INFO", data_center, "DOWNLOAD", str(file.username), f"Torrent download complete `{file.name}`")
-#
-#         async for progress in upload(file):
-#             yield progress
-#
-#     except Exception as e:
-#         write_log("ERROR", data_center, "DOWNLOAD", str(file.username), f"Unhandled exception: {e}\n{format_exc()}")

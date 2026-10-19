@@ -1,14 +1,12 @@
 from __future__ import annotations
 
+import redis.asyncio
+from backend.database.connection import POOL, DirectoryDict, FileDict
+from core.utils.progress import Progress
 from datetime import datetime
 from json import dumps, loads
 from pathlib import Path
-from typing import Literal, cast, TYPE_CHECKING
-
-import redis.asyncio
-
-from backend.database.connection import POOL, DirectoryDict, FileDict
-from core.utils.progress import Progress
+from typing import Any, Literal, cast, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from backend.database.models import User, Directory, File
@@ -21,12 +19,37 @@ class Redis:
     @classmethod
     async def initialize(cls) -> None:
         cls.redis = redis.asyncio.Redis.from_url("redis://localhost:6379", decode_responses=True)
+        # Preserve Redis-backed upload sessions across application restarts.
+        # Application-specific caches are refreshed by their owning models.
         await cls.redis.ping()
-        await cls.redis.flushall()
 
     @classmethod
     async def close(cls) -> None:
         await cls.redis.aclose()
+
+    @classmethod
+    async def get_json(cls, key: str) -> Any | None:
+        """Read an arbitrary JSON-serializable value stored under a Redis key."""
+        value: str | None = await cls.redis.get(key)
+        return loads(value) if value is not None else None
+
+    @classmethod
+    async def set_json(
+            cls,
+            key: str,
+            value: Any,
+            *,
+            ex: int | None = None,
+            nx: bool = False,
+    ) -> bool:
+        """Store JSON data, optionally with an expiry or SET-NX semantics."""
+        result = await cls.redis.set(key, dumps(value, default=str), ex=ex, nx=nx)
+        return bool(result)
+
+    @classmethod
+    async def delete_key(cls, key: str) -> None:
+        """Delete a raw Redis key regardless of its stored value type."""
+        await cls.redis.delete(key)
 
     @classmethod
     async def exists(cls, key: str, type: ValueTypes) -> bool:

@@ -1,6 +1,5 @@
 import aiofiles
-from asyncio import Event, Task, sleep
-from asyncio import create_task
+from asyncio import Task, create_task, sleep
 from backend.database.models import Directory, File, User
 from backend.database.redis_server import Redis
 from backend.server.jwt_handler import create_access_token, get_current_user
@@ -11,39 +10,143 @@ from core.stream import Stream
 from core.transfer import link_upload, file_upload
 from core.utils.discord_ import Discord
 from core.utils.progress import Progress
-from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Request, Header, Query
 from fastapi.responses import Response, StreamingResponse, JSONResponse
 from mimetypes import guess_type
 from pathlib import Path
 from pydantic import BaseModel
-from time import monotonic
-from typing import Literal, cast
+from time import time
+from typing import Any, Literal, cast
 from urllib.parse import quote
 from uuid import uuid4
 
 auth: APIRouter = APIRouter(prefix="/auth")
 public: APIRouter = APIRouter(prefix="/public")
 
-PENDING_UPLOADS: dict[str, tuple[File, Path]] = {}
-UPLOAD_IDLE_TIMEOUT: int = 120
+# Redis owns upload metadata. This set only keeps live asyncio tasks strongly
+# referenced while they run; Task objects themselves cannot be serialized to Redis.
+_BACKGROUND_UPLOAD_TASKS: set[Task[None]] = set()
 
 
-@dataclass
-class UploadSession:
-    file: File
-    file_path: Path
-    total: int
-    finished: Event
-    ranges: list[tuple[int, int]] = field(default_factory=list)  # merged, written byte ranges
-    contiguous: int = 0  # bytes written from 0 with no gaps
-    last_activity: float = field(default_factory=monotonic)
-    upload_task: Task[None] | None = None
-    job_task: Task[None] | None = None
+def _pending_upload_key(job_id: str) -> str:
+    return f"upload:pending:{job_id}"
 
 
-UPLOAD_SESSIONS: dict[str, UploadSession] = {}
+def _upload_session_key(job_id: str) -> str:
+    return f"upload:session:{job_id}"
+
+
+def _track_upload_task(task: Task[None]) -> None:
+    _BACKGROUND_UPLOAD_TASKS.add(task)
+    task.add_done_callback(_BACKGROUND_UPLOAD_TASKS.discard)
+
+
+async def wait_for_all_chunks(job_id: str, file: File) -> None:
+    """Wait on Redis-backed contiguous-byte metadata rather than an in-memory Event."""
+    while True:
+        state = await Redis.get_json(_upload_session_key(job_id))
+
+        if not isinstance(state, dict):
+            raise TimeoutError("Upload session expired before all chunks arrived")
+
+        contiguous = int(state.get("contiguous", 0))
+        total = int(state.get("total", 0))
+        file.size = contiguous
+
+        if bool(state.get("received_chunk")) and contiguous >= total:
+            return
+
+        last_activity = float(state.get("last_activity", 0))
+        if time() - last_activity > 120:
+            raise TimeoutError("No data received from the browser")
+
+        await sleep(0.25)
+
+
+async def _record_written_range(job_id: str, start: int, end: int) -> int:
+    """Merge a completed chunk range atomically in Redis and return contiguous bytes."""
+    session_key = _upload_session_key(job_id)
+    lock = Redis.redis.lock(
+        f"upload:lock:{job_id}",
+        timeout=30,
+        blocking_timeout=30,
+    )
+
+    async with lock:
+        state = await Redis.get_json(session_key)
+        if not isinstance(state, dict):
+            raise HTTPException(status_code=404, detail="Upload session expired")
+
+        ranges_raw = state.get("ranges", [])
+        ranges: list[list[int]] = [
+            [int(item[0]), int(item[1])]
+            for item in ranges_raw
+            if isinstance(item, (list, tuple)) and len(item) == 2
+        ]
+
+        if end > start:
+            ranges.append([start, end])
+            ranges.sort(key=lambda item: item[0])
+
+        merged: list[list[int]] = []
+        for range_start, range_end in ranges:
+            if merged and range_start <= merged[-1][1]:
+                merged[-1][1] = max(merged[-1][1], range_end)
+            else:
+                merged.append([range_start, range_end])
+
+        contiguous = merged[0][1] if merged and merged[0][0] == 0 else 0
+        state["ranges"] = merged
+        state["contiguous"] = contiguous
+        state["last_activity"] = time()
+        state["received_chunk"] = True
+
+        file_state = state.get("file")
+        if isinstance(file_state, dict):
+            file_state["size"] = contiguous
+
+        await Redis.set_json(session_key, state, ex=60 * 60)
+
+        return contiguous
+
+
+async def _run_chunk_upload_job(
+        job_id: str,
+        file: File,
+        file_path: Path,
+        producer_task: Task[None],
+) -> None:
+    """Stream received chunks to the data center and clean up Redis session state."""
+    try:
+        async for progress in file_upload(file, file_path, producer_task):
+            await Redis.set(job_id, progress)
+
+        # file_upload logs and absorbs producer errors, so propagate those errors
+        # into the Redis progress record for the dashboard.
+        if producer_task.done() and not producer_task.cancelled():
+            producer_error = producer_task.exception()
+            if producer_error is not None:
+                await Redis.set(
+                    job_id,
+                    Progress(file.name, f"Upload failed: {producer_error}", 0),
+                )
+
+    except Exception as error:
+        await Redis.set(
+            job_id,
+            Progress(file.name, f"Upload failed: {error}", 0),
+        )
+
+    finally:
+        await Redis.delete_key(_upload_session_key(job_id))
+        await Redis.delete_key(_pending_upload_key(job_id))
+        file_path.unlink(missing_ok=True)
+
+        try:
+            file_path.parent.rmdir()
+        except OSError:
+            pass
 
 
 class MoveItemRequest(BaseModel):
@@ -54,39 +157,6 @@ class MoveItemRequest(BaseModel):
 class BulkMoveRequest(BaseModel):
     directory: str
     items: list[MoveItemRequest]
-
-
-def mark_written(session: UploadSession, start: int, end: int) -> None:
-    if end > start:
-        session.ranges.append((start, end))
-        session.ranges.sort()
-        merged: list[tuple[int, int]] = []
-
-        for range_start, range_end in session.ranges:
-            if merged and range_start <= merged[-1][1]:
-                merged[-1] = (merged[-1][0], max(merged[-1][1], range_end))
-
-            else:
-                merged.append((range_start, range_end))
-
-        session.ranges = merged
-
-    if session.ranges and session.ranges[0][0] == 0:
-        session.contiguous = session.ranges[0][1]
-
-    session.file.size = session.contiguous
-    session.last_activity = monotonic()
-
-    if session.contiguous >= session.total:
-        session.finished.set()
-
-
-async def wait_for_all_chunks(session: UploadSession) -> None:
-    while not session.finished.is_set():
-        if monotonic() - session.last_activity > UPLOAD_IDLE_TIMEOUT:
-            raise TimeoutError("No data received from the browser")
-
-        await sleep(0.25)
 
 
 @public.get("/ready")
@@ -145,12 +215,14 @@ async def get_metadata(user: User = Depends(get_current_user)) -> JSONResponse:
 
 @public.get("/upload/{job_id}/status")
 async def upload_status(job_id: str) -> JSONResponse:
-    progress: Progress | None = cast(Progress | None, await Redis.get(job_id, "Progress"))
-
-    if progress is None:
+    try:
+        progress: Progress = cast(Progress, await Redis.get(job_id, "Progress"))
+    except KeyError:
         raise HTTPException(status_code=404, detail="Upload job not found")
 
-    completed: bool = "complete" in progress.message.lower()
+    message_lower = progress.message.lower()
+    completed: bool = "complete" in message_lower
+    failed: bool = message_lower.startswith("upload failed")
     file_id: int | None = None
 
     if completed and "id=" in progress.message:
@@ -161,8 +233,9 @@ async def upload_status(job_id: str) -> JSONResponse:
             file_id = None
 
     return JSONResponse({
-        "status": "completed" if completed else "uploading",
+        "status": "completed" if completed else "error" if failed else "uploading",
         "message": " ".join(progress.message.split()[:2]) if completed else progress.message,
+        "name": progress.name if progress.name != "update_name_from_backend" else None,
         "transfer": progress.transfer,
         "total": progress.total,
         "file_id": file_id,
@@ -183,8 +256,10 @@ async def upload_file(
     if directory_obj is None:
         raise HTTPException(status_code=404, detail="Directory not found")
 
-    file_path: Path = TRANSFER_PATH / user.username / file_name
-    file_path.parent.mkdir(parents=True, exist_ok=True)
+    job_id: str = str(uuid4())
+    # A per-job directory prevents simultaneous uploads with the same filename
+    # from sharing or overwriting each other's temporary file.
+    file_path: Path = TRANSFER_PATH / user.username / job_id / file_name
 
     file: File = File(
         directory_id=cast(int, directory_obj.id),
@@ -197,9 +272,15 @@ async def upload_file(
         username=user.username
     )
 
-    job_id: str = str(uuid4())
-    PENDING_UPLOADS[job_id] = (file, file_path)
-
+    await Redis.set_json(
+        _pending_upload_key(job_id),
+        {
+            "file": file.model_dump(mode="json"),
+            "file_path": str(file_path),
+            "username": user.username,
+        },
+        ex=60 * 60,
+    )
     await Redis.set(job_id, Progress(file_name, "Waiting for upload", 0))
 
     return JSONResponse({"job_id": job_id})
@@ -213,73 +294,118 @@ async def upload_chunk(
         total: int = Query(..., ge=0),
         user: User = Depends(get_current_user)
 ) -> JSONResponse:
-    session: UploadSession | None = UPLOAD_SESSIONS.get(job_id)
+    session_key = _upload_session_key(job_id)
+    state = await Redis.get_json(session_key)
 
-    if session is None:
-        pending: tuple[File, Path] | None = PENDING_UPLOADS.get(job_id)
+    if not isinstance(state, dict):
+        pending = await Redis.get_json(_pending_upload_key(job_id))
 
-        if pending is None:
+        if not isinstance(pending, dict):
             raise HTTPException(status_code=404, detail="Upload job not found")
 
-        file, file_path = pending
+        pending_file_data = pending.get("file")
+        if not isinstance(pending_file_data, dict):
+            raise HTTPException(status_code=404, detail="Upload job metadata is invalid")
 
-        if file.username != user.username:
+        pending_file = File.model_validate(pending_file_data)
+        if pending_file.username != user.username:
             raise HTTPException(status_code=403, detail="Access denied")
 
-        PENDING_UPLOADS.pop(job_id)
+        raw_file_path = pending.get("file_path")
+        if not isinstance(raw_file_path, str) or not raw_file_path:
+            raise HTTPException(status_code=404, detail="Upload file path is missing")
+        file_path = Path(raw_file_path)
+
+        # Several initial chunks can arrive concurrently. SET NX below chooses
+        # exactly one request to create the Redis session and its worker tasks.
         file_path.parent.mkdir(parents=True, exist_ok=True)
-        file_path.write_bytes(b"")
+        file_path.touch(exist_ok=True)
 
-        session: UploadSession = UploadSession(file=file, file_path=file_path, total=total, finished=Event())
-        UPLOAD_SESSIONS[job_id] = session
+        new_state: dict[str, Any] = {
+            "file": pending_file.model_dump(mode="json"),
+            "file_path": str(file_path),
+            "username": user.username,
+            "total": total,
+            "ranges": [],
+            "contiguous": 0,
+            "received_chunk": False,
+            "last_activity": time(),
+        }
 
-        await Redis.set(job_id, Progress(file.name, "Receiving and uploading", 0))
+        created = await Redis.set_json(
+            session_key,
+            new_state,
+            ex=60 * 60,
+            nx=True,
+        )
 
-        session.upload_task = create_task(wait_for_all_chunks(session))
+        if created:
+            state = new_state
+            await Redis.delete_key(_pending_upload_key(job_id))
+            await Redis.set(job_id, Progress(pending_file.name, "Receiving and uploading", 0))
 
-        async def run_upload_job() -> None:
-            try:
-                async for progress in file_upload(session.file, session.file_path, session.upload_task):
-                    await Redis.set(job_id, progress)
+            producer_task: Task[None] = create_task(
+                wait_for_all_chunks(job_id, pending_file)
+            )
+            upload_task: Task[None] = create_task(
+                _run_chunk_upload_job(job_id, pending_file, file_path, producer_task)
+            )
+            _track_upload_task(upload_task)
+        else:
+            state = await Redis.get_json(session_key)
 
-            except Exception as error:
-                await Redis.set(job_id, Progress(session.file.name, f"Upload failed: {error}", 0))
+        if not isinstance(state, dict):
+            raise HTTPException(status_code=404, detail="Upload session could not be created")
 
-            finally:
-                if session.upload_task is not None and not session.upload_task.done():
-                    session.upload_task.cancel()
-
-                UPLOAD_SESSIONS.pop(job_id, None)
-
-        session.job_task = create_task(run_upload_job())
-
-    elif session.file.username != user.username:
+    if str(state.get("username", "")) != user.username:
         raise HTTPException(status_code=403, detail="Access denied")
 
-    if total != session.total:
+    if int(state.get("total", -1)) != total:
         raise HTTPException(status_code=409, detail="File size changed during upload")
 
-    position = offset
+    file_path = Path(str(state.get("file_path", "")))
+    if not file_path.is_file():
+        file_state = state.get("file")
+        fallback_name = (
+            str(file_state.get("name", "upload"))
+            if isinstance(file_state, dict)
+            else "upload"
+        )
+        await Redis.delete_key(session_key)
+        await Redis.set(
+            job_id,
+            Progress(
+                fallback_name,
+                "Upload failed: temporary file is missing; please restart the upload",
+                0,
+            ),
+        )
+        raise HTTPException(
+            status_code=409,
+            detail="Upload was interrupted and its temporary file is missing. Please restart the upload.",
+        )
 
-    async with aiofiles.open(session.file_path, "r+b") as buffer:
+    if offset > total:
+        raise HTTPException(status_code=416, detail="Chunk offset exceeds declared file size")
+
+    position = offset
+    async with aiofiles.open(file_path, "r+b") as buffer:
         await buffer.seek(offset)
 
         async for chunk in request.stream():
             if not chunk:
                 continue
 
-            if position + len(chunk) > session.total:
+            if position + len(chunk) > total:
                 raise HTTPException(status_code=413, detail="Chunk exceeds declared file size")
 
             await buffer.write(chunk)
             await buffer.flush()
-
-            mark_written(session, position, position + len(chunk))
             position += len(chunk)
 
-    mark_written(session, offset, position)
+    contiguous = await _record_written_range(job_id, offset, position)
 
-    return JSONResponse({"job_id": job_id, "contiguous": session.contiguous})
+    return JSONResponse({"job_id": job_id, "contiguous": contiguous})
 
 
 @auth.post("/upload-link")
