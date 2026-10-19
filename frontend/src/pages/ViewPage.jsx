@@ -95,6 +95,7 @@ const MenuHeading = ({children}) => (
 
 /* ------------------------------------------------------------------ */
 /* video player                                                        */
+
 /* ------------------------------------------------------------------ */
 
 /**
@@ -104,7 +105,7 @@ const MenuHeading = ({children}) => (
  *                audio / subtitle tracks on MKV and similar files.
  *  - subtitles : optional [{label, src}] sidecar .srt / .vtt files
  */
-function VideoPlayer({file, streamUrl, hlsUrl, subtitles = [], heightClass = "h-[70vh]"}) {
+function VideoPlayer({file, streamUrl, hlsUrl, subtitles = [], heightClass = "h-[70vh]", pauseForVlc = false}) {
     const wrapRef = useRef(null);
     const videoRef = useRef(null);
     const hlsRef = useRef(null);
@@ -112,6 +113,23 @@ function VideoPlayer({file, streamUrl, hlsUrl, subtitles = [], heightClass = "h-
     const fileInputRef = useRef(null);
     const menuRef = useRef(null);
     const subRef = useRef({cues: null, delay: 0});
+    const pausedForVlcRef = useRef(false);
+
+    useEffect(() => {
+        const video = videoRef.current;
+        if (!video) return;
+
+        if (pauseForVlc) {
+            pausedForVlcRef.current = true;
+            video.pause();
+        } else if (pausedForVlcRef.current) {
+            pausedForVlcRef.current = false;
+            // Returning from the VLC prompt means the user chose browser playback.
+            video.play().catch(() => {
+                // Autoplay policies may block resuming; the normal Play control remains available.
+            });
+        }
+    }, [pauseForVlc]);
 
     const [playing, setPlaying] = useState(false);
     const [buffering, setBuffering] = useState(true);
@@ -235,7 +253,8 @@ function VideoPlayer({file, streamUrl, hlsUrl, subtitles = [], heightClass = "h-
                     setAudioTracks([]);
                     setEmbeddedSubs([]);
                     video.src = streamUrl;
-                    video.play().catch(() => {});
+                    video.play().catch(() => {
+                    });
                     attachNativeListeners();
                 } else setError("The stream could not be loaded.");
             });
@@ -250,7 +269,8 @@ function VideoPlayer({file, streamUrl, hlsUrl, subtitles = [], heightClass = "h-
             attachNativeListeners();
         }
 
-        video.play().catch(() => {});
+        video.play().catch(() => {
+        });
 
         return () => {
             cleanups.forEach((fn) => fn());
@@ -278,7 +298,8 @@ function VideoPlayer({file, streamUrl, hlsUrl, subtitles = [], heightClass = "h-
                 if (cancelled) return;
                 setExtSubs((prev) => [...list, ...prev.filter((p) => !p.id.startsWith("p"))]);
             })
-            .catch(() => {});
+            .catch(() => {
+            });
         return () => {
             cancelled = true;
         };
@@ -318,7 +339,8 @@ function VideoPlayer({file, streamUrl, hlsUrl, subtitles = [], heightClass = "h-
     const togglePlay = useCallback(() => {
         const v = videoRef.current;
         if (!v) return;
-        if (v.paused) v.play().catch(() => {});
+        if (v.paused) v.play().catch(() => {
+        });
         else v.pause();
     }, []);
 
@@ -345,7 +367,8 @@ function VideoPlayer({file, streamUrl, hlsUrl, subtitles = [], heightClass = "h-
         const v = videoRef.current;
         if (!v) return;
         if (document.pictureInPictureElement) document.exitPictureInPicture();
-        else v.requestPictureInPicture?.().catch(() => {});
+        else v.requestPictureInPicture?.().catch(() => {
+        });
     };
 
     const selectAudio = (id) => {
@@ -606,7 +629,7 @@ function VideoPlayer({file, streamUrl, hlsUrl, subtitles = [], heightClass = "h-
                     {menu === "subs" && (
                         <>
                             <MenuHeading>Subtitles</MenuHeading>
-                            <MenuRow active={activeSub === "off"} label="Off" onClick={() => selectSub("off")} />
+                            <MenuRow active={activeSub === "off"} label="Off" onClick={() => selectSub("off")}/>
 
                             {embeddedSubs.length > 0 && <MenuHeading>In the video</MenuHeading>}
                             {embeddedSubs.map((t) => (
@@ -682,14 +705,14 @@ function VideoPlayer({file, streamUrl, hlsUrl, subtitles = [], heightClass = "h-
                         <>
                             <MenuHeading>Playback speed</MenuHeading>
                             {SPEEDS.map((r) => (
-                                <MenuRow key={r} active={r === rate} label={r === 1 ? "Normal" : `${r}×`} onClick={() => changeRate(r)} />
+                                <MenuRow key={r} active={r === rate} label={r === 1 ? "Normal" : `${r}×`} onClick={() => changeRate(r)}/>
                             ))}
                         </>
                     )}
                 </div>
             )}
 
-            <input ref={fileInputRef} type="file" accept=".srt,.vtt,text/vtt" className="hidden" onChange={onPickSubFile} />
+            <input ref={fileInputRef} type="file" accept=".srt,.vtt,text/vtt" className="hidden" onChange={onPickSubFile}/>
 
             {/* control bar */}
             <div
@@ -700,9 +723,10 @@ function VideoPlayer({file, streamUrl, hlsUrl, subtitles = [], heightClass = "h-
             >
                 {/* seek bar */}
                 <div className="group relative mb-1 h-4">
-                    <div className="absolute inset-x-0 top-1/2 h-1 -translate-y-1/2 overflow-hidden rounded-full bg-white/20 transition-[height] group-hover:h-1.5">
-                        <div className="absolute inset-y-0 left-0 bg-white/30" style={{width: `${pct(buffered)}%`}} />
-                        <div className="absolute inset-y-0 left-0 bg-[#3ecf8e]" style={{width: `${pct(current)}%`}} />
+                    <div
+                        className="absolute inset-x-0 top-1/2 h-1 -translate-y-1/2 overflow-hidden rounded-full bg-white/20 transition-[height] group-hover:h-1.5">
+                        <div className="absolute inset-y-0 left-0 bg-white/30" style={{width: `${pct(buffered)}%`}}/>
+                        <div className="absolute inset-y-0 left-0 bg-[#3ecf8e]" style={{width: `${pct(current)}%`}}/>
                     </div>
                     <div
                         className="pointer-events-none absolute top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#3ecf8e] opacity-0 transition-opacity group-hover:opacity-100"
@@ -770,24 +794,6 @@ function VideoPlayer({file, streamUrl, hlsUrl, subtitles = [], heightClass = "h-
                     <div className="ml-auto flex items-center gap-1">
                         <button
                             type="button"
-                            className={`${ctrlBtn} ${menu === "audio" ? "bg-white/10" : ""}`}
-                            aria-label="Audio track"
-                            aria-expanded={menu === "audio"}
-                            onClick={() => setMenu(menu === "audio" ? null : "audio")}
-                        >
-                            <span className="material-symbols-outlined text-[20px]">audiotrack</span>
-                        </button>
-                        <button
-                            type="button"
-                            className={`${ctrlBtn} ${menu === "subs" ? "bg-white/10" : ""} ${subsOn ? "!text-[#3ecf8e]" : ""}`}
-                            aria-label="Subtitles"
-                            aria-expanded={menu === "subs"}
-                            onClick={() => setMenu(menu === "subs" ? null : "subs")}
-                        >
-                            <span className="material-symbols-outlined text-[20px]">subtitles</span>
-                        </button>
-                        <button
-                            type="button"
                             className={`${ctrlBtn} w-auto px-2 text-xs tabular-nums ${menu === "speed" ? "bg-white/10" : ""}`}
                             aria-label="Playback speed"
                             aria-expanded={menu === "speed"}
@@ -825,6 +831,19 @@ export default function ViewPage() {
     const [source, setSource] = useState(null); // {streamUrl, hlsUrl|null}
     const [status, setStatus] = useState("Preparing video…");
     const [error, setError] = useState("");
+    const [vlcLaunchRequested, setVlcLaunchRequested] = useState(false);
+
+    // Only launch VLC after an explicit user click. Browsers do not expose a
+    // reliable signal that VLC opened successfully or started playback, so
+    // this page must not close itself on a timer.
+    const openInVlc = useCallback(() => {
+        if (!source?.streamUrl) return;
+
+        // Pause browser playback before handing the stream to the external player.
+        setVlcLaunchRequested(true);
+        const vlcUrl = `vlc://weblink?url=${encodeURIComponent(source.streamUrl)}`;
+        window.location.href = vlcUrl;
+    }, [source]);
 
     useEffect(() => {
         if (kind !== "video") return; // only video is supported for now
@@ -903,6 +922,17 @@ export default function ViewPage() {
                     <span className="material-symbols-outlined text-[20px]" aria-hidden="true">arrow_back</span>
                 </button>
                 <h1 className="min-w-0 truncate text-sm font-medium">{name}</h1>
+                {source?.streamUrl && kind === "video" && (
+                    <button
+                        type="button"
+                        onClick={openInVlc}
+                        title="Try opening this stream in VLC"
+                        className="ml-auto flex shrink-0 items-center gap-2 rounded-md border border-[#3a3a3a] px-3 py-1.5 text-xs text-[#fafafa] transition-colors hover:bg-[#2a2a2a]"
+                    >
+                        <span className="material-symbols-outlined text-[17px]" aria-hidden="true">open_in_new</span>
+                        Open in VLC
+                    </button>
+                )}
             </header>
 
             <main className="min-h-0 flex-1 p-4">
@@ -926,8 +956,24 @@ export default function ViewPage() {
                         {status}
                     </div>
                 ) : (
-                    <div className="mx-auto h-full w-full max-w-7xl">
-                        <VideoPlayer file={{name}} streamUrl={source.streamUrl} hlsUrl={source.hlsUrl} heightClass="h-full" />
+                    <div className="mx-auto flex h-full w-full max-w-7xl flex-col gap-2">
+                        {vlcLaunchRequested && (
+                            <div
+                                className="flex shrink-0 items-center justify-between gap-3 rounded-md border border-[#3a3a3a] bg-[#202020] px-3 py-2 text-xs text-[#c8c8c8]">
+                                <span>Browser playback is paused while you try VLC. Choose “Continue here” to resume the video in this tab.</span>
+                                <button
+                                    type="button"
+                                    onClick={() => setVlcLaunchRequested(false)}
+                                    className="shrink-0 rounded px-2 py-1 hover:bg-white/10"
+                                >
+                                    Continue here
+                                </button>
+                            </div>
+                        )}
+                        <div className="min-h-0 flex-1">
+                            <VideoPlayer file={{name}} streamUrl={source.streamUrl} hlsUrl={source.hlsUrl} heightClass="h-full"
+                                         pauseForVlc={vlcLaunchRequested}/>
+                        </div>
                     </div>
                 )}
             </main>

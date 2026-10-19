@@ -1,12 +1,11 @@
-from datetime import datetime, timedelta, timezone
-from pathlib import Path
-from typing import cast
-
 from backend.database.connection import POOL
 from backend.database.redis_server import Redis
 from core.data_center import Database
 from core.utils import write_log
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from pydantic import BaseModel, ConfigDict, Field
+from typing import cast
 
 
 class File(BaseModel):
@@ -53,7 +52,8 @@ class File(BaseModel):
                 self.id = cast(dict[str, int], connection.execute(
                     """
                     INSERT INTO files (directory_id, name, type, size, modified_at, data_center, links, deleted_at, username)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id;
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    RETURNING id;
                     """,
                     (
                         self.directory_id,
@@ -109,17 +109,24 @@ class File(BaseModel):
         return None
 
     @classmethod
-    async def get_all(cls, username: str, directory_id: int | None = None, trash: bool = False) -> list["File"]:
+    async def get_all(cls, username: str, *, directory_id: int | None = None, file_name: str | None = None, trash: bool = False) -> list["File"]:
         files: list[File] = cast(list[File], await Redis.get(f"user:{username}:files", "File"))
+        query: str | None = file_name.strip().casefold() if file_name else None
         result: list[File] = []
 
         for file in files:
-            if trash != (file.deleted_at is not None) or directory_id is not None and file.directory_id != directory_id:
+            if trash != (file.deleted_at is not None):
+                continue
+
+            if directory_id is not None and file.directory_id != directory_id:
+                continue
+
+            if query is not None and query not in file.name.casefold():
                 continue
 
             result.append(file)
 
-        result.sort(key=lambda f: f.name)
+        result.sort(key=lambda file: file.name.casefold())
         return result
 
     async def update(self) -> None:

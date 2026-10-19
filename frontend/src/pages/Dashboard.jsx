@@ -73,7 +73,7 @@ function getToken() {
 
 /* -------------------------------------------------------------------- */
 
-function Sidebar({activeTab, onTabSelect, onUpload, onLogout}) {
+function Sidebar({activeTab, onTabSelect, onUpload, onCreateFolder, onLogout}) {
     return (<nav className="flex h-screen w-60 flex-col border-r border-[#2e2e2e] bg-[#171717]">
         {/* Brand */}
         <div className="flex h-14 items-center gap-2.5 border-b border-[#2e2e2e] px-4">
@@ -93,16 +93,28 @@ function Sidebar({activeTab, onTabSelect, onUpload, onLogout}) {
         </div>
 
         <div className="flex flex-1 flex-col gap-4 p-3">
-            <button
-                type="button"
-                onClick={onUpload}
-                className={`${btnPrimary} h-9 w-full justify-center text-sm`}
-            >
+            <div className="flex flex-col gap-2">
+                <button
+                    type="button"
+                    onClick={onUpload}
+                    className={`${btnPrimary} h-9 w-full justify-center text-sm`}
+                >
                     <span className="material-symbols-outlined text-[18px]" aria-hidden="true">
-                        add
+                        cloud_upload
                     </span>
-                Upload Files
-            </button>
+                    Upload Files
+                </button>
+                <button
+                    type="button"
+                    onClick={onCreateFolder}
+                    className={`${btnSecondary} h-9 w-full justify-center text-sm`}
+                >
+                    <span className="material-symbols-outlined text-[18px]" aria-hidden="true">
+                        create_new_folder
+                    </span>
+                    Create Folder
+                </button>
+            </div>
 
             <div className="flex flex-1 flex-col gap-0.5">
                 {NAV_ITEMS.map(({id, icon, label, enabled}) => {
@@ -311,6 +323,9 @@ export default function DashboardPage() {
     const [currentFolder, setCurrentFolder] = useState("");
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
+    const [searchResults, setSearchResults] = useState([]);
+    const [searchLoading, setSearchLoading] = useState(false);
+    const [searchError, setSearchError] = useState("");
     const [loadingFiles, setLoadingFiles] = useState(true);
     const [pageError, setPageError] = useState("");
     const [showFolderModal, setShowFolderModal] = useState(false);
@@ -318,6 +333,13 @@ export default function DashboardPage() {
     const [openMenuFileId, setOpenMenuFileId] = useState(null);
     const [clipboard, setClipboard] = useState(null);
     const [menuPosition, setMenuPosition] = useState(null);
+    const [uploadJobs, setUploadJobs] = useState(() => {
+        try {
+            return JSON.parse(localStorage.getItem("storelimitless_upload_jobs") || "[]");
+        } catch {
+            return [];
+        }
+    });
 
     /* ---------------------------- fetch files --------------------------- */
 
@@ -385,12 +407,180 @@ export default function DashboardPage() {
         const kind = getFileKind(file.name);
         const params = new URLSearchParams({name: file.name});
         if (kind) params.set("kind", kind);
-        navigate(`/view/${file.id}?${params}`);
+
+        // Open the viewer in a separate tab, keeping the dashboard intact.
+        const viewUrl = `${window.location.origin}/view/${file.id}?${params.toString()}`;
+        window.open(viewUrl, "_blank", "noopener,noreferrer");
     };
 
     useEffect(() => {
         fetchFiles();
     }, [fetchFiles]);
+
+    // Poll active jobs. On completion, remove the job from the tray and
+    // refresh the directory so the new file appears without a page reload.
+    useEffect(() => {
+        let cancelled = false;
+        let polling = false;
+        const jobsKey = "storelimitless_upload_jobs";
+        const refreshUploadJobs = async () => {
+            if (polling || cancelled) return;
+            polling = true;
+            try {
+                let jobs;
+                try {
+                    jobs = JSON.parse(localStorage.getItem(jobsKey) || "[]");
+                    if (!Array.isArray(jobs)) jobs = [];
+                } catch {
+                    jobs = [];
+                }
+
+                const token = getToken();
+                const updatedJobs = await Promise.all(jobs.map(async (job) => {
+                    if (!job?.jobId || job.status === "error" || job.status === "cancelled") return job;
+                    try {
+                        const response = await fetch(`${API_URL}/public/upload/${job.jobId}/status`, {
+                            headers: token ? {Authorization: `Bearer ${token}`} : {},
+                            cache: "no-store",
+                        });
+                        if (!response.ok) return job;
+                        const data = await response.json();
+                        const message = String(data.message || "");
+                        const isComplete = data.status === "completed"
+                            || /upload\s+complete/i.test(message)
+                            || /complete/i.test(message) && Number(data.total) > 0 && Number(data.transfer) >= Number(data.total);
+                        const isError = data.status === "error" || /upload\s+failed/i.test(message);
+                        const transfer = Number.isFinite(Number(data.transfer)) ? Number(data.transfer) : (job.transfer || 0);
+                        const total = Number.isFinite(Number(data.total)) ? Number(data.total) : (job.total || 0);
+                        return {
+                            ...job,
+                            transfer,
+                            total,
+                            progress: isComplete ? 100 : total > 0 ? Math.min(99, transfer / total * 100) : (job.progress || 0),
+                            status: isComplete ? "completed" : isError ? "error" : "uploading",
+                            message: isError ? (data.error || message || "Upload failed") : (message || job.message || "Uploading"),
+                        };
+                    } catch {
+                        return job;
+                    }
+                }));
+
+                if (cancelled) return;
+                const completedIds = new Set(updatedJobs.filter(job => job?.status === "completed").map(job => job.jobId));
+                const remainingJobs = updatedJobs.filter(job => job?.status !== "completed" && job?.status !== "cancelled");
+
+                // Write the filtered list first, then update React state. This avoids
+                // completed items reappearing from stale localStorage on the next poll.
+                localStorage.setItem(jobsKey, JSON.stringify(remainingJobs));
+                setUploadJobs(remainingJobs);
+                if (completedIds.size > 0) {
+                    // The completed jobs have already been removed from localStorage.
+                    // Reload the dashboard once so the finished upload appears in the
+                    // current directory and the upload tray no longer lists it.
+                    window.location.reload();
+                }
+            } finally {
+                polling = false;
+            }
+        };
+
+        void refreshUploadJobs();
+        const intervalId = window.setInterval(refreshUploadJobs, 1200);
+        return () => {
+            cancelled = true;
+            window.clearInterval(intervalId);
+        };
+    }, [fetchFiles]);
+
+    const dismissUploadJob = (jobId) => {
+        setUploadJobs(current => {
+            const next = current.filter(job => job.jobId !== jobId);
+            localStorage.setItem("storelimitless_upload_jobs", JSON.stringify(next));
+            return next;
+        });
+    };
+
+    const cancelUploadJob = (jobId) => {
+        const transfer = window.__storeLimitlessUploadTransfers?.get(jobId);
+        if (transfer) {
+            transfer.cancelToken.cancelled = true;
+            for (const xhr of transfer.xhrs || []) xhr.abort();
+            window.__storeLimitlessUploadTransfers.delete(jobId);
+        }
+        // Remove it immediately from the tray. The browser transfer is aborted;
+        // no server-side cancellation endpoint is required for chunked file uploads.
+        dismissUploadJob(jobId);
+    };
+
+    // Global recursive search is performed by the backend so files inside
+    // nested folders are returned even when they are not in the current view.
+    useEffect(() => {
+        const query = searchQuery.trim();
+        if (!query) {
+            setSearchResults([]);
+            setSearchError("");
+            setSearchLoading(false);
+            return;
+        }
+
+        const token = getToken();
+        if (!token) {
+            navigate("/");
+            return;
+        }
+
+        let cancelled = false;
+        const controller = new AbortController();
+        const timer = window.setTimeout(async () => {
+            setSearchLoading(true);
+            setSearchError("");
+
+            try {
+                const response = await fetch(`${API_URL}/auth/search?query=${encodeURIComponent(query)}${activeTab === "trash" ? "&trash=true" : ""}`, {
+                    headers: {Authorization: `Bearer ${token}`}, signal: controller.signal,
+                },);
+
+                if (response.status === 401) {
+                    localStorage.removeItem("token");
+                    navigate("/");
+                    return;
+                }
+
+                const data = await response.json();
+                if (!response.ok) {
+                    throw new Error(data.detail || "Failed to search files.");
+                }
+
+                // The search API should return each file with its containing
+                // directory path. directory_id is an ID, not a display location.
+                const resultList = Array.isArray(data) ? (Array.isArray(data[1]) ? data[1] : data) : (data.results ?? data.files ?? []);
+
+                const normalized = (Array.isArray(resultList) ? resultList : [])
+                    .filter(file => file && file.name && file.name !== ".__folder__")
+                    .map(file => ({
+                        ...file,
+                        directory: file.directory_path ?? file.directory ?? "",
+                        is_deleted: Boolean(file.is_deleted ?? (activeTab === "trash")),
+                    }));
+
+                if (!cancelled) setSearchResults(normalized);
+            } catch (error) {
+                if (error.name !== "AbortError" && !cancelled) {
+                    console.error("Global file search failed:", error);
+                    setSearchError(error.message || "Failed to search files.");
+                    setSearchResults([]);
+                }
+            } finally {
+                if (!cancelled) setSearchLoading(false);
+            }
+        }, 250);
+
+        return () => {
+            cancelled = true;
+            window.clearTimeout(timer);
+            controller.abort();
+        };
+    }, [searchQuery, activeTab, navigate]);
 
     useEffect(() => {
         if (!sidebarOpen) return;
@@ -617,6 +807,8 @@ export default function DashboardPage() {
     /* ------------------------------ derived data ---------------------------- */
 
     const isTrash = activeTab === "trash";
+    // Treat all supported root representations as Home, so Back is hidden there.
+    const isHomeFolder = !currentFolder || currentFolder === "/home" || currentFolder === "home";
 
     const visibleFolders = useMemo(() => {
         return folders.filter(({path, is_deleted}) => {
@@ -641,25 +833,35 @@ export default function DashboardPage() {
         });
     }, [files, currentFolder, isTrash]);
 
+    const isSearching = Boolean(searchQuery.trim());
+
     const filteredFiles = useMemo(() => {
-        const query = searchQuery.trim().toLowerCase();
-        if (!query) return visibleFiles;
-        return visibleFiles.filter((file) => file.name?.toLowerCase().includes(query));
-    }, [visibleFiles, searchQuery]);
+        if (isSearching) return searchResults;
+        return visibleFiles;
+    }, [visibleFiles, searchResults, isSearching]);
 
     const filteredFolders = useMemo(() => {
-        const query = searchQuery.trim().toLowerCase();
-        if (!query) return visibleFolders;
-        return visibleFolders.filter(({path}) => path.split("/").pop()?.toLowerCase().includes(query));
-    }, [visibleFolders, searchQuery]);
+        if (isSearching) return [];
+        return visibleFolders;
+    }, [visibleFolders, isSearching]);
 
     const breadcrumbSegments = useMemo(() => {
-        if (!currentFolder) return [];
-        const parts = currentFolder.split("/");
-        return parts.map((label, i) => ({label, path: parts.slice(0, i + 1).join("/")}));
+        // Keep the internal folder paths for navigation, but show `home` as the root label.
+        const parts = (currentFolder || "").split("/").filter(Boolean);
+        const segments = [{label: "home", path: "", isHome: true}];
+        let accumulatedPath = "";
+
+        for (const part of parts) {
+            accumulatedPath += `/${part}`;
+            if (part.toLowerCase() === "home" && segments.length === 1) continue;
+            segments.push({label: part, path: accumulatedPath, isHome: false});
+        }
+
+        return segments;
     }, [currentFolder]);
 
     const isEmpty = filteredFiles.length === 0 && filteredFolders.length === 0;
+    const isSearchBusy = isSearching && searchLoading;
 
     return (<div
         className="flex h-screen overflow-hidden bg-[#1c1c1c] text-[#fafafa]"
@@ -671,6 +873,7 @@ export default function DashboardPage() {
                 activeTab={activeTab}
                 onTabSelect={handleTabChange}
                 onUpload={() => navigate(`/upload?directory=${encodeURIComponent(currentFolder || "/home")}`)}
+                onCreateFolder={() => setShowFolderModal(true)}
                 onLogout={handleLogout}
             />
         </div>
@@ -685,6 +888,10 @@ export default function DashboardPage() {
                         setSidebarOpen(false);
                     }}
                     onUpload={() => navigate(`/upload?directory=${encodeURIComponent(currentFolder || "/home")}`)}
+                    onCreateFolder={() => {
+                        setShowFolderModal(true);
+                        setSidebarOpen(false);
+                    }}
                     onLogout={handleLogout}
                 />
             </div>
@@ -743,49 +950,31 @@ export default function DashboardPage() {
             <main className="flex-1 overflow-y-auto bg-[#1c1c1c] px-4 pb-8 pt-20 md:px-8">
                 <div className="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
                     <div>
-                        <h2 className="text-xl font-medium tracking-tight text-[#fafafa]">
-                            {isTrash ? "Trash Bin" : "Your Files"}
-                        </h2>
-                        {!isTrash && currentFolder && (<div className="mt-2 flex items-center gap-1 text-sm text-[#898989]">
-                            <button onClick={() => setCurrentFolder("")} className="transition-colors hover:text-[#fafafa]">
-                                All Files
-                            </button>
-                            {breadcrumbSegments.map(({label, path}, i) => (<span key={path} className="flex items-center gap-1">
-                                            <span className="text-[#4d4d4d]">/</span>
-                                {i === breadcrumbSegments.length - 1 ? (<span className="text-[#fafafa]">{label}</span>) : (
-                                    <button onClick={() => openFolder(path)} className="transition-colors hover:text-[#fafafa]">
-                                        {label}
-                                    </button>)}
-                                        </span>))}
-                        </div>)}
+                        {!isTrash && (
+                            <nav
+                                aria-label="Folder path"
+                                className="mt-2 flex flex-wrap items-center gap-1 text-sm text-[#898989]"
+                            >
+                                {breadcrumbSegments.map(({label, path, isHome}, i) => (
+                                    <span key={`${path}-${i}`} className="flex items-center gap-0.5">
+                                        {i > 0 && <span className="text-[#4d4d4d]">/</span>}
+                                        <button
+                                            type="button"
+                                            onClick={() => openFolder(isHome ? "" : path)}
+                                            aria-current={i === breadcrumbSegments.length - 1 ? "location" : undefined}
+                                            className={`transition-colors hover:text-[#fafafa] ${i === breadcrumbSegments.length - 1 ? "text-[#fafafa]" : ""}`}
+                                        >
+                                            {label}
+                                        </button>
+                                    </span>
+                                ))}
+                            </nav>
+                        )}
                     </div>
 
-                    {!isTrash && (<div className="flex gap-2">
-                        <button
-                            type="button"
-                            onClick={() => setShowFolderModal(true)}
-                            className={btnSecondary}
-                        >
-                                    <span className="material-symbols-outlined text-[16px]" aria-hidden="true">
-                                        create_new_folder
-                                    </span>
-                            New Folder
-                        </button>
-
-                        <button
-                            type="button"
-                            onClick={() => navigate(`/upload?directory=${encodeURIComponent(currentFolder || "/home")}`)}
-                            className={btnPrimary}
-                        >
-                                    <span className="material-symbols-outlined text-[16px]" aria-hidden="true">
-                                        cloud_upload
-                                    </span>
-                            Upload
-                        </button>
-                    </div>)}
                 </div>
 
-                {!isTrash && currentFolder && (<button
+                {!isTrash && !isHomeFolder && (<button
                     type="button"
                     onClick={goBack}
                     className="mb-4 flex items-center gap-1.5 text-sm text-[#898989] transition-colors hover:text-[#fafafa]"
@@ -802,12 +991,20 @@ export default function DashboardPage() {
                     </button>
                 </div>)}
 
-                {loadingFiles ? (<div className="flex flex-col items-center justify-center py-24 text-sm text-[#898989]">
+                {searchError && isSearching && (
+                    <div className="mb-6 rounded-md border border-[#e5484d]/30 bg-[#e5484d]/10 px-4 py-3 text-sm text-[#ff6369]">
+                        {searchError}
+                    </div>)}
+
+                {(loadingFiles || isSearchBusy) ? (<div className="flex flex-col items-center justify-center py-24 text-sm text-[#898989]">
                             <span className="material-symbols-outlined mb-3 animate-spin text-[32px]" aria-hidden="true">
                                 progress_activity
                             </span>
-                    Loading files…
+                    {isSearchBusy ? "Searching all folders…" : "Loading files…"}
                 </div>) : (<>
+                    {isSearching && !searchError && (<p className="mb-4 text-xs text-[#707070]">
+                        Search results across all folders
+                    </p>)}
                     {filteredFolders.length > 0 && (<div className="mb-8">
                         <h3 className="mb-3 flex items-center gap-2 text-sm font-medium text-[#b4b4b4]">
                                         <span className="material-symbols-outlined text-[18px] text-[#898989]" aria-hidden="true">
@@ -1006,6 +1203,68 @@ export default function DashboardPage() {
                 </>)}
             </main>
         </div>
+
+        {uploadJobs.length > 0 && (<aside
+            aria-label="Uploads"
+            className="fixed bottom-4 right-4 z-[120] w-[min(24rem,calc(100vw-2rem))] overflow-hidden rounded-xl border border-[#363636] bg-[#1f1f1f] shadow-2xl"
+        >
+            <div className="flex items-center justify-between border-b border-[#363636] px-4 py-3">
+                <div className="flex items-center gap-2">
+                    <span className="material-symbols-outlined text-[18px] text-[#3ecf8e]" aria-hidden="true">cloud_upload</span>
+                    <span className="text-sm font-medium text-[#fafafa]">Uploads</span>
+                    <span
+                        className="rounded-full bg-[#2a2a2a] px-2 py-0.5 text-[11px] text-[#b4b4b4]">{uploadJobs.filter(job => job.status === "uploading").length} active</span>
+                </div>
+                <button type="button" onClick={() => setUploadJobs(current => {
+                    const next = current.filter(job => job.status === "uploading");
+                    localStorage.setItem("storelimitless_upload_jobs", JSON.stringify(next));
+                    return next;
+                })} className="text-xs text-[#898989] transition-colors hover:text-[#fafafa]" title="Hide completed uploads">Clear completed
+                </button>
+            </div>
+            <div className="max-h-72 space-y-1 overflow-y-auto p-2">
+                {uploadJobs.slice().reverse().map((job) => {
+                    const isComplete = job.status === "completed";
+                    const isError = job.status === "error";
+                    const percent = isComplete ? 100 : Math.max(0, Math.min(99, Number(job.progress) || 0));
+                    return (<div key={job.jobId} className="rounded-lg px-2 py-2 hover:bg-[#252525]">
+                        <div className="flex items-start gap-2">
+                            <span
+                                className={`material-symbols-outlined mt-0.5 text-[18px] ${isError ? "text-[#ff6369]" : isComplete ? "text-[#3ecf8e]" : "text-[#898989]"}`}
+                                aria-hidden="true">
+                                {isError ? "error" : isComplete ? "check_circle" : "upload_file"}
+                            </span>
+                            <div className="min-w-0 flex-1">
+                                <p className="truncate text-xs font-medium text-[#fafafa]" title={job.name}>{job.name || "Upload"}</p>
+                                <p className={`mt-1 text-[11px] ${isError ? "text-[#ff6369]" : isComplete ? "text-[#3ecf8e]" : "text-[#898989]"}`}>
+                                    {isError ? (job.message || "Upload failed") : isComplete ? "Completed" : (job.message || "Uploading")}
+                                </p>
+                                {!isError && <div className="mt-2 h-1 overflow-hidden rounded-full bg-[#363636]">
+                                    <div className={`h-full rounded-full transition-all duration-300 ${isComplete ? "bg-[#3ecf8e]" : "bg-[#3ecf8e]"}`}
+                                         style={{width: `${percent}%`}}/>
+                                </div>}
+                                {!isError && <p className="mt-1 text-right font-mono text-[10px] text-[#707070]">
+                                    {job.total > 0 ? `${formatFileSize(job.transfer || 0)} / ${formatFileSize(job.total)} · ` : ""}{percent.toFixed(1)}%
+                                </p>}
+                            </div>
+                            {job.status === "uploading" && job.kind === "file" ? <button
+                                type="button"
+                                onClick={() => cancelUploadJob(job.jobId)}
+                                className={`${iconBtnDanger} shrink-0`}
+                                title="Cancel upload"
+                                aria-label={`Cancel upload ${job.name || "file"}`}
+                            >
+                                <span className="material-symbols-outlined text-[17px]" aria-hidden="true">close</span>
+                            </button> : job.status !== "uploading" ?
+                                <button type="button" onClick={() => dismissUploadJob(job.jobId)} className={iconBtn} title="Remove upload"
+                                        aria-label="Remove upload">
+                                    <span className="material-symbols-outlined text-[16px]" aria-hidden="true">close</span>
+                                </button> : null}
+                        </div>
+                    </div>);
+                })}
+            </div>
+        </aside>)}
 
         {showFolderModal && (<CreateFolderModal
             targetPath={currentFolder}

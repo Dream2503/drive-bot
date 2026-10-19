@@ -40,7 +40,7 @@ export default function UploadPage() {
     const directory = searchParams.get("directory") || "/home";
 
     // Upload states
-    const [file, setFile] = useState(null);
+    const [files, setFiles] = useState([]);
     const [link, setLink] = useState("");
     const [uploadMode, setUploadMode] = useState("file");
 
@@ -224,88 +224,99 @@ export default function UploadPage() {
 
     const handleUpload = async () => {
         if (!dataCenter) return;
-        if (uploadMode === "file" && !file) return;
+        if (uploadMode === "file" && files.length === 0) return;
         if (uploadMode === "link" && !link.trim()) return;
 
         setStatus("uploading");
         setProgress(0);
-        setMessage(uploadMode === "file" ? "Creating upload job" : "Starting import");
+        setMessage(uploadMode === "file" ? `Preparing ${files.length} file(s)` : "Starting import");
         setTransfer(0);
-        setTotal(uploadMode === "file" && file ? file.size : 0);
+        setTotal(uploadMode === "file" ? files.reduce((sum, selectedFile) => sum + selectedFile.size, 0) : 0);
 
-        const cancelToken = {cancelled: false};
+        const jobsKey = "storelimitless_upload_jobs";
+        const token = localStorage.getItem("token");
 
         try {
-            const token = localStorage.getItem("token");
-            let res;
-
-            if (uploadMode === "file") {
-                res = await fetch(`${API_URL}/auth/upload`, {
-                    method: "POST", headers: {
-                        Authorization: `Bearer ${token}`, "X-File-Name": file.name, "X-Data-Center": dataCenter, "X-Directory": directory,
-                    },
-                });
-            } else {
-                const params = new URLSearchParams({
-                    link: link.trim(), data_center: dataCenter, directory,
-                });
-
-                res = await fetch(`${API_URL}/auth/upload-link?${params.toString()}`, {
-                    method: "POST", headers: {
-                        Authorization: `Bearer ${token}`,
-                    },
-                });
-            }
-
-            if (!res.ok) {
-                let errorMessage = `Upload setup failed (${res.status})`;
-
-                try {
-                    const errorData = await res.json();
-                    errorMessage = errorData.detail || errorData.error || errorMessage;
-                } catch {
-                    // Ignore non-JSON error responses.
-                }
-
-                throw new Error(errorMessage);
-            }
-
-            const responseData = await res.json();
-            const jobId = responseData.job_id;
-
-            if (!jobId) {
-                throw new Error("The server did not return an upload job ID.");
-            }
-
-            if (uploadMode === "file") {
-                setMessage("Sending file to server");
-
-                // Chunks stream to the server's disk in parallel while the server
-                // uploads the growing file to the cloud. Polling reports the cloud side.
-                await Promise.all([uploadFileInChunks(jobId, file, cancelToken), pollJobStatus(jobId, cancelToken),]);
-            } else {
-                await pollJobStatus(jobId, cancelToken);
-            }
-
-            setProgress(100);
-            setMessage("Upload complete");
-            setStatus("done");
-
-            setTimeout(() => {
-                if (directory !== "/home") {
-                    navigate(`/dashboard?directory=${encodeURIComponent(directory)}`);
+            const createJob = async (selectedFile) => {
+                let res;
+                if (uploadMode === "file") {
+                    res = await fetch(`${API_URL}/auth/upload`, {
+                        method: "POST", headers: {
+                            Authorization: `Bearer ${token}`, "X-File-Name": selectedFile.name, "X-Data-Center": dataCenter, "X-Directory": directory,
+                        },
+                    });
                 } else {
-                    navigate("/dashboard");
+                    const params = new URLSearchParams({link: link.trim(), data_center: dataCenter, directory});
+                    res = await fetch(`${API_URL}/auth/upload-link?${params.toString()}`, {
+                        method: "POST", headers: {Authorization: `Bearer ${token}`},
+                    });
                 }
-            }, 1200);
-        } catch (error) {
-            cancelToken.cancelled = true;
 
-            for (const xhr of activeXhrs.current) {
-                xhr.abort();
+                if (!res.ok) {
+                    let errorMessage = `Upload setup failed (${res.status})`;
+                    try {
+                        const errorData = await res.json();
+                        errorMessage = errorData.detail || errorData.error || errorMessage;
+                    } catch {
+                        // Keep the HTTP status message when the response is not JSON.
+                    }
+                    throw new Error(`${selectedFile?.name ? `${selectedFile.name}: ` : ""}${errorMessage}`);
+                }
+
+                const {job_id: jobId} = await res.json();
+                if (!jobId) throw new Error("The server did not return an upload job ID.");
+
+                const job = {
+                    jobId,
+                    name: uploadMode === "file" ? selectedFile.name : link.trim(),
+                    kind: uploadMode,
+                    directory,
+                    dataCenter,
+                    status: "uploading",
+                    progress: 0,
+                    transfer: 0,
+                    total: uploadMode === "file" ? selectedFile.size : 0,
+                    message: uploadMode === "file" ? "Sending file to server" : "Importing from link",
+                    createdAt: Date.now(),
+                };
+                const existingJobs = JSON.parse(localStorage.getItem(jobsKey) || "[]");
+                localStorage.setItem(jobsKey, JSON.stringify([job, ...existingJobs.filter(item => item.jobId !== jobId)]));
+
+                if (!window.__storeLimitlessUploadTransfers) window.__storeLimitlessUploadTransfers = new Map();
+                const cancelToken = {cancelled: false};
+                window.__storeLimitlessUploadTransfers.set(jobId, {cancelToken, xhrs: activeXhrs.current});
+
+                if (uploadMode === "file") {
+                    void uploadFileInChunks(jobId, selectedFile, cancelToken).then(() => {
+                        window.__storeLimitlessUploadTransfers?.delete(jobId);
+                    }).catch((error) => {
+                        cancelToken.cancelled = true;
+                        window.__storeLimitlessUploadTransfers?.delete(jobId);
+                        for (const xhr of activeXhrs.current) xhr.abort();
+                        const jobs = JSON.parse(localStorage.getItem(jobsKey) || "[]");
+                        localStorage.setItem(jobsKey, JSON.stringify(jobs.map(item => item.jobId === jobId ? {
+                            ...item,
+                            status: "error",
+                            message: error instanceof Error ? error.message : "Upload failed"
+                        } : item)));
+                        console.error(`Upload transfer failed (${selectedFile.name}):`, error);
+                    });
+                }
+            };
+
+            if (uploadMode === "file") {
+                // Create a separate backend job for every selected file. Transfers
+                // start independently and continue after this page navigates away.
+                for (const selectedFile of files) {
+                    await createJob(selectedFile);
+                }
+            } else {
+                await createJob(null);
             }
 
-            console.error("Upload error:", error);
+            navigate(directory && directory !== "/home" ? `/dashboard?directory=${encodeURIComponent(directory)}` : "/dashboard");
+        } catch (error) {
+            console.error("Upload setup error:", error);
             setMessage(error instanceof Error ? error.message : "Upload failed");
             setStatus("error");
         }
@@ -319,19 +330,16 @@ export default function UploadPage() {
 
         setDragOver(false);
 
-        if (status === "uploading") return;
+        if (status === "uploading" || uploadMode !== "file") return;
 
-        const droppedFile = event.dataTransfer.files?.[0];
-
-        if (droppedFile) {
-            setFile(droppedFile);
-        }
+        const droppedFiles = Array.from(event.dataTransfer.files || []);
+        if (droppedFiles.length) setFiles((current) => [...current, ...droppedFiles]);
     };
 
     // ==========================================
     // CHECK IF UPLOAD BUTTON SHOULD BE DISABLED
     // ==========================================
-    const isUploadDisabled = !dataCenter || status === "uploading" || (uploadMode === "file" && !file) || (uploadMode === "link" && !link.trim());
+    const isUploadDisabled = !dataCenter || status === "uploading" || (uploadMode === "file" && files.length === 0) || (uploadMode === "link" && !link.trim());
 
     return (<div
         className="min-h-screen bg-[#171717] text-[#fafafa] flex flex-col"
@@ -452,58 +460,64 @@ export default function UploadPage() {
                     LOCAL FILE UPLOAD
                 ========================================== */}
                 {uploadMode === "file" && (<div className="mb-6">
-                    <p className={labelClass}>
-                        File
-                    </p>
+                    <p className={labelClass}>Files</p>
                     <label
                         htmlFor="file-input"
                         onDragOver={(event) => {
                             event.preventDefault();
-
-                            if (status !== "uploading") {
-                                setDragOver(true);
-                            }
+                            if (status !== "uploading") setDragOver(true);
                         }}
                         onDragLeave={() => setDragOver(false)}
                         onDrop={handleDrop}
-                        className={`flex flex-col items-center justify-center w-full h-40 rounded-lg border border-dashed cursor-pointer transition-colors ${dragOver ? "border-[#3ecf8e] bg-[#3ecf8e]/5" : file ? "border-[#3ecf8e]/40 bg-[#1f1f1f]" : "border-[#363636] bg-[#1f1f1f] hover:border-[#4d4d4d] hover:bg-[#232323]"} ${status === "uploading" ? "opacity-60 cursor-not-allowed" : ""}`}
+                        className={`flex flex-col items-center justify-center w-full min-h-40 rounded-lg border border-dashed cursor-pointer transition-colors ${dragOver ? "border-[#3ecf8e] bg-[#3ecf8e]/5" : files.length ? "border-[#3ecf8e]/40 bg-[#1f1f1f]" : "border-[#363636] bg-[#1f1f1f] hover:border-[#4d4d4d] hover:bg-[#232323]"} ${status === "uploading" ? "opacity-60 cursor-not-allowed" : ""}`}
                     >
-                            <span
-                                className={`material-symbols-outlined text-[36px] mb-2 ${file ? "text-[#3ecf8e]" : "text-[#4d4d4d]"}`}
-                            >
-                                {file ? "check_circle" : "cloud_upload"}
-                            </span>
-                        {file ? (<div className="text-center px-4">
-                            <p className="text-sm text-[#fafafa] break-all">
-                                {file.name}
-                            </p>
-                            <p className="text-xs text-[#898989] mt-1">
-                                {formatBytes(file.size)}
-                            </p>
-                        </div>) : (<div className="text-center">
+                        <span className={`material-symbols-outlined text-[36px] mb-2 ${files.length ? "text-[#3ecf8e]" : "text-[#4d4d4d]"}`}>
+                            {files.length ? "library_add_check" : "cloud_upload"}
+                        </span>
+                        <div className="text-center px-4 py-2">
                             <p className="text-sm text-[#898989]">
-                                Drop file here or{" "}
-                                <span className="text-[#fafafa] underline underline-offset-4 decoration-[#4d4d4d]">
-                                    browse
-                                </span>
+                                Drop files here or <span className="text-[#fafafa] underline underline-offset-4 decoration-[#4d4d4d]">browse</span>
                             </p>
-                            <p className="text-xs text-[#707070] mt-1">
-                                Any file type supported
-                            </p>
-                        </div>)}
+                            <p className="text-xs text-[#707070] mt-1">Select multiple files at once, or add more by dropping them here.</p>
+                        </div>
                         <input
                             id="file-input"
                             type="file"
+                            multiple
                             className="hidden"
                             disabled={status === "uploading"}
                             onChange={(event) => {
-                                const selectedFile = event.target.files?.[0];
-                                if (selectedFile) {
-                                    setFile(selectedFile);
-                                }
+                                const selectedFiles = Array.from(event.target.files || []);
+                                if (selectedFiles.length) setFiles((current) => [...current, ...selectedFiles]);
+                                event.target.value = "";
                             }}
                         />
                     </label>
+                    {files.length > 0 && (<div className="mt-3 rounded-lg border border-[#2e2e2e] bg-[#1f1f1f] divide-y divide-[#2e2e2e]">
+                        <div className="flex items-center justify-between px-3 py-2 text-xs text-[#898989]">
+                            <span>{files.length} file{files.length === 1 ? "" : "s"} selected</span>
+                            <button type="button" disabled={status === "uploading"} onClick={() => setFiles([])}
+                                    className="text-[#898989] hover:text-[#ff6369] disabled:opacity-50">Clear all
+                            </button>
+                        </div>
+                        <div className="max-h-48 overflow-y-auto">
+                            {files.map((selectedFile, index) => (
+                                <div key={`${selectedFile.name}-${selectedFile.size}-${selectedFile.lastModified}-${index}`}
+                                     className="flex items-center gap-3 px-3 py-2.5">
+                                    <span className="material-symbols-outlined text-[18px] text-[#898989]">draft</span>
+                                    <div className="min-w-0 flex-1">
+                                        <p className="truncate text-sm text-[#fafafa]" title={selectedFile.name}>{selectedFile.name}</p>
+                                        <p className="text-xs text-[#898989]">{formatBytes(selectedFile.size)}</p>
+                                    </div>
+                                    <button type="button" disabled={status === "uploading"}
+                                            onClick={() => setFiles((current) => current.filter((_, fileIndex) => fileIndex !== index))}
+                                            aria-label={`Remove ${selectedFile.name}`} title="Remove file"
+                                            className="rounded p-1 text-[#898989] hover:bg-white/5 hover:text-[#ff6369] disabled:opacity-50">
+                                        <span className="material-symbols-outlined text-[18px]">close</span>
+                                    </button>
+                                </div>))}
+                        </div>
+                    </div>)}
                 </div>)}
 
                 {/* ==========================================
@@ -577,7 +591,7 @@ export default function UploadPage() {
                         <span className="material-symbols-outlined text-[16px]">
                             cloud_upload
                         </span>
-                        {uploadMode === "link" ? "Import File" : "Upload File"}
+                        {uploadMode === "link" ? "Import File" : `Upload ${files.length} File${files.length === 1 ? "" : "s"}`}
                     </>)}
                 </button>
 

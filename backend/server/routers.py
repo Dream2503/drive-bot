@@ -1,18 +1,6 @@
+import aiofiles
 from asyncio import Event, Task, sleep
 from asyncio import create_task
-from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from mimetypes import guess_type
-from pathlib import Path
-from time import monotonic
-from typing import cast
-from urllib.parse import quote
-from uuid import uuid4
-
-import aiofiles
-from fastapi import APIRouter, Depends, HTTPException, Request, Header, Query
-from fastapi.responses import Response, StreamingResponse, JSONResponse
-
 from backend.database.models import Directory, File, User
 from backend.database.redis_server import Redis
 from backend.server.jwt_handler import create_access_token, get_current_user
@@ -23,6 +11,16 @@ from core.stream import Stream
 from core.transfer import link_upload, file_upload
 from core.utils.discord_ import Discord
 from core.utils.progress import Progress
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
+from fastapi import APIRouter, Depends, HTTPException, Request, Header, Query
+from fastapi.responses import Response, StreamingResponse, JSONResponse
+from mimetypes import guess_type
+from pathlib import Path
+from time import monotonic
+from typing import cast
+from urllib.parse import quote
+from uuid import uuid4
 
 auth: APIRouter = APIRouter(prefix="/auth")
 public: APIRouter = APIRouter(prefix="/public")
@@ -304,6 +302,33 @@ async def create_folder(directory: str, name: str, user: User = Depends(get_curr
     })
 
 
+@auth.get("/search")
+async def search(
+        query: str = Query(..., min_length=1, description="File or directory name to search for"),
+        user: User = Depends(get_current_user),
+        trash: bool = Query(False, description="Search trashed files and directories"),
+) -> dict[str, list[dict[str, object]]]:
+    """Search this user's files and directories by name across all folders."""
+    query = query.strip()
+    if not query:
+        raise HTTPException(status_code=422, detail="Search query cannot be empty")
+
+    matching_files: list[File] = await File.get_all(user.username, trash=trash, file_name=query)
+    matching_directories: list[Directory] = await Directory.get_all(user.username, trash=trash, directory_name=query, )
+
+    files: list[dict[str, object]] = []
+
+    for file in matching_files:
+        directory = await Directory.get(user.username, did=file.directory_id, trash=trash)
+        item = file.model_dump(mode="json")
+        item["directory"] = str(directory.path) if directory is not None else ""
+        files.append(item)
+
+    directories = [directory.model_dump(mode="json") for directory in matching_directories]
+
+    return {"files": files, "directories": directories}
+
+
 @auth.get("/directory")
 async def get_directory(directory: str, user: User = Depends(get_current_user)) -> tuple[list[Directory], list[File]]:
     directory_obj: Directory | None = await Directory.get(user.username, path=Path(directory))
@@ -311,7 +336,7 @@ async def get_directory(directory: str, user: User = Depends(get_current_user)) 
     if directory_obj is None:
         raise HTTPException(status_code=404, detail="Directory not found")
 
-    return await Directory.get_all(user.username, Path(directory)), await File.get_all(user.username, directory_obj.id)
+    return await Directory.get_all(user.username, directory=Path(directory)), await File.get_all(user.username, directory_id=directory_obj.id)
 
 
 @auth.get("/trash")
@@ -366,10 +391,10 @@ async def permanently_delete_directory(did: int, user: User = Depends(get_curren
     if directory is None or directory.username != user.username:
         raise HTTPException(status_code=404, detail="Directory not found")
 
-    for file in await File.get_all(user.username, directory.id, True):
+    for file in await File.get_all(user.username, directory_id=directory.id, trash=True):
         await file.delete()
 
-    for child in await Directory.get_all(user.username, directory.path, True):
+    for child in await Directory.get_all(user.username, directory=directory.path, trash=True):
         await permanently_delete_directory(cast(int, child.id), user)
 
     await directory.delete()

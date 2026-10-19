@@ -1,12 +1,11 @@
-from datetime import datetime, timezone
-from pathlib import Path
-from typing import cast
-
 from backend.database.connection import POOL
 from backend.database.redis_server import Redis
 from core.data_center import Database
 from core.utils import write_log
+from datetime import datetime, timezone
+from pathlib import Path
 from pydantic import BaseModel, ConfigDict, Field
+from typing import cast
 
 
 class Directory(BaseModel):
@@ -44,7 +43,8 @@ class Directory(BaseModel):
                 self.id = cast(dict[str, int], connection.execute(
                     """
                     INSERT INTO directories (path, modified_at, deleted_at, username)
-                    VALUES (%s, %s, %s, %s) RETURNING id;
+                    VALUES (%s, %s, %s, %s)
+                    RETURNING id;
                     """,
                     (str(self.path), self.modified_at, self.deleted_at, self.username),
                 ).fetchone())["id"]
@@ -89,17 +89,31 @@ class Directory(BaseModel):
         return None
 
     @classmethod
-    async def get_all(cls, username: str, directory: Path | None = None, trash: bool = False) -> list["Directory"]:
+    async def get_all(
+            cls,
+            username: str,
+            *,
+            directory: Path | None = None,
+            directory_name: str | None = None,
+            trash: bool = False
+    ) -> list["Directory"]:
         directories: list[Directory] = cast(list[Directory], await Redis.get(f"user:{username}:directories", "Directory"))
+        query: str | None = directory_name.strip().casefold() if directory_name else None
         result: list[Directory] = []
 
         for data in directories:
-            if trash != (data.deleted_at is not None) or directory is not None and data.path.parent != directory:
+            if trash != (data.deleted_at is not None):
+                continue
+
+            if directory is not None and data.path.parent != directory:
+                continue
+
+            if query is not None and query not in data.path.name.casefold():
                 continue
 
             result.append(data)
 
-        result.sort(key=lambda dir: str(dir.path))
+        result.sort(key=lambda item: str(item.path).casefold())
         return result
 
     async def update(self) -> None:
