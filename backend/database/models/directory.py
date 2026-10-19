@@ -1,16 +1,24 @@
+"""
+Directory model and persistence operations. A directory is represented by a path owned by a user; directory metadata is stored in PostgreSQL and
+cached in Redis.
+"""
+
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import cast
+
+from pydantic import BaseModel, ConfigDict, Field
+
 from backend.database.connection import POOL
 from backend.database.redis_server import Redis
 from core.data_center import Database
 from core.utils import write_log
-from datetime import datetime, timezone
-from pathlib import Path
-from pydantic import BaseModel, ConfigDict, Field
-from typing import cast
 
 
 class Directory(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
+    """Represent a user-owned directory, including its path, modification time, and optional trash timestamp."""
 
+    model_config = ConfigDict(from_attributes=True)
     id: int | None = None
     path: Path
     modified_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
@@ -18,6 +26,8 @@ class Directory(BaseModel):
     username: str
 
     def __repr__(self) -> str:
+        """Return a readable representation of the directory metadata."""
+
         return (
             f"Directory(id={self.id}, "
             f"path={self.path!r}, "
@@ -27,6 +37,8 @@ class Directory(BaseModel):
         )
 
     async def save(self) -> None:
+        """Insert the directory and cache it in Redis. If its path already exists for the user, append a numbered suffix to make the path unique."""
+
         if await Directory.get(self.username, path=self.path) is not None:
             parent: Path = self.path.parent
             name: str = self.path.name
@@ -65,6 +77,8 @@ class Directory(BaseModel):
             path: Path | None = None,
             trash: bool = False
     ) -> "Directory | None":
+        """Retrieve a directory by ID or path and filter by the requested trash state. Return None when no matching directory exists."""
+
         if did is not None:
             try:
                 directory: Directory = cast(Directory, await Redis.get(f"user:{username}:directories {did}", "Directory"))
@@ -97,6 +111,8 @@ class Directory(BaseModel):
             directory_name: str | None = None,
             trash: bool = False
     ) -> list["Directory"]:
+        """Return a user’s directories, optionally filtered to direct children of a path, by case-insensitive name substring, and by trash state."""
+
         directories: list[Directory] = cast(list[Directory], await Redis.get(f"user:{username}:directories", "Directory"))
         query: str | None = directory_name.strip().casefold() if directory_name else None
         result: list[Directory] = []
@@ -117,6 +133,8 @@ class Directory(BaseModel):
         return result
 
     async def update(self) -> None:
+        """Persist the directory path and state to PostgreSQL and update its Redis cache entry. Raise ValueError if the directory has no ID."""
+
         if self.id is None:
             raise ValueError("Directory has no ID")
 
@@ -141,6 +159,8 @@ class Directory(BaseModel):
                 raise
 
     async def move_to_trash(self) -> None:
+        """Mark the directory as deleted by setting deleted_at and modified_at to the current UTC time, then persist the change."""
+
         if self.id is None:
             raise ValueError("Directory has no ID")
 
@@ -149,6 +169,8 @@ class Directory(BaseModel):
         await self.update()
 
     async def delete(self) -> None:
+        """Permanently delete the directory record from PostgreSQL and remove its individual Redis cache entry."""
+
         if self.id is None:
             raise ValueError("Directory has no ID")
 
@@ -172,6 +194,8 @@ class Directory(BaseModel):
                 raise
 
     async def restore(self) -> None:
+        """Restore a trashed directory by clearing deleted_at, updating modified_at, and persisting the change."""
+
         if self.id is None:
             raise ValueError("Directory has no ID")
 

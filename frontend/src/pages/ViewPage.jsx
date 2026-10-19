@@ -1,11 +1,30 @@
 import {useCallback, useEffect, useRef, useState} from "react";
 import {useNavigate, useParams, useSearchParams} from "react-router-dom";
 
+/**
+ * @typedef {{name: string}} PreviewFile
+ */
+/**
+ * @typedef {Object} VideoPlayerProps
+ * @property {PreviewFile} file
+ * @property {string} streamUrl
+ * @property {string} [heightClass]
+ * @property {boolean} [pauseForVlc]
+ */
+/** @typedef {{streamUrl: string}} VideoSource */
+
+
+/** @type {string | undefined} */
 const API_URL = window.STORELIMITLESS_CONFIG?.API_URL ?? import.meta.env.VITE_API_URL;
 const SPEEDS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
 
 const ctrlBtn = "flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-[#fafafa]/90 transition-colors " + "hover:bg-white/10 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#3ecf8e]";
 
+/**
+ * Format a playback position as mm:ss or hh:mm:ss.
+ * @param {number} seconds
+ * @returns {string}
+ */
 const fmtTime = (seconds) => {
     if (!Number.isFinite(seconds) || seconds < 0) return "0:00";
     const hours = Math.floor(seconds / 3600);
@@ -14,6 +33,11 @@ const fmtTime = (seconds) => {
     return hours > 0 ? `${hours}:${minutes.toString().padStart(2, "0")}:${secs}` : `${minutes}:${secs}`;
 };
 
+/**
+ * Render a custom HTML video player with seeking, volume, speed, fullscreen, and keyboard controls.
+ * @param {VideoPlayerProps} props
+ * @returns {import("react").ReactElement}
+ */
 function VideoPlayer({file, streamUrl, heightClass = "h-[70vh]", pauseForVlc = false}) {
     const wrapRef = useRef(null);
     const videoRef = useRef(null);
@@ -31,7 +55,9 @@ function VideoPlayer({file, streamUrl, heightClass = "h-[70vh]", pauseForVlc = f
     const [rate, setRate] = useState(1);
     const [isFs, setIsFs] = useState(false);
     const [showUi, setShowUi] = useState(true);
+    /** @type {["speed" | null, import("react").Dispatch<import("react").SetStateAction<"speed" | null>>]} */
     const [menu, setMenu] = useState(null);
+    /** @type {[string | null, import("react").Dispatch<import("react").SetStateAction<string | null>>]} */
     const [error, setError] = useState(null);
 
     menuRef.current = menu;
@@ -89,13 +115,29 @@ function VideoPlayer({file, streamUrl, heightClass = "h-[70vh]", pauseForVlc = f
         if (document.fullscreenElement) document.exitFullscreen?.(); else wrapRef.current?.requestFullscreen?.();
     }, []);
 
+    /**
+     * Toggle browser picture-in-picture playback when supported.
+     * @returns {void}
+     */
     const togglePip = () => {
         const video = videoRef.current;
         if (!video) return;
-        if (document.pictureInPictureElement) document.exitPictureInPicture?.(); else video.requestPictureInPicture?.().catch(() => {
-        });
+        if (document.pictureInPictureElement) {
+            document.exitPictureInPicture?.().catch(() => {
+                // The browser may reject picture-in-picture if the state changes mid-request.
+            });
+        } else {
+            video.requestPictureInPicture?.().catch(() => {
+                // Picture-in-picture may be unavailable for the current media state.
+            });
+        }
     };
 
+    /**
+     * Apply a playback rate and close the speed menu.
+     * @param {number} playbackRate
+     * @returns {void}
+     */
     const changeRate = (playbackRate) => {
         if (videoRef.current) videoRef.current.playbackRate = playbackRate;
         setMenu(null);
@@ -116,6 +158,11 @@ function VideoPlayer({file, streamUrl, heightClass = "h-[70vh]", pauseForVlc = f
     }, []);
 
     useEffect(() => {
+        /**
+         * Handle video-player keyboard shortcuts.
+         * @param {KeyboardEvent} event
+         * @returns {void}
+         */
         const onKey = (event) => {
             const tag = event.target?.tagName;
             if ((tag === "INPUT" && event.target.type !== "range") || tag === "TEXTAREA") return;
@@ -165,6 +212,10 @@ function VideoPlayer({file, streamUrl, heightClass = "h-[70vh]", pauseForVlc = f
         return () => window.removeEventListener("keydown", onKey);
     }, [togglePlay, seekBy, changeVolume, toggleFs, poke]);
 
+    /**
+     * Update the visible buffered endpoint for the current playback position.
+     * @returns {void}
+     */
     const updateBuffered = () => {
         const video = videoRef.current;
         if (!video) return;
@@ -179,6 +230,11 @@ function VideoPlayer({file, streamUrl, heightClass = "h-[70vh]", pauseForVlc = f
     };
 
     const controlsVisible = showUi || !playing || menu !== null;
+    /**
+     * Convert a time value to a clamped timeline percentage.
+     * @param {number} value
+     * @returns {number}
+     */
     const percent = (value) => duration ? Math.min((value / duration) * 100, 100) : 0;
 
     return (<div
@@ -340,6 +396,10 @@ function VideoPlayer({file, streamUrl, heightClass = "h-[70vh]", pauseForVlc = f
     </div>);
 }
 
+/**
+ * Resolve a signed stream URL and render the selected preview.
+ * @returns {import("react").ReactElement}
+ */
 export default function ViewPage() {
     const {fileId} = useParams();
     const [searchParams] = useSearchParams();
@@ -347,6 +407,7 @@ export default function ViewPage() {
     const name = searchParams.get("name") || "Untitled";
     const kind = searchParams.get("kind");
 
+    /** @type {[VideoSource | null, import("react").Dispatch<import("react").SetStateAction<VideoSource | null>>]} */
     const [source, setSource] = useState(null);
     const [status, setStatus] = useState("Preparing video…");
     const [error, setError] = useState("");
@@ -354,6 +415,11 @@ export default function ViewPage() {
 
     // Backspace or Escape returns to the previous page/folder, unless the user is editing text.
     useEffect(() => {
+        /**
+         * Navigate back from the viewer unless a text-editing control has focus.
+         * @param {KeyboardEvent} event
+         * @returns {void}
+         */
         const handleKeyDown = (event) => {
             if (!["Backspace", "Escape"].includes(event.key) || event.altKey || event.ctrlKey || event.metaKey) return;
 

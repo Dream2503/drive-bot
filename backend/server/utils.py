@@ -1,3 +1,5 @@
+"""Input validation helpers shared by the StoreLimitless API."""
+
 from typing import Literal
 from urllib.parse import ParseResult, urlparse
 
@@ -5,15 +7,12 @@ from fastapi import HTTPException
 
 from core.config import POSSIBLE_DATACENTERS
 
-ValueType = Literal[
-    "data_center",
-    "directory",
-    "file_name",
-    "link",
-]
+ValueType = Literal["data_center", "directory", "file_name", "link"]
 
 
 def perform_validation(value: str, value_type: ValueType) -> str:
+    """Normalize and validate a supported API input value."""
+
     value = value.strip()
 
     match value_type:

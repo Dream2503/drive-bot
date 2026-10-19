@@ -1,3 +1,8 @@
+"""
+Database connection setup and PostgreSQL schema initialization. This module defines the shared connection pool and row type aliases, then creates
+the users, directories, and files tables when imported.
+"""
+
 from datetime import datetime
 from typing import cast
 

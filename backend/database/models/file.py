@@ -1,14 +1,21 @@
+"""
+File model and persistence operations. File metadata is stored in PostgreSQL and mirrored in Redis for lookup, listing, trash, and restore operations.
+"""
+
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+from typing import cast
+
+from pydantic import BaseModel, ConfigDict, Field
+
 from backend.database.connection import POOL
 from backend.database.redis_server import Redis
 from core.data_center import Database
 from core.utils import write_log
-from datetime import datetime, timedelta, timezone
-from pathlib import Path
-from pydantic import BaseModel, ConfigDict, Field
-from typing import cast
 
 
 class File(BaseModel):
+    """Represent a stored file, including its parent directory, content metadata, data-center links, owner, and trash state."""
     model_config = ConfigDict(from_attributes=True)
 
     id: int | None = None
@@ -23,6 +30,8 @@ class File(BaseModel):
     username: str
 
     def __repr__(self) -> str:
+        """Return a readable representation of the file metadata."""
+
         return (
             f"File(id={self.id}, "
             f"directory_id={self.directory_id}, "
@@ -37,6 +46,10 @@ class File(BaseModel):
         )
 
     async def save(self) -> None:
+        """
+        Insert the file metadata, choosing a numbered name when the target directory already contains the same name. Cache the saved file in Redis.
+        """
+
         if await self.get(self.username, did=self.directory_id, name=self.name):
             path: Path = Path(self.name)
             stem, extension = path.stem, path.suffix
@@ -85,6 +98,8 @@ class File(BaseModel):
             name: str | None = None,
             trash: bool = False
     ) -> "File | None":
+        """Retrieve one file by ID or by directory ID and name, respecting the requested trash state. Return None when no matching file exists."""
+
         if fid is not None:
             try:
                 file: File = cast(File, await Redis.get(f"user:{username}:files {fid}", "File"))
@@ -110,6 +125,8 @@ class File(BaseModel):
 
     @classmethod
     async def get_all(cls, username: str, *, directory_id: int | None = None, file_name: str | None = None, trash: bool = False) -> list["File"]:
+        """Return the user’s files, optionally filtered by directory, case-insensitive name substring, and trash state."""
+
         files: list[File] = cast(list[File], await Redis.get(f"user:{username}:files", "File"))
         query: str | None = file_name.strip().casefold() if file_name else None
         result: list[File] = []
@@ -130,6 +147,8 @@ class File(BaseModel):
         return result
 
     async def update(self) -> None:
+        """Persist the file’s mutable metadata to PostgreSQL and update its Redis cache entry. Raise ValueError if the file has no ID."""
+
         if self.id is None:
             raise ValueError("File has no ID")
 
@@ -169,6 +188,8 @@ class File(BaseModel):
                 raise
 
     async def move_to_trash(self) -> None:
+        """Mark the file as deleted by setting deleted_at and modified_at to the current UTC time, then persist the change."""
+
         if self.id is None:
             raise ValueError("File has no ID")
 
@@ -177,6 +198,8 @@ class File(BaseModel):
         await self.update()
 
     async def delete(self) -> None:
+        """Permanently delete the file record from PostgreSQL and remove its individual Redis cache entry."""
+
         if self.id is None:
             raise ValueError("File has no ID")
 
@@ -199,6 +222,8 @@ class File(BaseModel):
                 raise
 
     async def restore(self) -> None:
+        """Restore a trashed file by clearing deleted_at, updating modified_at, and persisting the change."""
+
         if self.id is None:
             raise ValueError("File has no ID")
 
@@ -208,6 +233,8 @@ class File(BaseModel):
 
     @classmethod
     async def purge_expired(cls, username: str, older_than_days: int = 30) -> None:
+        """Permanently delete files that have remained in the user’s trash longer than older_than_days, removing their Redis entries too."""
+
         files: list[File] = cast(list[File], await Redis.get(f"user:{username}:files", "File"))
         cutoff: datetime = datetime.now(timezone.utc) - timedelta(days=older_than_days)
         expired: list[File] = [file for file in files if file.deleted_at is not None and file.deleted_at < cutoff]

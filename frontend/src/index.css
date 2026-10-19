@@ -1,3 +1,4 @@
+/* Global Tailwind layers, reusable component utilities, and the app-wide font. */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

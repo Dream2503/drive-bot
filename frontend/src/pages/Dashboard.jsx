@@ -2,14 +2,99 @@ import {useCallback, useEffect, useMemo, useRef, useState} from "react";
 import {useLocation, useNavigate} from "react-router-dom";
 import {createPortal} from "react-dom";
 
+/**
+ * @typedef {Object} SidebarProps
+ * @property {DashboardTab} activeTab
+ * @property {(tab: DashboardTab) => void} onTabSelect
+ * @property {() => void} onUpload
+ * @property {() => void} onCreateFolder
+ * @property {() => void} onLogout
+ * @property {number | null} storageUsed
+ */
+/**
+ * @typedef {Object} CreateFolderModalProps
+ * @property {string} targetPath
+ * @property {() => void} onClose
+ * @property {(name: string) => Promise<void>} onCreate
+ */
+/**
+ * @typedef {Object} RenameItemModalProps
+ * @property {SelectableItem} item
+ * @property {() => void} onClose
+ * @property {(item: SelectableItem, name: string) => Promise<void>} onRename
+ */
+/**
+ * @typedef {Object} ContextMenuProps
+ * @property {ContextMenuState} menu
+ * @property {() => void} onClose
+ * @property {(action: string) => void} onAction
+ */
+
+
+/** @typedef {"files" | "trash"} DashboardTab */
+/** @typedef {{icon: string, color: string}} FileIconStyle */
+/**
+ * @typedef {Object} FileEntry
+ * @property {string | number} id
+ * @property {string} name
+ * @property {string} [type]
+ * @property {number} [size]
+ * @property {string | number} [directory_id]
+ * @property {string} [directory]
+ * @property {boolean} [is_deleted]
+ */
+/**
+ * @typedef {Object} FolderEntry
+ * @property {string | number} id
+ * @property {string} path
+ * @property {boolean} [is_deleted]
+ */
+/**
+ * @typedef {Object} SelectableItem
+ * @property {string} key
+ * @property {"file" | "folder"} type
+ * @property {string | number} id
+ * @property {string} name
+ * @property {string} [path]
+ * @property {string} [directory]
+ * @property {boolean} [is_deleted]
+ * @property {FileEntry | FolderEntry} [object]
+ */
+/**
+ * @typedef {Object} UploadJob
+ * @property {string} jobId
+ * @property {string} [name]
+ * @property {string} [status]
+ * @property {number} [progress]
+ * @property {number} [transfer]
+ * @property {number} [total]
+ * @property {string} [message]
+ */
+/**
+ * @typedef {{kind: "background"} | {kind: "item", item: SelectableItem}} ContextMenuPayload
+ */
+/**
+ * @typedef {ContextMenuPayload & {x: number, y: number}} ContextMenuState
+ */
+
+
+/** @type {string | undefined} */
 const API_URL = window.STORELIMITLESS_CONFIG?.API_URL ?? import.meta.env.VITE_API_URL
 const DASHBOARD_SELECTION_STORAGE_KEY = "storelimitless_dashboard_selection_restore";
 const DASHBOARD_SELECTIONS_BY_VIEW_KEY = "storelimitless_dashboard_selections_by_view";
 
+/**
+ * Create a stable storage key for a dashboard view.
+ * @param {string} pathname
+ * @param {DashboardTab} activeTab
+ * @param {string} searchQuery
+ * @returns {string}
+ */
 function makeSelectionViewKey(pathname, activeTab, searchQuery) {
     return JSON.stringify([pathname, activeTab, searchQuery]);
 }
 
+/** @type {Array<{id: DashboardTab, icon: string, label: string, enabled: boolean}>} */
 const NAV_ITEMS = [{id: "files", icon: "folder_open", label: "All Files", enabled: true}, {
     id: "trash", icon: "delete", label: "Trash", enabled: true
 },];
@@ -21,6 +106,7 @@ const iconBtn = "flex h-7 w-7 items-center justify-center rounded-md text-[#8989
 const iconBtnDanger = "flex h-7 w-7 items-center justify-center rounded-md text-[#898989] transition-colors hover:bg-[#e5484d]/10 hover:text-[#ff6369] disabled:opacity-50";
 const inputClass = "w-full h-[38px] rounded-md border border-[#363636] bg-white/[0.026] px-3 text-sm text-[#fafafa] placeholder:text-[#707070] outline-none transition-colors focus:border-[#707070] focus:ring-2 focus:ring-[#4d4d4d]/50 disabled:opacity-60";
 
+/** @type {Record<string, FileIconStyle>} */
 const FILE_ICONS = {
     pdf: {icon: "picture_as_pdf", color: "text-[#ff6369]"},
     jpg: {icon: "image", color: "text-[#3ecf8e]"},
@@ -41,11 +127,21 @@ const FILE_ICONS = {
     default: {icon: "draft", color: "text-[#898989]"},
 };
 
+/**
+ * Choose the icon and color for a filename extension.
+ * @param {string | null | undefined} filename
+ * @returns {FileIconStyle}
+ */
 function getFileIcon(filename) {
     const extension = filename?.split(".").pop()?.toLowerCase();
     return FILE_ICONS[extension] || FILE_ICONS.default;
 }
 
+/**
+ * Format a date for display, returning a placeholder for invalid dates.
+ * @param {string | null | undefined} dateStr
+ * @returns {string}
+ */
 function formatDate(dateStr) {
     if (!dateStr) return "—";
     const date = new Date(dateStr);
@@ -55,6 +151,11 @@ function formatDate(dateStr) {
     });
 }
 
+/**
+ * Identify supported preview categories from a file extension.
+ * @param {string | null | undefined} filename
+ * @returns {"video" | "audio" | "pdf" | null}
+ */
 function getFileKind(filename) {
     const ext = filename?.split(".").pop()?.toLowerCase();
     if (["mp4", "mkv", "webm", "mov"].includes(ext)) return "video";
@@ -63,13 +164,22 @@ function getFileKind(filename) {
     return null;
 }
 
+/**
+ * Format a byte count using a bounded binary unit.
+ * @param {number} bytes
+ * @returns {string}
+ */
 function formatFileSize(bytes) {
     if (!bytes || bytes <= 0) return "0 B";
     const units = ["B", "KB", "MB", "GB", "TB"];
-    const i = Math.floor(Math.log(bytes) / Math.log(1024));
+    const i = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
     return `${(bytes / Math.pow(1024, i)).toFixed(1)} ${units[i]}`;
 }
 
+/**
+ * Read the current access token from browser storage.
+ * @returns {string | null}
+ */
 function getToken() {
     return localStorage.getItem("token");
 }
@@ -79,6 +189,11 @@ function getToken() {
 
 /* -------------------------------------------------------------------- */
 
+/**
+ * Render the dashboard navigation and storage summary.
+ * @param {SidebarProps} props
+ * @returns {import("react").ReactElement}
+ */
 function Sidebar({activeTab, onTabSelect, onUpload, onCreateFolder, onLogout, storageUsed}) {
     return (<nav className="flex h-screen w-60 flex-col border-r border-[#2e2e2e] bg-[#171717]">
         {/* Brand */}
@@ -185,12 +300,22 @@ function Sidebar({activeTab, onTabSelect, onUpload, onCreateFolder, onLogout, st
 
 /* -------------------------------------------------------------------- */
 
+/**
+ * Render and validate the create-folder dialog.
+ * @param {CreateFolderModalProps} props
+ * @returns {import("react").ReactElement}
+ */
 function CreateFolderModal({targetPath, onClose, onCreate}) {
     const [name, setName] = useState("");
     const [error, setError] = useState("");
     const [creating, setCreating] = useState(false);
 
     useEffect(() => {
+        /**
+         * Close the create-folder dialog when Escape is pressed.
+         * @param {KeyboardEvent} event
+         * @returns {void}
+         */
         const onKeyDown = (e) => {
             if (e.key === "Escape" && !creating) onClose();
         };
@@ -198,6 +323,11 @@ function CreateFolderModal({targetPath, onClose, onCreate}) {
         return () => window.removeEventListener("keydown", onKeyDown);
     }, [creating, onClose]);
 
+    /**
+     * Validate and submit a new folder name.
+     * @param {import("react").FormEvent<HTMLFormElement>} event
+     * @returns {Promise<void>}
+     */
     const handleSubmit = async (event) => {
         event.preventDefault();
         const cleanName = name.trim();
@@ -284,6 +414,11 @@ function CreateFolderModal({targetPath, onClose, onCreate}) {
     </div>);
 }
 
+/**
+ * Render the rename dialog with keyboard-accessible controls.
+ * @param {RenameItemModalProps} props
+ * @returns {import("react").ReactElement}
+ */
 function RenameItemModal({item, onClose, onRename}) {
     const [name, setName] = useState(item.name || "");
     const [error, setError] = useState("");
@@ -292,6 +427,11 @@ function RenameItemModal({item, onClose, onRename}) {
     const cancelButtonRef = useRef(null);
     const renameButtonRef = useRef(null);
 
+    /**
+     * Handle keyboard navigation within the rename dialog.
+     * @param {import("react").KeyboardEvent<HTMLElement>} event
+     * @returns {void}
+     */
     const handleDialogKeyDown = (event) => {
         if (event.key === "Escape") {
             event.preventDefault();
@@ -336,6 +476,11 @@ function RenameItemModal({item, onClose, onRename}) {
         if (isActionButton && event.key === "Enter") event.stopPropagation();
     };
 
+    /**
+     * Validate the new name and submit the rename operation.
+     * @param {import("react").FormEvent<HTMLFormElement>} event
+     * @returns {Promise<void>}
+     */
     const handleSubmit = async (event) => {
         event.preventDefault();
         const cleanName = name.trim();
@@ -433,6 +578,11 @@ function RenameItemModal({item, onClose, onRename}) {
     </div>);
 }
 
+/**
+ * Render the context menu in a portal and close it on outside interaction.
+ * @param {ContextMenuProps} props
+ * @returns {import("react").ReactNode}
+ */
 function DashboardContextMenu({menu, onClose, onAction}) {
     useEffect(() => {
         const closeOnOutsideClick = () => onClose();
@@ -482,12 +632,22 @@ function DashboardContextMenu({menu, onClose, onAction}) {
 
 /* -------------------------------------------------------------------- */
 
+/**
+ * Convert a stored folder path into its dashboard route.
+ * @param {string} folderPath
+ * @returns {string}
+ */
 function folderPathToRoute(folderPath) {
     const segments = (folderPath || "").split("/").filter(Boolean);
     const relativeSegments = segments[0] === "home" ? segments.slice(1) : segments;
     return `/home${relativeSegments.length ? `/${relativeSegments.map(encodeURIComponent).join("/")}` : ""}`;
 }
 
+/**
+ * Decode a route segment without failing on malformed percent escapes.
+ * @param {string} segment
+ * @returns {string}
+ */
 function decodePathSegment(segment) {
     try {
         return decodeURIComponent(segment);
@@ -496,13 +656,21 @@ function decodePathSegment(segment) {
     }
 }
 
+/**
+ * Render file browsing, search, selection, and file-management interactions.
+ * @returns {import("react").ReactElement}
+ */
 export default function DashboardPage() {
     const navigate = useNavigate();
     const location = useLocation();
 
+    /** @type {[DashboardTab, import("react").Dispatch<import("react").SetStateAction<DashboardTab>>]} */
     const [activeTab, setActiveTab] = useState("files");
+    /** @type {[FileEntry[], import("react").Dispatch<import("react").SetStateAction<FileEntry[]>>]} */
     const [files, setFiles] = useState([]);
+    /** @type {[FolderEntry[], import("react").Dispatch<import("react").SetStateAction<FolderEntry[]>>]} */
     const [folders, setFolders] = useState([]);
+    /** @type {[number | null, import("react").Dispatch<import("react").SetStateAction<number | null>>]} */
     const [storageUsed, setStorageUsed] = useState(null);
     // The URL is the source of truth for the current folder. This keeps links
     // shareable and makes browser back/forward restore the previous folder.
@@ -519,6 +687,7 @@ export default function DashboardPage() {
     const fileFetchSequenceRef = useRef(0);
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
+    /** @type {[FileEntry[], import("react").Dispatch<import("react").SetStateAction<FileEntry[]>>]} */
     const [searchResults, setSearchResults] = useState([]);
     const [searchLoading, setSearchLoading] = useState(false);
     const [searchError, setSearchError] = useState("");
@@ -530,7 +699,9 @@ export default function DashboardPage() {
     const [openMenuFileId, setOpenMenuFileId] = useState(null);
     const [clipboard, setClipboard] = useState(null);
     const [menuPosition, setMenuPosition] = useState(null);
+    /** @type {[ContextMenuState | null, import("react").Dispatch<import("react").SetStateAction<ContextMenuState | null>>]} */
     const [contextMenu, setContextMenu] = useState(null);
+    /** @type {[Set<string>, import("react").Dispatch<import("react").SetStateAction<Set<string>>>]} */
     const [selectedItems, setSelectedItems] = useState(() => new Set());
     const [marquee, setMarquee] = useState(null);
     const [dropTargetKey, setDropTargetKey] = useState(null);
@@ -566,6 +737,12 @@ export default function DashboardPage() {
     const lastSelectionSnapshotViewKeyRef = useRef(currentSelectionViewKey);
     const selectionSnapshotInitialRenderRef = useRef(true);
     const skipSelectionSnapshotPersistRef = useRef(false);
+    /**
+     * Persist the current selection so it can be restored after navigation.
+     * @param {string[]} [keys]
+     * @param {string | null} [anchor]
+     * @returns {void}
+     */
     const saveCurrentSelectionSnapshot = (keys = Array.from(selectedItems), anchor = selectionAnchorRef.current) => {
         const snapshots = selectionSnapshotsByViewRef.current || (selectionSnapshotsByViewRef.current = {});
         snapshots[currentSelectionViewKey] = {
@@ -597,9 +774,11 @@ export default function DashboardPage() {
             sessionStorage.removeItem(DASHBOARD_SELECTION_STORAGE_KEY);
         }
     }
+    /** @type {[UploadJob[], import("react").Dispatch<import("react").SetStateAction<UploadJob[]>>]} */
     const [uploadJobs, setUploadJobs] = useState(() => {
         try {
-            return JSON.parse(localStorage.getItem("storelimitless_upload_jobs") || "[]");
+            const storedJobs = JSON.parse(localStorage.getItem("storelimitless_upload_jobs") || "[]");
+            return Array.isArray(storedJobs) ? storedJobs : [];
         } catch {
             return [];
         }
@@ -607,6 +786,10 @@ export default function DashboardPage() {
 
     /* -------------------------- fetch metadata ------------------------- */
 
+    /**
+     * Fetch account storage usage without blocking file browsing.
+     * @returns {Promise<void>}
+     */
     const fetchMetadata = useCallback(async () => {
         const token = getToken();
         if (!token) return;
@@ -628,6 +811,10 @@ export default function DashboardPage() {
 
     /* ---------------------------- fetch files --------------------------- */
 
+    /**
+     * Load the current directory and trash while preventing stale responses from overwriting newer navigation.
+     * @returns {Promise<void>}
+     */
     const fetchFiles = useCallback(async () => {
         const requestId = ++fileFetchSequenceRef.current;
         const requestedFolder = currentFolderRef.current;
@@ -694,6 +881,11 @@ export default function DashboardPage() {
         }
     }, [navigate, fetchMetadata]);
 
+    /**
+     * Save selection state and open the selected file in its preview route.
+     * @param {FileEntry} file
+     * @returns {void}
+     */
     const handleFileClick = (file) => {
         saveCurrentSelectionSnapshot();
         const kind = getFileKind(file.name);
@@ -723,6 +915,10 @@ export default function DashboardPage() {
         let cancelled = false;
         let polling = false;
         const jobsKey = "storelimitless_upload_jobs";
+        /**
+         * Refresh upload progress and refresh the current directory when jobs complete.
+         * @returns {Promise<void>}
+         */
         const refreshUploadJobs = async () => {
             if (polling || cancelled) return;
             polling = true;
@@ -776,9 +972,11 @@ export default function DashboardPage() {
                 setUploadJobs(remainingJobs);
                 if (completedIds.size > 0) {
                     // The completed jobs have already been removed from localStorage.
-                    // Reload the dashboard once so the finished upload appears in the
-                    // current directory and the upload tray no longer lists it.
-                    window.location.reload();
+                    // Remove their global cancellation handles and refresh the current directory.
+                    for (const jobId of completedIds) {
+                        window.__storeLimitlessUploadTransfers?.delete(jobId);
+                    }
+                    void fetchFiles();
                 }
             } finally {
                 polling = false;
@@ -793,6 +991,11 @@ export default function DashboardPage() {
         };
     }, [fetchFiles]);
 
+    /**
+     * Remove an upload job from persistent state and the dashboard tray.
+     * @param {string} jobId
+     * @returns {void}
+     */
     const dismissUploadJob = (jobId) => {
         setUploadJobs(current => {
             const next = current.filter(job => job.jobId !== jobId);
@@ -801,6 +1004,11 @@ export default function DashboardPage() {
         });
     };
 
+    /**
+     * Abort a job’s active chunk requests and remove it from the tray.
+     * @param {string} jobId
+     * @returns {void}
+     */
     const cancelUploadJob = (jobId) => {
         const transfer = window.__storeLimitlessUploadTransfers?.get(jobId);
         if (transfer) {
@@ -885,6 +1093,11 @@ export default function DashboardPage() {
 
     useEffect(() => {
         if (!sidebarOpen) return;
+        /**
+         * Handle dashboard-level keyboard shortcuts.
+         * @param {KeyboardEvent} event
+         * @returns {void}
+         */
         const onKeyDown = (event) => {
             if (event.key === "Escape") setSidebarOpen(false);
         };
@@ -894,6 +1107,11 @@ export default function DashboardPage() {
 
     /* ----------------------------- download ------------------------------ */
 
+    /**
+     * Create a signed public link and trigger a browser download.
+     * @param {string | number} fileId
+     * @returns {Promise<void>}
+     */
     const downloadFile = async (fileId) => {
         const token = getToken();
         if (!token) {
@@ -902,10 +1120,20 @@ export default function DashboardPage() {
         }
 
         try {
-            const {public_token} = await (await fetch(`${API_URL}/auth/file/${fileId}/public-link`, {
+            const response = await fetch(`${API_URL}/auth/file/${fileId}/public-link`, {
                 method: "POST", headers: {Authorization: `Bearer ${token}`},
-            })).json();
-            const downloadUrl = `${API_URL}/public/download/${public_token}`;
+            });
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) {
+                if (response.status === 401) {
+                    localStorage.removeItem("token");
+                    navigate("/");
+                    return;
+                }
+                throw new Error(data.detail || "Failed to prepare the download.");
+            }
+            if (!data.public_token) throw new Error("The server did not return a download token.");
+            const downloadUrl = `${API_URL}/public/download/${data.public_token}`;
 
             const anchor = document.createElement("a");
             anchor.href = downloadUrl;
@@ -921,6 +1149,13 @@ export default function DashboardPage() {
 
     /* ------------------------------ delete/restore ----------------------- */
 
+    /**
+     * Confirm and delete or trash a file.
+     * @param {string | number} fileId
+     * @param {string} filename
+     * @param {boolean} permanent
+     * @returns {Promise<void>}
+     */
     const deleteFile = async (fileId, filename, permanent = false) => {
         const token = getToken();
         if (!token) {
@@ -960,6 +1195,11 @@ export default function DashboardPage() {
         }
     };
 
+    /**
+     * Restore a trashed file.
+     * @param {string | number} itemId
+     * @returns {Promise<void>}
+     */
     const restoreItem = async (itemId) => {
         const token = getToken();
         if (!token) {
@@ -990,6 +1230,11 @@ export default function DashboardPage() {
     };
 
 
+    /**
+     * Restore a trashed folder.
+     * @param {string | number} folderId
+     * @returns {Promise<void>}
+     */
     const restoreFolder = async (folderId) => {
         const token = getToken();
         if (!token) {
@@ -1022,6 +1267,11 @@ export default function DashboardPage() {
 
     /* ------------------------------ folders -------------------------------- */
 
+    /**
+     * Create a folder under the selected directory.
+     * @param {string} cleanName
+     * @returns {Promise<void>}
+     */
     const createFolder = async (cleanName) => {
         const token = getToken();
         if (!token) {
@@ -1042,6 +1292,13 @@ export default function DashboardPage() {
     };
 
 
+    /**
+     * Confirm and delete or permanently remove a folder.
+     * @param {string | number} folderId
+     * @param {string} folderPath
+     * @param {boolean} permanent
+     * @returns {Promise<void>}
+     */
     const deleteFolder = async (folderId, folderPath, permanent = false) => {
         const token = getToken();
         if (!token) {
@@ -1082,6 +1339,11 @@ export default function DashboardPage() {
     };
 
 
+    /**
+     * Submit a bulk delete request for the selected items.
+     * @param {string} endpoint
+     * @returns {Promise<void>}
+     */
     const requestSelectionDelete = async (endpoint) => {
         const token = getToken();
         if (!token) {
@@ -1105,6 +1367,10 @@ export default function DashboardPage() {
         }
     };
 
+    /**
+     * Execute the currently confirmed bulk action.
+     * @returns {Promise<void>}
+     */
     const executeBulkAction = async () => {
         if (!confirmAction || bulkActionLoading) return;
 
@@ -1165,11 +1431,20 @@ export default function DashboardPage() {
         }
     };
 
+    /**
+     * Clear the access token and navigate to the authentication page.
+     * @returns {void}
+     */
     const handleLogout = () => {
         localStorage.removeItem("token");
         navigate("/");
     };
 
+    /**
+     * Navigate to a folder route.
+     * @param {string} folderPath
+     * @returns {void}
+     */
     const openFolder = (folderPath) => {
         // Save the current directory's selection before changing the route. When
         // browser Back/Backspace returns here, restore the same selected items.
@@ -1178,6 +1453,11 @@ export default function DashboardPage() {
         setSearchQuery("");
     };
 
+    /**
+     * Switch between dashboard tabs and reset the folder search.
+     * @param {DashboardTab} tabId
+     * @returns {void}
+     */
     const handleTabChange = (tabId) => {
         setActiveTab(tabId);
         navigate("/home");
@@ -1185,6 +1465,13 @@ export default function DashboardPage() {
     };
 
 
+    /**
+     * Clamp the context menu position to the visible viewport.
+     * @param {number} x
+     * @param {number} y
+     * @param {ContextMenuPayload} payload
+     * @returns {void}
+     */
     const showContextMenuAt = (x, y, payload) => {
         const menuWidth = 192;
         const menuHeight = payload.kind === "background" || payload.item?.type === "folder" || payload.item?.is_deleted ? 44 : 80;
@@ -1195,6 +1482,12 @@ export default function DashboardPage() {
         });
     };
 
+    /**
+     * Open an item context menu and ensure the clicked item is selected.
+     * @param {import("react").MouseEvent<HTMLElement>} event
+     * @param {SelectableItem} item
+     * @returns {void}
+     */
     const handleItemContextMenu = (event, item) => {
         event.preventDefault();
         event.stopPropagation();
@@ -1205,6 +1498,12 @@ export default function DashboardPage() {
         showContextMenuAt(event.clientX, event.clientY, {kind: "item", item});
     };
 
+    /**
+     * Open an item context menu aligned to its action button.
+     * @param {import("react").MouseEvent<HTMLElement>} event
+     * @param {SelectableItem} item
+     * @returns {void}
+     */
     const handleItemMenuButton = (event, item) => {
         event.preventDefault();
         event.stopPropagation();
@@ -1212,6 +1511,11 @@ export default function DashboardPage() {
         showContextMenuAt(rect.right - 192, rect.bottom + 4, {kind: "item", item});
     };
 
+    /**
+     * Open the background context menu when empty space is right-clicked.
+     * @param {import("react").MouseEvent<HTMLElement>} event
+     * @returns {void}
+     */
     const handleBackgroundContextMenu = (event) => {
         if (event.target.closest("[data-selection-id], [data-selection-ignore], button, input, textarea, select, a")) return;
         event.preventDefault();
@@ -1219,6 +1523,11 @@ export default function DashboardPage() {
         showContextMenuAt(event.clientX, event.clientY, {kind: "background"});
     };
 
+    /**
+     * Dispatch the selected context-menu action.
+     * @param {string} action
+     * @returns {void}
+     */
     const performContextMenuAction = (action) => {
         const menu = contextMenu;
         setContextMenu(null);
@@ -1292,8 +1601,18 @@ export default function DashboardPage() {
             object: file,
         })),], [filteredFolders, filteredFiles]);
 
+    /**
+     * Normalize an empty directory path to the virtual home directory.
+     * @param {string | null | undefined} path
+     * @returns {string}
+     */
     const normalizeDirectoryPath = (path) => path || "/home";
 
+    /**
+     * Remove selected descendants when an ancestor folder is also selected.
+     * @param {SelectableItem[]} items
+     * @returns {SelectableItem[]}
+     */
     const reduceMoveItemsToRoots = (items) => items.filter((item) => !items.some((parent) => {
         if (parent.type !== "folder" || parent.key === item.key) return false;
         const parentPath = parent.path.replace(/\/$/, "");
@@ -1304,6 +1623,12 @@ export default function DashboardPage() {
         return itemDirectory === parentPath || itemDirectory.startsWith(`${parentPath}/`);
     }));
 
+    /**
+     * Validate that selected items can be moved to the target directory.
+     * @param {SelectableItem[]} items
+     * @param {string} destinationPath
+     * @returns {boolean}
+     */
     const canDropItemsIntoDirectory = (items, destinationPath) => {
         if (isTrash || !items?.length || movingItems) return false;
         const destination = normalizeDirectoryPath(destinationPath);
@@ -1320,6 +1645,13 @@ export default function DashboardPage() {
         });
     };
 
+    /**
+     * Create the floating DOM preview used while dragging files and folders.
+     * @param {SelectableItem[]} items
+     * @param {number} pointerX
+     * @param {number} pointerY
+     * @returns {HTMLDivElement}
+     */
     const createMoveDragPreview = (items, pointerX, pointerY) => {
         const preview = document.createElement("div");
         Object.assign(preview.style, {
@@ -1400,6 +1732,11 @@ export default function DashboardPage() {
         return preview;
     };
 
+    /**
+     * Fade out and remove a detached drag preview.
+     * @param {HTMLDivElement | null} preview
+     * @returns {void}
+     */
     const animateMoveDragPreviewOut = (preview) => {
         if (!preview?.isConnected) return;
         preview.style.transition = "opacity 120ms ease-in, transform 120ms ease-in";
@@ -1411,6 +1748,12 @@ export default function DashboardPage() {
     // Use pointer-driven dragging instead of the browser's native HTML5 drag
     // lifecycle. Native dragging was being cancelled when React updated the
     // source rows during dragstart, especially for a multi-selection.
+    /**
+     * Capture the item selection and pointer coordinates for a move drag.
+     * @param {import("react").MouseEvent<HTMLElement>} event
+     * @param {SelectableItem} item
+     * @returns {void}
+     */
     const beginMoveDrag = (event, item) => {
         if (event.button !== 0 || isTrash || item.is_deleted || movingItems || confirmAction) return;
         if (event.target.closest("[data-selection-ignore]")) return;
@@ -1437,6 +1780,12 @@ export default function DashboardPage() {
     };
 
 
+    /**
+     * Move the selected root items to a destination directory.
+     * @param {SelectableItem[]} items
+     * @param {string} destinationPath
+     * @returns {Promise<void>}
+     */
     const moveItemsToDirectory = async (items, destinationPath) => {
         if (movingItems) return;
         const token = getToken();
@@ -1505,6 +1854,12 @@ export default function DashboardPage() {
     // latest React callbacks on every render (not stale folder/loading closures).
     moveDndCallbacksRef.current = {canDropItemsIntoDirectory, moveItemsToDirectory};
 
+    /**
+     * Update file selection, including modifier-key and range selection.
+     * @param {SelectableItem} item
+     * @param {import("react").MouseEvent<HTMLElement>} event
+     * @returns {void}
+     */
     const handleSelectItem = (item, event) => {
         if (suppressClickRef.current) {
             suppressClickRef.current = false;
@@ -1531,16 +1886,31 @@ export default function DashboardPage() {
         }
     };
 
+    /**
+     * Clear all selected items and the range-selection anchor.
+     * @returns {void}
+     */
     const clearSelection = () => {
         setSelectedItems(new Set());
         selectionAnchorRef.current = null;
     };
 
+    /**
+     * Open a selected folder or previewable file outside the trash.
+     * @param {SelectableItem} item
+     * @returns {void}
+     */
     const openSelectedItem = (item) => {
         if (!item || activeTab === "trash") return;
         if (item.type === "folder") openFolder(item.path); else handleFileClick(item.object);
     };
 
+    /**
+     * Rename a file or folder and synchronize affected dashboard paths.
+     * @param {SelectableItem} item
+     * @param {string} newName
+     * @returns {Promise<void>}
+     */
     const renameItem = async (item, newName) => {
         const token = getToken();
         if (!token) {
@@ -1576,6 +1946,11 @@ export default function DashboardPage() {
         } else {
             const oldPath = item.path;
             const newPath = data.path || `${oldPath.slice(0, oldPath.lastIndexOf("/"))}/${finalName}`;
+            /**
+             * Replace a renamed or moved directory prefix in a stored path.
+             * @param {string} path
+             * @returns {string}
+             */
             const replacePath = (path) => {
                 if (path === oldPath) return newPath;
                 if (path.startsWith(`${oldPath}/`)) return `${newPath}${path.slice(oldPath.length)}`;
@@ -1595,6 +1970,11 @@ export default function DashboardPage() {
         await fetchFiles();
     };
 
+    /**
+     * Save the current selection before showing the rename dialog.
+     * @param {SelectableItem} item
+     * @returns {void}
+     */
     const openRenameDialog = (item) => {
         // Keep selection and the range-selection anchor intact when the dialog
         // is cancelled. The selected item remains selected after a successful rename too.
@@ -1604,6 +1984,10 @@ export default function DashboardPage() {
         setRenameTarget(item);
     };
 
+    /**
+     * Close rename UI and restore the selection snapshot.
+     * @returns {void}
+     */
     const closeRenameDialog = () => {
         const snapshot = renameSelectionSnapshotRef.current;
         if (snapshot) {
@@ -1614,6 +1998,11 @@ export default function DashboardPage() {
         setRenameTarget(null);
     };
 
+    /**
+     * Capture the selected items and request confirmation for a bulk action.
+     * @param {string} mode
+     * @returns {void}
+     */
     const requestBulkConfirmation = (mode) => {
         const items = selectableItems.filter((item) => selectedItems.has(item.key));
         if (!items.length) return;
@@ -1625,6 +2014,10 @@ export default function DashboardPage() {
         });
     };
 
+    /**
+     * Cancel a pending bulk action and restore its prior selection.
+     * @returns {void}
+     */
     const cancelBulkConfirmation = () => {
         if (!confirmAction || bulkActionLoading) return;
         setSelectedItems(new Set(confirmAction.selectionSnapshot ?? confirmAction.items.map((item) => item.key)));
@@ -1640,6 +2033,11 @@ export default function DashboardPage() {
         return () => window.cancelAnimationFrame(frame);
     }, [confirmAction]);
 
+    /**
+     * Begin a marquee-selection gesture on empty dashboard space.
+     * @param {import("react").MouseEvent<HTMLElement>} event
+     * @returns {void}
+     */
     const handleSelectionMouseDown = (event) => {
         if (event.button !== 0 || confirmAction) return;
         if (event.target.closest("[data-selection-ignore]")) return;
@@ -1660,6 +2058,11 @@ export default function DashboardPage() {
     };
 
     useEffect(() => {
+        /**
+         * Update move-drag feedback or the marquee selection while the pointer moves.
+         * @param {MouseEvent} event
+         * @returns {void}
+         */
         const onMouseMove = (event) => {
             const move = movePointerRef.current;
             if (move) {
@@ -1730,6 +2133,11 @@ export default function DashboardPage() {
             setSelectedItems(next);
         };
 
+        /**
+         * Finish a move drag or marquee selection when the pointer is released.
+         * @param {MouseEvent} event
+         * @returns {void}
+         */
         const onMouseUp = (event) => {
             const move = movePointerRef.current;
             if (move) {
@@ -1860,6 +2268,11 @@ export default function DashboardPage() {
     }, [currentSelectionViewKey, location.pathname, activeTab, searchQuery, currentFolder, loadedFolder, loadingFiles, searchLoading, selectableItems,]);
 
     useEffect(() => {
+        /**
+         * Handle the dashboard selection and bulk-action keyboard shortcuts.
+         * @param {KeyboardEvent} event
+         * @returns {void}
+         */
         const onKeyDown = (event) => {
             if (contextMenu && event.key === "Escape") {
                 event.preventDefault();

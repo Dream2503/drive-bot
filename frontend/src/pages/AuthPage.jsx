@@ -1,13 +1,27 @@
 import {useState} from "react";
 import {useNavigate} from "react-router-dom";
 
+/**
+ * @typedef {Object} AuthFormData
+ * @property {string} first_name
+ * @property {string} last_name
+ * @property {string} username
+ * @property {string} password
+ */
+
+
 // Supabase-style field styling
 const labelClass = "block text-sm text-[#b4b4b4] mb-2";
 const inputClass = "w-full h-[38px] rounded-md border border-[#363636] bg-white/[0.026] px-3 text-sm text-[#fafafa] placeholder:text-[#707070] outline-none transition-colors focus:border-[#707070] focus:ring-2 focus:ring-[#4d4d4d]/50";
 
+/**
+ * Render the sign-in and account-registration form.
+ * @returns {import("react").ReactElement}
+ */
 export default function AuthPage() {
     const navigate = useNavigate();
     const [isLogin, setIsLogin] = useState(true);
+    /** @type {[AuthFormData, import("react").Dispatch<import("react").SetStateAction<AuthFormData>>]} */
     const [formData, setFormData] = useState({
         first_name: "", last_name: "", username: "", password: ""
     });
@@ -15,12 +29,23 @@ export default function AuthPage() {
     const [messageIsError, setMessageIsError] = useState(true);
     const [loading, setLoading] = useState(false);
 
+    /** @type {string | undefined} */
     const API_URL = window.STORELIMITLESS_CONFIG?.API_URL ?? import.meta.env.VITE_API_URL
 
+    /**
+     * Update the form field identified by the input name.
+     * @param {import("react").ChangeEvent<HTMLInputElement>} event
+     * @returns {void}
+     */
     const handleChange = (e) => {
         setFormData((prev) => ({...prev, [e.target.name]: e.target.value}));
     };
 
+    /**
+     * Submit login or registration credentials and update the visible form state.
+     * @param {import("react").FormEvent<HTMLFormElement>} event
+     * @returns {Promise<void>}
+     */
     const handleSubmit = async (e) => {
         e.preventDefault();
         setMessage("");
@@ -34,11 +59,11 @@ export default function AuthPage() {
                 method: "POST", headers: {"Content-Type": "application/json"}, ...(bodyData ? {body: JSON.stringify(bodyData)} : {}),
             });
 
-            const data = await response.json();
-            if (!response.ok) throw new Error(data.detail || "Something went wrong");
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) throw new Error(data.detail || data.message || "Something went wrong");
 
             if (isLogin) {
-                const [loginData, homeDirectory] = data;
+                const [loginData] = data;
                 localStorage.setItem("token", loginData.access_token);
                 navigate("/home");
             } else {
@@ -48,7 +73,7 @@ export default function AuthPage() {
             }
         } catch (error) {
             setMessageIsError(true);
-            setMessage(error.message);
+            setMessage(error instanceof Error ? error.message : "Something went wrong");
         } finally {
             setLoading(false);
         }

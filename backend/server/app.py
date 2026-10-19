@@ -1,15 +1,15 @@
+"""Create and configure the StoreLimitless API application."""
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from backend.server.routers import auth, public
 
-app = FastAPI()
+app: FastAPI = FastAPI()
 
 origins: list[str] = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
-    "tauri://localhost",
-    "https://tauri.localhost",
 ]
 
 app.add_middleware(

@@ -1,58 +1,64 @@
+"""Redis connection and serialization helpers for cached users, directories, files, progress records, and JSON-based application state."""
+
 from __future__ import annotations
 
-import redis.asyncio
-from backend.database.connection import POOL, DirectoryDict, FileDict
-from core.utils.progress import Progress
+from pathlib import Path
 from datetime import datetime
 from json import dumps, loads
-from pathlib import Path
 from typing import Any, Literal, cast, TYPE_CHECKING
+
+import redis.asyncio
+
+from backend.database.connection import POOL, DirectoryDict, FileDict
+from core.utils.progress import Progress
 
 if TYPE_CHECKING:
     from backend.database.models import User, Directory, File
 
 
 class Redis:
+    """Manage the shared asynchronous Redis client and serialize application model objects to and from Redis keys and hashes."""
+
     ValueTypes = Literal["Progress", "Directory", "File", "User"]
     redis: redis.asyncio.Redis
 
     @classmethod
     async def initialize(cls) -> None:
+        """Create the asynchronous Redis client and verify connectivity with PING. Existing Redis data is intentionally preserved."""
+
         cls.redis = redis.asyncio.Redis.from_url("redis://localhost:6379", decode_responses=True)
-        # Preserve Redis-backed upload sessions across application restarts.
-        # Application-specific caches are refreshed by their owning models.
         await cls.redis.ping()
 
     @classmethod
     async def close(cls) -> None:
+        """Close the asynchronous Redis client connection pool."""
+
         await cls.redis.aclose()
 
     @classmethod
     async def get_json(cls, key: str) -> Any | None:
         """Read an arbitrary JSON-serializable value stored under a Redis key."""
+
         value: str | None = await cls.redis.get(key)
         return loads(value) if value is not None else None
 
     @classmethod
-    async def set_json(
-            cls,
-            key: str,
-            value: Any,
-            *,
-            ex: int | None = None,
-            nx: bool = False,
-    ) -> bool:
+    async def set_json(cls, key: str, value: Any, *, ex: int | None = None, nx: bool = False) -> bool:
         """Store JSON data, optionally with an expiry or SET-NX semantics."""
+
         result = await cls.redis.set(key, dumps(value, default=str), ex=ex, nx=nx)
         return bool(result)
 
     @classmethod
     async def delete_key(cls, key: str) -> None:
         """Delete a raw Redis key regardless of its stored value type."""
+
         await cls.redis.delete(key)
 
     @classmethod
     async def exists(cls, key: str, type: ValueTypes) -> bool:
+        """Check whether a supported Redis key or a specific hash entry exists."""
+
         match type:
             case "Progress" | "User":
                 return bool(await cls.redis.exists(key))
@@ -66,6 +72,10 @@ class Redis:
 
     @classmethod
     async def get(cls, key: str, type: ValueTypes) -> Progress | Directory | list[Directory] | File | list[File] | User:
+        """
+        Load a supported value from Redis and reconstruct its Progress, Directory, File, or User model. Raise KeyError for a missing singular record.
+        """
+
         from backend.database.models import User, Directory, File
 
         match type:
@@ -168,6 +178,8 @@ class Redis:
 
     @classmethod
     async def delete(cls, key: str, type: ValueTypes) -> None:
+        """Delete a Redis key or a single Directory/File hash entry according to the supplied value type."""
+
         match type:
             case "Progress" | "User":
                 await cls.redis.delete(key)
@@ -184,6 +196,11 @@ class Redis:
 
     @classmethod
     async def set(cls, key: str, value: Progress | User | Directory | File) -> None:
+        """
+        Serialize a Progress, User, Directory, or File object into Redis. Saving a User also refreshes the user’s directory and file cache hashes from
+        PostgreSQL.
+        """
+
         from backend.database.models import User, Directory, File
 
         if isinstance(value, Progress):

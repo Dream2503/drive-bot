@@ -1,6 +1,39 @@
-import {useRef, useState} from "react";
+import {useState} from "react";
 import {useNavigate, useSearchParams} from "react-router-dom";
 
+/** @typedef {{cancelled: boolean}} UploadCancelToken */
+/** @typedef {Error & {fatal?: boolean}} UploadRequestError */
+
+/**
+ * @typedef {Object} StoredUploadJob
+ * @property {string} jobId
+ * @property {string} name
+ * @property {"file" | "link"} kind
+ * @property {string} directory
+ * @property {"Discord" | "Telegram"} dataCenter
+ * @property {string} status
+ * @property {number} progress
+ * @property {number} transfer
+ * @property {number} total
+ * @property {string} message
+ * @property {number} createdAt
+ */
+/**
+ * Read a saved upload tray value while tolerating malformed or outdated browser storage.
+ * @param {string} key
+ * @returns {StoredUploadJob[]}
+ */
+function readStoredUploadJobs(key) {
+    try {
+        const parsed = JSON.parse(localStorage.getItem(key) || "[]");
+        return Array.isArray(parsed) ? parsed : [];
+    } catch {
+        return [];
+    }
+}
+
+
+/** @type {string | undefined} */
 const API_URL = window.STORELIMITLESS_CONFIG?.API_URL ?? import.meta.env.VITE_API_URL
 
 const DATA_CENTERS = ["Discord", "Telegram"];
@@ -17,12 +50,22 @@ const optionBase = "flex items-center justify-center gap-2 h-[38px] rounded-md b
 const optionOff = "border-[#363636] bg-white/[0.026] text-[#898989] hover:border-[#4d4d4d] hover:text-[#fafafa]";
 const optionOn = "border-[#3ecf8e]/50 bg-[#3ecf8e]/10 text-[#fafafa]";
 
+/**
+ * Convert a stored directory path into the upload page’s dashboard route.
+ * @param {string} directory
+ * @returns {string}
+ */
 const directoryToRoute = (directory) => {
     const segments = (directory || "/home").split("/").filter(Boolean);
     const relativeSegments = segments[0] === "home" ? segments.slice(1) : segments;
     return `/home${relativeSegments.length ? `/${relativeSegments.map(encodeURIComponent).join("/")}` : ""}`;
 };
 
+/**
+ * Format a file size using binary units.
+ * @param {number} bytes
+ * @returns {string}
+ */
 const formatBytes = (bytes) => {
     if (bytes < 1024) return `${bytes} B`;
 
@@ -38,6 +81,10 @@ const formatBytes = (bytes) => {
     return `${value.toFixed(1)} ${units[unit]}`;
 };
 
+/**
+ * Render the file and URL upload workflow.
+ * @returns {import("react").ReactElement}
+ */
 export default function UploadPage() {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
@@ -46,29 +93,43 @@ export default function UploadPage() {
     const directory = searchParams.get("directory") || "/home";
 
     // Upload states
+    /** @type {[File[], import("react").Dispatch<import("react").SetStateAction<File[]>>]} */
     const [files, setFiles] = useState([]);
     const [link, setLink] = useState("");
+    /** @type {["file" | "link", import("react").Dispatch<import("react").SetStateAction<"file" | "link">>]} */
     const [uploadMode, setUploadMode] = useState("file");
 
     // Other states
+    /** @type {["Discord" | "Telegram", import("react").Dispatch<import("react").SetStateAction<"Discord" | "Telegram">>]} */
     const [dataCenter, setDataCenter] = useState("Discord");
     const [message, setMessage] = useState("");
     const [status, setStatus] = useState("idle");
     const [dragOver, setDragOver] = useState(false);
 
-    // Every in-flight request, so a failure can abort all of them.
-    const activeXhrs = useRef(new Set());
-
+    /**
+     * Wait for a specified number of milliseconds.
+     * @param {number} milliseconds
+     * @returns {Promise<void>}
+     */
     const sleep = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
 
     // ==========================================
     // Send ONE chunk (several of these run in parallel)
     // ==========================================
-    const sendChunk = (jobId, blob, offset, totalSize) => new Promise((resolve, reject) => {
+    /**
+     * Send one file chunk and track its XMLHttpRequest in this job’s set.
+     * @param {string} jobId
+     * @param {Blob} blob
+     * @param {number} offset
+     * @param {number} totalSize
+     * @param {Set<XMLHttpRequest>} jobXhrs
+     * @returns {Promise<void>}
+     */
+    const sendChunk = (jobId, blob, offset, totalSize, jobXhrs) => new Promise((resolve, reject) => {
         const xhr = new XMLHttpRequest();
-        activeXhrs.current.add(xhr);
+        jobXhrs.add(xhr);
 
-        const done = () => activeXhrs.current.delete(xhr);
+        const done = () => jobXhrs.delete(xhr);
 
         xhr.open("PUT", `${API_URL}/public/upload/${jobId}/chunk?offset=${offset}&total=${totalSize}`);
         xhr.setRequestHeader("Authorization", `Bearer ${localStorage.getItem("token")}`);
@@ -112,13 +173,25 @@ export default function UploadPage() {
         xhr.send(blob);
     });
 
-    const uploadFileInChunks = async (jobId, selectedFile, cancelToken) => {
+    /**
+     * Upload a file in parallel chunks with retries and per-job cancellation.
+     * @param {string} jobId
+     * @param {File} selectedFile
+     * @param {UploadCancelToken} cancelToken
+     * @param {Set<XMLHttpRequest>} jobXhrs
+     * @returns {Promise<void>}
+     */
+    const uploadFileInChunks = async (jobId, selectedFile, cancelToken, jobXhrs) => {
         const totalSize = selectedFile.size;
         // An empty file still sends one (empty) chunk so the server can finish.
         const chunkCount = Math.max(1, Math.ceil(totalSize / CHUNK_SIZE));
         let nextIndex = 0;
 
         // Each lane keeps taking the next unsent chunk, so chunks start in order.
+        /**
+         * Upload successive chunks until this worker reaches the end of the file.
+         * @returns {Promise<void>}
+         */
         const lane = async () => {
             while (!cancelToken.cancelled) {
                 const index = nextIndex++;
@@ -135,7 +208,7 @@ export default function UploadPage() {
                     }
 
                     try {
-                        await sendChunk(jobId, blob, start, totalSize);
+                        await sendChunk(jobId, blob, start, totalSize, jobXhrs);
                         break;
                     } catch (error) {
                         if (error.fatal || cancelToken.cancelled || attempt >= MAX_CHUNK_ATTEMPTS) {
@@ -151,6 +224,10 @@ export default function UploadPage() {
         await Promise.all(Array.from({length: Math.min(PARALLEL_CHUNKS, chunkCount)}, lane));
     };
 
+    /**
+     * Create upload jobs and begin file-chunk transfers or link imports.
+     * @returns {Promise<void>}
+     */
     const handleUpload = async () => {
         if (!dataCenter) return;
         if (uploadMode === "file" && files.length === 0) return;
@@ -160,8 +237,17 @@ export default function UploadPage() {
 
         const jobsKey = "storelimitless_upload_jobs";
         const token = localStorage.getItem("token");
+        if (!token) {
+            navigate("/");
+            return;
+        }
 
         try {
+            /**
+             * Create a server job, persist its tray entry, and start its transfer if needed.
+             * @param {File | null} selectedFile
+             * @returns {Promise<void>}
+             */
             const createJob = async (selectedFile) => {
                 let res;
                 if (uploadMode === "file") {
@@ -204,20 +290,22 @@ export default function UploadPage() {
                     message: uploadMode === "file" ? "Sending file to server" : "Importing from link",
                     createdAt: Date.now(),
                 };
-                const existingJobs = JSON.parse(localStorage.getItem(jobsKey) || "[]");
+                const existingJobs = readStoredUploadJobs(jobsKey);
                 localStorage.setItem(jobsKey, JSON.stringify([job, ...existingJobs.filter(item => item.jobId !== jobId)]));
 
                 if (!window.__storeLimitlessUploadTransfers) window.__storeLimitlessUploadTransfers = new Map();
                 const cancelToken = {cancelled: false};
-                window.__storeLimitlessUploadTransfers.set(jobId, {cancelToken, xhrs: activeXhrs.current});
+                /** @type {Set<XMLHttpRequest>} */
+                const jobXhrs = new Set();
+                window.__storeLimitlessUploadTransfers.set(jobId, {cancelToken, xhrs: jobXhrs});
 
                 if (uploadMode === "file") {
-                    void uploadFileInChunks(jobId, selectedFile, cancelToken).then(() => {
+                    void uploadFileInChunks(jobId, selectedFile, cancelToken, jobXhrs).then(() => {
                         window.__storeLimitlessUploadTransfers?.delete(jobId);
                     }).catch((error) => {
                         cancelToken.cancelled = true;
                         window.__storeLimitlessUploadTransfers?.delete(jobId);
-                        for (const xhr of activeXhrs.current) xhr.abort();
+                        for (const xhr of jobXhrs) xhr.abort();
                         const jobs = JSON.parse(localStorage.getItem(jobsKey) || "[]");
                         localStorage.setItem(jobsKey, JSON.stringify(jobs.map(item => item.jobId === jobId ? {
                             ...item, status: "error", message: error instanceof Error ? error.message : "Upload failed"
@@ -248,6 +336,11 @@ export default function UploadPage() {
     // ==========================================
     // HANDLE DRAG AND DROP
     // ==========================================
+    /**
+     * Add dropped files unless an upload is already being configured.
+     * @param {import("react").DragEvent<HTMLLabelElement>} event
+     * @returns {void}
+     */
     const handleDrop = (event) => {
         event.preventDefault();
 

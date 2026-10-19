@@ -1,3 +1,8 @@
+"""
+Command-line database export utility. Exports every base table in the public schema to BACKUP_DIR as CSV by default, or as a pretty-formatted text
+table when the format argument is pretty.
+"""
+
 import os
 from argparse import ArgumentParser, Namespace
 from pathlib import Path
