@@ -9,7 +9,6 @@ import {useNavigate, useParams, useSearchParams} from "react-router-dom";
  * @property {PreviewFile} file
  * @property {string} streamUrl
  * @property {string} [heightClass]
- * @property {boolean} [pauseForVlc]
  */
 /** @typedef {{streamUrl: string}} VideoSource */
 
@@ -38,12 +37,11 @@ const fmtTime = (seconds) => {
  * @param {VideoPlayerProps} props
  * @returns {import("react").ReactElement}
  */
-function VideoPlayer({file, streamUrl, heightClass = "h-[70vh]", pauseForVlc = false}) {
+function VideoPlayer({file, streamUrl, heightClass = "h-[70vh]"}) {
     const wrapRef = useRef(null);
     const videoRef = useRef(null);
     const hideTimer = useRef(null);
     const menuRef = useRef(null);
-    const pausedForVlcRef = useRef(false);
 
     const [playing, setPlaying] = useState(false);
     const [buffering, setBuffering] = useState(true);
@@ -61,20 +59,6 @@ function VideoPlayer({file, streamUrl, heightClass = "h-[70vh]", pauseForVlc = f
     const [error, setError] = useState(null);
 
     menuRef.current = menu;
-
-    useEffect(() => {
-        const video = videoRef.current;
-        if (!video) return;
-        if (pauseForVlc) {
-            pausedForVlcRef.current = true;
-            video.pause();
-        } else if (pausedForVlcRef.current) {
-            pausedForVlcRef.current = false;
-            video.play().catch(() => {
-                // Autoplay can be blocked; the custom Play button remains available.
-            });
-        }
-    }, [pauseForVlc]);
 
     useEffect(() => {
         const video = videoRef.current;
@@ -270,7 +254,7 @@ function VideoPlayer({file, streamUrl, heightClass = "h-[70vh]", pauseForVlc = f
                 setMuted(event.currentTarget.muted || event.currentTarget.volume === 0);
             }}
             onRateChange={(event) => setRate(event.currentTarget.playbackRate)}
-            onError={() => setError("This browser can't play this video format. Try opening it in VLC.")}
+            onError={() => setError("This browser can't play this video format. Copy the stream link and open it in a compatible media player.")}
         />
 
         {buffering && !error && (<div className="pointer-events-none absolute inset-0 flex items-center justify-center">
@@ -411,7 +395,8 @@ export default function ViewFile() {
     const [source, setSource] = useState(null);
     const [status, setStatus] = useState("Preparing video…");
     const [error, setError] = useState("");
-    const [vlcLaunchRequested, setVlcLaunchRequested] = useState(false);
+    const [copyStatus, setCopyStatus] = useState("");
+    const copyTimer = useRef(null);
 
     // Backspace or Escape returns to the previous page/folder, unless the user is editing text.
     useEffect(() => {
@@ -437,12 +422,50 @@ export default function ViewFile() {
         return () => window.removeEventListener("keydown", handleKeyDown);
     }, [navigate]);
 
-    const openInVlc = useCallback(() => {
-        if (!source?.streamUrl) return;
-        setVlcLaunchRequested(true);
-        const vlcUrl = `vlc://weblink?url=${encodeURIComponent(source.streamUrl)}`;
-        window.location.href = vlcUrl;
-    }, [source]);
+    const copyStreamLink = useCallback(async () => {
+        const streamUrl = source?.streamUrl;
+        if (!streamUrl) return;
+
+        const copyUsingFallback = () => {
+            const textArea = document.createElement("textarea");
+            textArea.value = streamUrl;
+            textArea.setAttribute("readonly", "");
+            textArea.style.position = "fixed";
+            textArea.style.opacity = "0";
+            textArea.style.pointerEvents = "none";
+            document.body.appendChild(textArea);
+            textArea.select();
+
+            let copied = false;
+            try {
+                copied = document.execCommand("copy");
+            } catch {
+                copied = false;
+            } finally {
+                textArea.remove();
+            }
+            return copied;
+        };
+
+        let copied = false;
+        try {
+            if (navigator.clipboard?.writeText) {
+                await navigator.clipboard.writeText(streamUrl);
+                copied = true;
+            } else {
+                copied = copyUsingFallback();
+            }
+        } catch {
+            // Clipboard API can be unavailable in insecure contexts or denied by browser permissions.
+            copied = copyUsingFallback();
+        }
+
+        setCopyStatus(copied ? "Copied!" : "Copy failed");
+        clearTimeout(copyTimer.current);
+        copyTimer.current = window.setTimeout(() => setCopyStatus(""), 2500);
+    }, [source?.streamUrl]);
+
+    useEffect(() => () => clearTimeout(copyTimer.current), []);
 
     useEffect(() => {
         if (kind !== "video") return;
@@ -491,12 +514,14 @@ export default function ViewFile() {
             <h1 className="min-w-0 truncate text-sm font-medium">{name}</h1>
             {source?.streamUrl && kind === "video" && (<button
                 type="button"
-                onClick={openInVlc}
-                title="Try opening this stream in VLC"
-                className="ml-auto flex shrink-0 items-center gap-2 rounded-md border border-[#3a3a3a] px-3 py-1.5 text-xs text-[#fafafa] transition-colors hover:bg-[#2a2a2a]"
+                onClick={copyStreamLink}
+                title="Copy the stream URL to your clipboard"
+                aria-live="polite"
+                className="ml-auto flex shrink-0 items-center gap-2 rounded-md border border-[#3a3a3a] px-3 py-1.5 text-xs text-[#fafafa] transition-colors hover:bg-[#2a2a2a] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#3ecf8e]"
             >
-                <span className="material-symbols-outlined text-[17px]" aria-hidden="true">open_in_new</span>
-                Open in VLC
+                <span className="material-symbols-outlined text-[17px]"
+                      aria-hidden="true">{copyStatus === "Copied!" ? "check" : copyStatus === "Copy failed" ? "error" : "content_copy"}</span>
+                {copyStatus || "Copy stream link"}
             </button>)}
         </header>
 
@@ -511,16 +536,8 @@ export default function ViewFile() {
                 <span className="material-symbols-outlined animate-spin text-[32px]" aria-hidden="true">progress_activity</span>
                 {status}
             </div>) : (<div className="mx-auto flex h-full w-full max-w-7xl flex-col gap-2">
-                {vlcLaunchRequested && (<div
-                    className="flex shrink-0 items-center justify-between gap-3 rounded-md border border-[#3a3a3a] bg-[#202020] px-3 py-2 text-xs text-[#c8c8c8]">
-                    <span>Browser playback is paused while you try VLC. Choose “Continue here” to resume the video in this tab.</span>
-                    <button type="button" onClick={() => setVlcLaunchRequested(false)}
-                            className="shrink-0 rounded px-2 py-1 hover:bg-white/10">
-                        Continue here
-                    </button>
-                </div>)}
                 <div className="min-h-0 flex-1">
-                    <VideoPlayer file={{name}} streamUrl={source.streamUrl} heightClass="h-full" pauseForVlc={vlcLaunchRequested}/>
+                    <VideoPlayer file={{name}} streamUrl={source.streamUrl} heightClass="h-full"/>
                 </div>
             </div>)}
         </main>

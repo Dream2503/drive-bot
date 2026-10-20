@@ -1,8 +1,9 @@
 import {BrowserRouter, Navigate, Route, Routes, useSearchParams} from "react-router-dom";
 import Auth from "./pages/Auth.jsx";
+import Landing from "./pages/Landing.jsx";
 import DashboardPage from "./pages/Dashboard.jsx";
-import UploadPage from "./pages/UploadModal.jsx";
-import ViewFile from "./pages/ViewFile.jsx";
+import UploadPage from "./pages/dashboard/components/UploadModal.jsx";
+import ViewFile from "./pages/dashboard/components/ViewFile.jsx";
 
 /**
  * Convert a stored folder path into the dashboard route format.
@@ -31,7 +32,9 @@ function LegacyDashboardRedirect() {
 function App() {
     return (<BrowserRouter>
         <Routes>
-            <Route path="/" element={<Auth/>}/>
+            <Route path="/" element={<Landing/>}/>
+            <Route path="/login" element={<Auth initialMode="login"/>}/>
+            <Route path="/signup" element={<Auth initialMode="signup"/>}/>
             <Route path="/home" element={<DashboardPage/>}/>
             <Route path="/home/*" element={<DashboardPage/>}/>
             <Route path="/dashboard" element={<LegacyDashboardRedirect/>}/>

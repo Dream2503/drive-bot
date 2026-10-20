@@ -16,33 +16,21 @@ export default function DashboardContextMenu({menu, onClose, onAction, multipleS
     let items;
     if (menu.kind === "background") {
         items = [{id: "create-folder", label: "Create folder", icon: "create_new_folder"}, {
-            id: "upload",
-            label: "Upload files",
-            icon: "cloud_upload"
+            id: "upload", label: "Upload files", icon: "cloud_upload"
         },];
     } else if (menu.item?.is_deleted) {
-        items = [{id: "restore", label: "Restore", icon: "restore"}, {
-            id: "delete",
-            label: "Delete permanently",
-            icon: "delete_forever",
-            danger: true
-        },];
+        items = [{id: "restore", label: "Restore", icon: "restore"}, ...(!multipleSelected ? [{
+            id: "details", label: "Details", icon: "info"
+        }] : []), {id: "delete", label: "Delete permanently", icon: "delete_forever", danger: true},];
     } else if (menu.item?.type === "folder") {
         items = [{id: "move", label: "Move to folder", icon: "drive_file_move"}, ...(!multipleSelected ? [{
-            id: "rename",
-            label: "Rename",
-            icon: "drive_file_rename_outline"
-        }] : []), {id: "delete", label: "Move to Trash", icon: "delete", danger: true},];
+            id: "rename", label: "Rename", icon: "drive_file_rename_outline"
+        }, {id: "details", label: "Details", icon: "info"},] : []), {id: "delete", label: "Move to Trash", icon: "delete", danger: true},];
     } else {
         items = [{id: "move", label: "Move to folder", icon: "drive_file_move"}, ...(!multipleSelected ? [{
-            id: "rename",
-            label: "Rename",
-            icon: "drive_file_rename_outline"
-        }] : []), ...(!multipleSelected ? [{id: "download", label: "Download", icon: "download"}] : []), {
-            id: "delete",
-            label: "Move to Trash",
-            icon: "delete",
-            danger: true
+            id: "rename", label: "Rename", icon: "drive_file_rename_outline"
+        }, {id: "details", label: "Details", icon: "info"}, {id: "download", label: "Download", icon: "download"},] : []), {
+            id: "delete", label: "Move to Trash", icon: "delete", danger: true
         },];
     }
 

@@ -6,14 +6,12 @@ folder management, trash/restore, HTTP streaming with byte-range requests, and a
 
 The web UI is branded **DriveBot** in places, while the overall application and server are called **StoreLimitless**.
 
-> **Scope:** This document covers the root StoreLimitless application: its internal backend, frontend, storage/transfer code, FTP interface, runtime
-> data,
-> and packaging workflow. The separate Python SDK source package is not part of the tracked application tree. The current build script can still
-> create an
-> ignored `api/src/storelimitless/bin/` directory containing copies of packaged server executables for SDK bundling; those are generated artifacts,
-> not
-> application source. The internal service under `backend/server/` is documented because the frontend, uploads, streaming, and FTP integration depend
-> on it.
+> **Scope:** This document covers the StoreLimitless application, including its internal backend, frontend, storage/transfer code, FTP interface,
+> runtime data, and packaging workflow. The separate Python SDK source package is not part of the tracked application tree. The build script generates
+> versioned Linux and Windows `LOCAL`/`CLOUD` executables in the repository-root `releases/linux` and `releases/windows` directories. It also copies only the `LOCAL`
+> executable for each selected platform into `api/src/storelimitless/bin/` under the SDK's standard `StoreLimitlessServer_<VERSION>` filename. Those
+> binaries are generated artifacts, not application source. The internal service under `backend/server/` is documented because the frontend, uploads,
+> streaming, and FTP integration depend on it.
 
 ---
 
@@ -58,14 +56,21 @@ original file can be reconstructed by downloading those parts in order.
 
 The application provides these user-facing capabilities:
 
+- Open a public landing page that explains the product before choosing to sign in or register. Login and signup are available at separate routes.
 - Register and log in to a StoreLimitless account.
-- Browse a user's virtual home directory and nested folders.
+- Browse a user's virtual home directory and nested folders. The dashboard loads the directory tree into an account-scoped in-memory cache, so
+  navigating between folders does not require a fresh request for every directory.
+- Refresh the complete file/folder tree explicitly from the dashboard; a full browser reload also clears the JavaScript memory cache and triggers a
+  fresh load.
+- Calculate recursive folder sizes and show total size in the item-details dialog.
 - Upload multiple local files from the browser.
 - Import one or many remote links by pasting one HTTP (S) URL per line.
 - Download direct HTTP (S) file URLs, import Google Drive files, and process YouTube URLs.
 - Track each upload/import job through dashboard progress and status updates.
 - Use keyboard shortcuts on the upload page to return to the dashboard or trigger the upload/import action.
-- Rename and move files and folders, including bulk move operations.
+- Rename and move files and folders, including bulk move operations. The move dialog supports browsing destinations and toggling an already-selected
+  destination off.
+- Inspect file/folder details such as location, path, type, size, storage provider, timestamps, status, and record ID when those values are available.
 - Move files/folders to trash, restore them, or permanently delete trash items.
 - Create signed links for streaming or downloading a file.
 - Stream media and other files over HTTP, including single byte-range requests for seeking.
@@ -78,8 +83,8 @@ The application provides these user-facing capabilities:
 ```text
                          ┌──────────────────────────────┐
                          │ React + Vite frontend        │
-                         │ sign-in, dashboard, upload,  │
-                         │ preview / media player       │
+                         │ landing, authentication,     │
+                         │ dashboard, upload, preview   │
                          └──────────────┬───────────────┘
                                         │ HTTP + bearer token
                                         ▼
@@ -196,28 +201,31 @@ generated caches, virtual environments, and dependency folders are deliberately 
 ├── frontend/
 │   ├── public/
 │   │   └── vite.svg
-│   ├── README.md
 │   ├── src/
-│   │   ├── App.jsx                       # Client-side routes
+│   │   ├── App.jsx                       # Public landing page and application routes
 │   │   ├── main.jsx                      # React entry point
-│   │   ├── index.css                     # Global styles
+│   │   ├── index.css                     # Global styles and scrollbar theme
+│   │   ├── assets/
+│   │   │   └── react.svg
 │   │   └── pages/
-│   │       ├── Auth.jsx                  # Sign-in and registration
-│   │       ├── Dashboard.jsx             # Dashboard orchestration and interaction state
-│   │       ├── MoveModal.jsx              # File/folder move dialog
-│   │       ├── UploadModal.jsx            # Multi-file and multi-link upload UI
-│   │       ├── ViewFile.jsx               # File preview and media player
+│   │       ├── Landing.jsx               # Public product landing page
+│   │       ├── Auth.jsx                  # Sign-in and registration forms
+│   │       ├── Dashboard.jsx             # Dashboard state, actions, selection, and drag/drop
 │   │       └── dashboard/
-│   │           ├── constants.js           # API URL and dashboard storage keys
-│   │           ├── utils.js               # Path, selection, token, and file helpers
+│   │           ├── constants.js          # API URL, navigation, and shared style/storage constants
+│   │           ├── utils.js              # Path, selection, token, file-kind, and display helpers
 │   │           ├── components/
 │   │           │   ├── Sidebar.jsx
 │   │           │   ├── DashboardWorkspace.jsx
 │   │           │   ├── DashboardContextMenu.jsx
 │   │           │   ├── CreateFolderModal.jsx
 │   │           │   ├── RenameItemModal.jsx
+│   │           │   ├── ItemDetailsModal.jsx
 │   │           │   ├── BulkActionConfirmModal.jsx
-│   │           │   └── UploadJobsTray.jsx
+│   │           │   ├── UploadJobsTray.jsx
+│   │           │   ├── MoveModal.jsx
+│   │           │   ├── UploadModal.jsx
+│   │           │   └── ViewFile.jsx
 │   │           └── hooks/
 │   │               ├── useDashboardData.js
 │   │               ├── useGlobalFileSearch.js
@@ -229,10 +237,9 @@ generated caches, virtual environments, and dependency folders are deliberately 
 │   ├── postcss.config.js
 │   ├── tailwind.config.js
 │   └── vite.config.js
-├── releases/
-│   ├── linux/                        # Linux release executable(s)
-│   └── windows/                      # Windows release executable(s)
-├── build.sh                          # Cross-platform packaging and cleanup script
+├── linux/                            # Generated Linux LOCAL/CLOUD executables
+├── windows/                          # Generated Windows LOCAL/CLOUD executables
+├── build.sh                          # Builds selected OS targets in LOCAL and CLOUD modes
 ├── requirements.txt                  # Python runtime dependencies
 ├── storelimitless-backend.spec       # PyInstaller specification
 ├── LICENSE
@@ -240,10 +247,12 @@ generated caches, virtual environments, and dependency folders are deliberately 
 ```
 
 `data/` is runtime storage in source/development mode. In frozen mode, runtime data is instead placed in the operating system's StoreLimitless
-application
-data directory. Treat logs, CSV exports, Telegram session data, and configuration files as potentially sensitive. Generated paths such as `build/`,
-`dist/`, `frontend/node_modules/`, `frontend/dist/`, `__pycache__/`, and `.pyc`/`.pyo` files are not source files and can be recreated by the build or
-runtime workflow. The build script intentionally removes its disposable build outputs and Python bytecode caches after a successful build.
+application-data directory. Treat logs, CSV exports, Telegram session data, and configuration files as potentially sensitive. The `releases/linux` and
+`releases/windows` directories contain generated release variants after a build. The build also creates `api/src/storelimitless/bin/linux/` and
+`api/src/storelimitless/bin/windows/` as needed, with the standard-named `LOCAL` executable copied for each selected platform. Temporary paths such as
+`build/`, `frontend/node_modules/`, `frontend/dist/`, `__pycache__/`, and `.pyc`/`.pyo` files can be recreated by the build or runtime workflow and
+are
+cleaned after a successful build.
 
 
 ---
@@ -342,7 +351,8 @@ in source mode) surviving a shutdown.
 
 ### Browser file upload
 
-The browser upload implementation is split between `frontend/src/pages/UploadModal.jsx`, the upload routes, Redis upload-state helpers, and the core
+The browser upload implementation is split between `frontend/src/pages/dashboard/components/UploadModal.jsx`, the upload routes, Redis upload-state
+helpers, and the core
 transfer layer.
 
 1. The frontend requests an upload job using `POST /auth/upload`, passing the selected data center, directory, and file name in headers.
@@ -537,76 +547,132 @@ operational state such as upload sessions and progress. Do not treat Redis cache
 
 ## Frontend guide
 
-The frontend uses React, React Router, Vite, and Tailwind-style utility classes. JSX pages live under `frontend/src/pages/`. The dashboard has been
-split into focused components, hooks, and shared helpers so its UI and data-management logic are easier to maintain. Components use `.jsx` files and
-JSDoc comments for some type documentation.
+The frontend is a React application built with React Router, Vite, and Tailwind-style utility classes. It uses a dark interface with a green accent, a
+public landing page, separate authentication routes, a file-management dashboard, upload/import workflows, and a dedicated file viewer. Reusable
+dashboard UI and data lifecycle logic are organized under `frontend/src/pages/dashboard/`.
 
 ### Browser routes
 
-| Route           | Page                                                       |
-|-----------------|------------------------------------------------------------|
-| `/`             | Sign-in and registration (`Auth.jsx`).                     |
-| `/home`         | Dashboard root.                                            |
-| `/home/*`       | Dashboard at a nested folder route.                        |
-| `/dashboard`    | Legacy route that redirects to the matching `/home` route. |
-| `/upload`       | File upload and remote-link import (`UploadModal.jsx`).    |
-| `/view/:fileId` | File preview and media player (`ViewFile.jsx`).            |
+| Route           | Page / behavior                                                                                          |
+|-----------------|----------------------------------------------------------------------------------------------------------|
+| `/`             | Public product landing page (`Landing.jsx`). It introduces StoreLimitless and links to login and signup. |
+| `/login`        | Sign-in form (`Auth.jsx` with `initialMode="login"`).                                                    |
+| `/signup`       | Registration form (`Auth.jsx` with `initialMode="signup"`).                                              |
+| `/home`         | Dashboard root.                                                                                          |
+| `/home/*`       | Dashboard at a nested folder route.                                                                      |
+| `/dashboard`    | Legacy route that redirects to the matching `/home` route.                                               |
+| `/upload`       | Standalone file-upload / remote-link import page (`dashboard/components/UploadModal.jsx`).               |
+| `/view/:fileId` | File preview and media player (`dashboard/components/ViewFile.jsx`).                                     |
 
 ### Frontend module map
 
-#### Page-level files
+#### Entry and page modules
 
-- `App.jsx` declares the client-side routes.
-- `main.jsx` mounts React into the HTML root element; `index.css` contains global styling.
-- `pages/Auth.jsx` handles sign-in and registration and stores the bearer token in `localStorage` under `token`.
-- `pages/Dashboard.jsx` coordinates dashboard state and user interactions, including folder navigation, selection, drag-and-drop operations, bulk
-  actions, dialogs, search, and file actions. Rendering and reusable data logic are delegated to the dashboard modules below.
-- `pages/MoveModal.jsx` provides the file/folder move dialog.
-- `pages/UploadModal.jsx` manages local-file uploads and multi-link imports, including upload-page keyboard shortcuts.
-- `pages/ViewFile.jsx` obtains a public stream URL and provides the media player, including seeking, playback-rate, volume, fullscreen, and
-  picture-in-picture controls.
+- `src/App.jsx` declares the landing, authentication, dashboard, upload, and file-view routes. The root route is the public landing page, not the
+  login form.
+- `src/main.jsx` mounts React into the HTML root element.
+- `src/index.css` contains global styling, the slim green-accent scrollbar theme for page and nested scroll regions, and reduced-motion
+  accommodations.
+- `src/pages/Landing.jsx` renders the public-facing product page, including the responsive navigation, product-preview illustration, feature section,
+  “how it works” steps, and sign-up/login calls to action. The product preview is illustrative rather than live account data.
+- `src/pages/Auth.jsx` handles both login and signup modes and stores the bearer token in `localStorage` under `token`.
+- `src/pages/Dashboard.jsx` coordinates dashboard state and interactions: folder navigation, selection, search, context menus, drag/marquee selection,
+  drag-and-drop moves, bulk actions, trash/restore, dialogs, and file actions.
 
 #### Dashboard components and helpers
 
-All dashboard-specific modules are under `pages/dashboard/`:
+All dashboard-specific modules are under `src/pages/dashboard/`:
 
-- `components/Sidebar.jsx` renders the dashboard navigation/sidebar.
-- `components/DashboardWorkspace.jsx` renders the main file/folder workspace, breadcrumbs, loading/error states, and file/folder presentation.
-- `components/DashboardContextMenu.jsx` renders the background/item context menu.
-- `components/CreateFolderModal.jsx` and `components/RenameItemModal.jsx` contain the create-folder and rename dialogs.
+- `components/Sidebar.jsx` renders the application navigation, storage-used summary, and sign-out control.
+- `components/DashboardWorkspace.jsx` renders the current folder breadcrumb, search field, refresh control, folder/file rows, empty/loading/error
+  states, and the file-management workspace.
+- `components/DashboardContextMenu.jsx` renders background and item context menus.
+- `components/CreateFolderModal.jsx` and `components/RenameItemModal.jsx` provide directory creation and rename dialogs.
+- `components/ItemDetailsModal.jsx` shows available metadata for a selected file or folder. Folder details include a recursively calculated total
+  size.
 - `components/BulkActionConfirmModal.jsx` handles confirmation for destructive or bulk actions.
-- `components/UploadJobsTray.jsx` displays active and failed upload/import jobs and exposes job actions.
-- `constants.js` centralizes the API URL and dashboard browser-storage keys.
+- `components/MoveModal.jsx` browses destination folders, lets the user choose or deselect a destination, and validates moves before submission.
+  Selecting a different directory changes the destination; selecting the current choice again toggles it off and returns the destination to the folder
+  currently being browsed.
+- `components/UploadModal.jsx` handles local-file uploads and HTTP (S) link imports. It is used as both the standalone `/upload` page and a dashboard
+  dialog.
+- `components/UploadJobsTray.jsx` displays active and failed upload/import jobs, transfer progress, byte counts, and job actions.
+- `components/ViewFile.jsx` obtains a public stream URL and provides the media player, including seeking, playback rate, volume, fullscreen, and
+  picture-in-picture controls.
+- `constants.js` centralizes the API URL, navigation entries, and shared keys/styles.
 - `utils.js` contains shared path, token, file-kind, route, and selection helpers.
 
 #### Dashboard hooks
 
-- `hooks/useDashboardData.js` loads and manages the current directory's files, folders, storage usage, loading state, and page errors.
-- `hooks/useGlobalFileSearch.js` manages cross-folder search results and search status.
-- `hooks/useUploadJobs.js` restores and persists upload jobs, polls server-side status, updates progress, removes completed jobs, and refreshes the
-  current directory after completion.
+- `hooks/useDashboardData.js` loads the account's file/folder tree, storage metadata, and trash; refreshes a targeted directory after mutations; and
+  calculates recursive folder sizes.
+- `hooks/useGlobalFileSearch.js` manages search results across the loaded file tree.
+- `hooks/useUploadJobs.js` restores active jobs from browser storage, polls server-side status, updates transfer progress, handles
+  cancellation/dismissal, and syncs completed uploads into the relevant directory.
 
-This separation keeps `Dashboard.jsx` focused on coordinating interactions rather than containing every visual component and data workflow in one
-large file. When adding dashboard behavior, place reusable UI in `components/`, data lifecycle logic in the appropriate hook, and shared
-constants/helpers in `constants.js` or `utils.js`.
+The separation keeps `Dashboard.jsx` focused on coordinating interactions. When adding dashboard behavior, put reusable UI in `components/`, data
+lifecycle logic in the appropriate hook, and shared helpers/constants in `constants.js` or `utils.js`.
 
-### Upload progress and directory refresh
+### Directory-tree cache and refresh behavior
 
-The dashboard upload tray stores pending job details in browser `localStorage` under `storelimitless_upload_jobs`. `useUploadJobs.js` polls each
-active job's status, updates the displayed progress, and removes completed jobs from the persisted list and tray. When a job completes, the hook
-refreshes the current directory so the new file appears without requiring a manual page reload. Failed jobs retain their error status so the user can
-inspect or dismiss them. Keep the storage key and backend status contract aligned when changing this flow.
+`useDashboardData.js` performs a complete initial scan of the user's active directory tree. It requests directories in batches, queues newly
+discovered child folders, collects files from each directory, then loads trash and account storage metadata. The tree is held in a module-level
+in-memory cache scoped to the current account token.
+
+- **Folder navigation:** changing the `/home/...` route switches the visible directory slice from the cached tree instead of issuing another directory
+  request for every navigation step.
+- **Explicit Refresh:** the dashboard's Refresh control calls the full tree loader, so it re-reads directory and file data from the server rather than
+  trusting the existing cache.
+- **Browser reload:** the cache exists only in JavaScript memory, not in `localStorage`; a hard reload such as F5 recreates the module state and
+  triggers a fresh tree load.
+- **Local changes and uploads:** operations that affect a single folder can refresh that directory and update the in-memory tree without rescanning
+  every folder. Completed uploads are synchronized to their target directories by the upload-job hook.
+- **Recursive folder size:** the hook sums file sizes in a folder and all descendants, using the cached file/folder records. Missing or invalid size
+  values contribute zero. The value is exposed as `total_size_bytes` for the details dialog.
+
+The cache is a performance optimization, not durable storage. PostgreSQL remains the source of truth for metadata. If a change bypasses the normal
+refresh path, use the dashboard Refresh control to reconcile the client tree with server data.
+
+### Upload progress and job behavior
+
+The dashboard upload tray persists jobs in browser `localStorage` under `storelimitless_upload_jobs`. `useUploadJobs.js` polls active jobs about every
+1.2 seconds, updates byte counts and percentages, and removes completed/cancelled jobs from the saved tray state. When one or more jobs complete, it
+refreshes each affected destination directory so the uploaded files appear without a manual full-tree refresh. Failed jobs remain visible until
+dismissed.
+
+Local file uploads can be cancelled from the tray; cancellation aborts the tracked browser chunk requests and removes the job from the tray.
+Link-import jobs are tracked separately and can be dismissed when no longer active. Treat the browser storage key and backend upload-status response
+contract as a single interface when changing this flow.
 
 ### Upload page keyboard shortcuts and multiple links
 
-On the upload page:
+On the standalone upload page:
 
 - **Escape** returns to the dashboard route for the current directory.
 - **Backspace** returns to the dashboard when focus is not in an editable field; normal text editing is preserved.
-- **Enter** triggers the upload/import button when enabled, except inside the multi-link text area, where Enter inserts a new line. Key repeat is
-  ignored for triggering the upload action so holding Enter does not repeatedly submit it.
-- In **Link** mode, paste or type one HTTP (S) URL per line. Blank lines are ignored. The page validates all entered URLs before creating one
-  server-side import job per link, then returns to the dashboard so the upload tray can show their progress.
+- **Enter** triggers the upload/import action when it is enabled, except inside the multi-link text area, where Enter inserts a new line. Key repeat
+  is ignored when triggering the action.
+- In **Link** mode, paste or type one HTTP (S) URL per line. Blank lines are ignored. The page validates all non-empty URLs before creating separate
+  import jobs, then returns to the dashboard so their progress can be followed in the tray.
+- In **File** mode, users can select multiple local files or drop files into the upload area. Transfers use the chunked upload workflow documented
+  in [Upload and storage flow](#upload-and-storage-flow).
+
+### Selection and move behavior
+
+Dashboard selection is tracked separately for each view (folder route, active/trash tab, and search query) so selections can be restored when
+navigating back through the app. The workspace supports multi-selection, a pointer-drag selection rectangle, context-menu actions, and drag-and-drop
+move gestures.
+
+The move dialog fetches immediate children as the user browses and caches each visited directory for the lifetime of that dialog. A destination must
+pass the dashboard's move validation: moving a directory into itself or one of its descendants is rejected, as is a move with no effective destination
+change. A selected directory's action toggles between **Choose** and **Deselect**; **Use this folder** selects the folder currently open in the
+dialog. Partial failures are reported instead of being treated as a complete success.
+
+### Global visual behavior
+
+`src/index.css` applies a narrow scrollbar style to the page and nested scrollable elements. The thumb is dark green at rest and brightens on
+hover/active state, with transparent tracks and scrollbar corners. It also limits scroll chaining for common overflow utility classes and respects
+reduced-motion preferences. Component-specific styling remains in Tailwind utility classes.
 
 ### API URL resolution
 
@@ -861,57 +927,103 @@ whether those connections are reachable from other machines.
 
 ## Build and packaged distributions
 
-The root `build.sh` builds the React frontend, then packages the Python service with PyInstaller for Linux, Windows, or both. The entry point and path
-logic detect whether Python is running as a frozen executable.
+The root `build.sh` builds the React frontend once, then packages the Python application with PyInstaller. Each selected operating-system target is
+built twice: once with `HOST = "LOCAL"` and once with `HOST = "CLOUD"` in `core/config.py`. The variants use separate PyInstaller work/output
+folders so one mode cannot accidentally reuse the other's intermediate files.
 
 ### Build commands
 
-Run the script from any working directory; it resolves paths relative to itself:
+Run the script from the repository root (or another directory; the script resolves paths relative to itself):
 
 ```bash
-# Build only the Linux server
+# Build both LOCAL and CLOUD Linux executables (2 files)
 ./build.sh 1 0
 
-# Build only the Windows server (requires Wine on Linux)
+# Build both LOCAL and CLOUD Windows executables (2 files; requires Wine on Linux)
 ./build.sh 0 1
 
-# Build both server targets
+# Build both variants for both operating systems (4 files)
 ./build.sh 1 1
 
-# Choose a release version label for output filenames
-VERSION=0.1.1 ./build.sh 1 1
+# Choose a release version label for all output filenames
+VERSION=0.2.0 ./build.sh 1 1
 ```
 
-The two positional arguments must each be `0` or `1`; at least one target must be enabled. The script requires Python 3, `file`, and npm. The Windows
-build additionally requires Wine, `wineboot`, `winepath`, and `wget`; it installs a 64-bit Windows Python runtime under its Wine prefix. Because Wine
-installs may omit pip despite `Include_pip=1`, the script attempts `ensurepip` and falls back to the official `get-pip.py` bootstrap before installing
-Windows dependencies.
+The first argument selects Linux and the second selects Windows. Each argument must be `0` or `1`, and at least one must be `1`. The `VERSION`
+environment variable defaults to `0.1.0` and is incorporated into output filenames.
 
-Release executables are copied to:
+The script requires Python 3, `file`, and npm. For a Windows build it also requires Wine, `wineboot`, `winepath`, and `wget`; it installs a 64-bit
+Windows Python runtime inside its Wine prefix. If pip is unavailable after installing Windows Python, the script tries `ensurepip` and then the
+official
+`get-pip.py` bootstrap before installing dependencies.
 
-- `releases/linux/StoreLimitlessServer_<VERSION>`
-- `releases/windows/StoreLimitlessServer_<VERSION>.exe`
+### Build variants and output layout
 
-The current build script also copies target executables to `api/src/storelimitless/bin/linux/` and `api/src/storelimitless/bin/windows/` for SDK
-bundling.
-Those directories are generated/ignored paths and may not exist in a fresh source checkout; the script creates them when building. They are not part
-of
-the root application's tracked source tree shown above.
+The script writes the platform variants directly to the repository-root `releases/linux` and `releases/windows` directories. With the default `VERSION=0.1.0`, the
+four possible outputs are:
+
+```text
+.
+├── linux/
+│   ├── StoreLimitlessServer.CLOUD._0.1.0
+│   └── StoreLimitlessServer.LOCAL._0.1.0
+└── windows/
+    ├── StoreLimitlessServer.CLOUD._0.1.0.exe
+    └── StoreLimitlessServer.LOCAL_0.1.0.exe
+```
+
+The filename spelling is intentionally preserved, including the slight difference in the Windows `LOCAL` name. The files are standalone PyInstaller
+executables for their respective operating systems; Windows executables are produced through Wine when building on Linux.
+
+### How HOST is set for each build
+
+The script expects `core/config.py` to contain the following setting:
+
+```python
+HOST: Literal["LOCAL", "CLOUD"] = "LOCAL"
+```
+
+Before each PyInstaller run, it updates this assignment to the variant being built. It builds `LOCAL`, then `CLOUD`, for each selected operating
+system. A backup of `core/config.py` is restored when the script exits, including on a failed build, so the working source configuration is not left
+set to `CLOUD` by the packaging process.
+
+The frontend is built once and shared by the four variants; each executable embeds that frontend build. The server-side `HOST` value controls the
+runtime hosting mode. `LOCAL` uses the local/LAN address setup, while `CLOUD` uses the Cloudflare HTTP-tunnel startup behavior described in
+[Hosting mode](#hosting-mode). The cloud variant does not automatically add a public FTP tunnel.
+
+### SDK binary copies
+
+For each operating system selected in the build command, the script copies the `LOCAL` executable into the separate SDK's generated binary directory.
+The SDK copies deliberately use the standard name without the `LOCAL`/`CLOUD` suffix:
+
+```text
+api/src/storelimitless/bin/
+├── linux/
+│   └── StoreLimitlessServer_0.1.0
+└── windows/
+    └── StoreLimitlessServer_0.1.0.exe
+```
+
+These SDK copies are generated artifacts, not the versioned root-level release files. The script does not copy the `CLOUD` executable into the SDK
+`bin` directory. When updating one platform's SDK binary, it removes stale `StoreLimitlessServer*` files in that platform's `bin` directory before
+copying the current `LOCAL` executable. An OS that was not selected is not rebuilt.
 
 ### Build cleanup
 
-After a **successful** build, the script removes regeneratable artifacts:
+Only after every selected build succeeds, the script removes regeneratable artifacts:
 
-- `build/`, including the temporary Linux virtual environment, Wine prefix, Windows installer/bootstrap files, and PyInstaller work directories.
-- `dist/linux/`, `dist/windows/`, and the now-empty `dist/` parent.
+- `build/`, including temporary virtual environments, Wine prefix data, downloaded Windows Python installers, and PyInstaller work directories.
 - `frontend/node_modules/` and `frontend/dist/`.
 - Project `__pycache__/` directories and `.pyc`/`.pyo` files, while pruning `.git`, `.venv`, `venv`, and `node_modules` directories.
-- `build.log`, removed last after successful cleanup.
+- `build.log`, removed last after the successful build output has been printed.
 
-The cleanup is deliberately placed at the end of the script. If a build fails, intermediate artifacts and `build.log` are retained to help diagnose
-it. The
-script preserves `releases/`, the generated SDK-bundled executable copies, and existing user virtual environments. Since `frontend/node_modules/` is
-removed after a successful build, source-mode startup restores the frontend dependencies automatically when Vite is missing.
+If a build fails, the cleanup phase is skipped so intermediate artifacts and `build.log` remain available for diagnosing the failure. The script
+preserves
+the root `releases/linux` and `releases/windows` executable directories and the generated SDK `api/src/storelimitless/bin/` copies. It does not use the older
+`releases/` or `dist/linux` / `dist/windows` output layout.
+
+Since `frontend/node_modules/` and `frontend/dist/` are removed after a successful build, source-mode startup or the next build reinstalls frontend
+dependencies and regenerates the frontend assets as needed.
 
 ### Frozen frontend runtime
 
@@ -927,7 +1039,6 @@ Do not hand-edit generated JavaScript/CSS in `frontend/dist`; make changes under
 and
 smoke-test each target on its intended operating system where possible. A successful PyInstaller build alone does not prove that credentials, writable
 directories, Redis, media tools, tunnels, or provider authentication work at runtime.
-
 ---
 
 ## Backups and runtime data
@@ -998,6 +1109,17 @@ This project should be treated as a self-hosted application that requires securi
 - Remember that current startup waits for `Discord.ready`; a Discord startup failure can prevent the ready message even if another service has already
   started.
 
+### The browser opens the landing page instead of login
+
+- This is the current route design: `/` is the public product landing page.
+- Open `/login` for sign-in or `/signup` for registration.
+
+### Dashboard folder contents appear stale
+
+- Use the dashboard's **Refresh** control to reload the complete directory tree from the server.
+- A hard browser reload (F5) also clears the module-level in-memory tree cache and triggers an initial reload.
+- If a completed upload is missing, check its tray/status and server logs; successful jobs normally refresh their destination directory automatically.
+
 ### The page loads but requests fail
 
 - Confirm the API is listening on port `8000`.
@@ -1048,20 +1170,24 @@ This project should be treated as a self-hosted application that requires securi
 
 ### Where to make changes
 
-- **New browser page or UI behavior:** `frontend/src/pages/` and `frontend/src/App.jsx`.
+- **Public landing/authentication or route behavior:** `frontend/src/pages/Landing.jsx`, `frontend/src/pages/Auth.jsx`, and `frontend/src/App.jsx`.
+  The root route `/` is the landing page; `/login` and `/signup` open authentication directly.
 - **New folder/file operation:** the corresponding router in `backend/server/routers/directories.py`, plus model methods as required.
 - **New account behavior:** `backend/server/routers/accounts.py`, `backend/server/jwt_handler.py`, `backend/server/security.py`, and
   `backend/database/models/user.py`.
-- **Browser upload behavior:** `frontend/src/pages/UploadModal.jsx`, `backend/server/routers/uploads.py`, `backend/server/routers/upload_state.py`,
-  and
-  `core/utils/progress.py`.
+- **Browser upload behavior:** `frontend/src/pages/dashboard/components/UploadModal.jsx`, `frontend/src/pages/dashboard/hooks/useUploadJobs.js`,
+  `backend/server/routers/uploads.py`, `backend/server/routers/upload_state.py`, and `core/utils/progress.py`.
 - **New storage provider:** implement the provider interface in a module under `core/utils/`, register it in the `DataCenter` provider factory, add
   its name/configuration, and test upload and download paths.
+- **Dashboard directory data, refresh, and recursive sizes:** `frontend/src/pages/dashboard/hooks/useDashboardData.js`, with corresponding metadata
+  contracts in the directory and account routes.
 - **Chunk layout or streaming behavior:** `core/data_center.py`, `core/transfer.py`, `core/utils/progress.py`, and `core/stream.py`. Keep upload chunk
   sizing and stream part calculations consistent.
 - **FTP semantics:** `backend/ftp/filesystem/filesystem.py` and its upload/download adapters.
-- **Runtime URLs or packaging:** `core/main.py`, `core/config.py`, `backend/server/frontend.py`, the frontend environment resolution, and
-  `storelimitless-backend.spec`.
+- **Runtime URLs or packaging:** `core/main.py`, `core/config.py`, `backend/server/frontend.py`, `frontend/src/App.jsx` and its API URL resolution,
+  and `storelimitless-backend.spec`.
+- **Global scrollbar or motion styling:** `frontend/src/index.css`. Keep global CSS aligned with any new scrollable components and reduced-motion
+  requirements.
 
 ### Invariants worth preserving
 
@@ -1089,8 +1215,12 @@ At minimum, test the affected workflow through the same path a user uses:
 6. Try rename/move/trash/restore using the web UI and verify that the virtual FTP view sees the same state.
 7. Test FTP list/download/upload with a client, including passive mode where remote access is required.
 8. Restart the server and repeat a read to confirm that storage reconstruction does not depend on the disposable cache.
-9. Run the frontend lint/build scripts that are actually declared in `frontend/package.json`.
-10. Test the packaged executable separately from development mode.
+9. Verify `/` opens the public landing page, `/login` and `/signup` open the corresponding auth modes, and nested `/home/...` routes still work.
+10. Navigate across several nested folders, check a folder's recursive total size, use Refresh, and confirm a hard reload fetches fresh tree data.
+11. Test move destination selection and deselection, including attempts to move a folder into itself or a descendant.
+12. Exercise upload progress, cancellation, failed-job dismissal, and automatic directory synchronization after completion.
+13. Run the frontend lint/build scripts that are actually declared in `frontend/package.json`.
+14. Test the packaged executable separately from development mode.
 
 Automated tests should be added for range parsing, chunk-count validation, upload-range merging, folder path rewriting, ownership/authorization,
 public-token expiry, and FTP seek behavior.
@@ -1099,8 +1229,9 @@ public-token expiry, and FTP seek behavior.
 
 ## Known boundaries and verification notes
 
-- The separate SDK source package is not part of the tracked application tree documented here. The current build script can generate ignored
-  `api/src/storelimitless/bin/` paths to store bundled server copies for SDK distribution.
+- The separate SDK source package is not part of the tracked application tree documented here. `build.sh` generates versioned `LOCAL` and `CLOUD`
+  executables under the repository-root `releases/linux` and `releases/windows` directories, and copies only the selected platform's `LOCAL` executable to the SDK's
+  generated `api/src/storelimitless/bin/` directory using the standard `StoreLimitlessServer_<VERSION>` name.
 - URL imports support YouTube processing, Google Drive links, and direct HTTP (S) download URLs. A syntactically valid HTTP (S) URL is not guaranteed
   to
   be a downloadable file; ordinary HTML pages and sources requiring unavailable authentication can fail.
@@ -1109,6 +1240,7 @@ public-token expiry, and FTP seek behavior.
 - Cloud mode in the current startup code opens HTTP tunnels for the API and website only. It does not provide public FTP tunneling or passive-port
   configuration.
 - The database backup helper exports data; a matching tested restore/migration process is not established by the supplied code.
-- The README describes the supplied source and repository tree. It is not a claim that every deployment mode or workflow has been integration-tested.
+- The README describes the supplied source and repository tree, including the current landing/authentication routes and dashboard cache, refresh,
+  details, and move-dialog behavior. It is not a claim that every deployment mode or workflow has been integration-tested.
 
 For licensing terms, see the repository's `LICENSE` file.

@@ -5,7 +5,7 @@ import {getToken} from "../utils.js";
 const JOBS_STORAGE_KEY = "storelimitless_upload_jobs";
 
 /** Polls upload jobs, persists progress, and exposes tray actions. */
-export default function useUploadJobs(fetchFiles) {
+export default function useUploadJobs(refreshDirectory) {
     const [uploadJobs, setUploadJobs] = useState(() => {
         try {
             const storedJobs = JSON.parse(localStorage.getItem(JOBS_STORAGE_KEY) || "[]");
@@ -15,14 +15,14 @@ export default function useUploadJobs(fetchFiles) {
         }
     });
 
-    // Poll active jobs. On completion, remove the job from the tray and
-    // refresh the directory so the new file appears without a page reload.
+    // Poll active jobs. On completion, remove the job from the tray and refresh
+    // only the destination directory so the full in-memory tree stays intact.
     useEffect(() => {
         let cancelled = false;
         let polling = false;
         const jobsKey = "storelimitless_upload_jobs";
         /**
-         * Refresh upload progress and refresh the current directory when jobs complete.
+         * Refresh upload progress and sync only folders that received completed uploads.
          * @returns {Promise<void>}
          */
         const refreshUploadJobs = async () => {
@@ -78,11 +78,19 @@ export default function useUploadJobs(fetchFiles) {
                 setUploadJobs(remainingJobs);
                 if (completedIds.size > 0) {
                     // The completed jobs have already been removed from localStorage.
-                    // Remove their global cancellation handles and refresh the current directory.
+                    // Remove their global cancellation handles and sync each destination once.
+                    const completedJobs = updatedJobs.filter(job => completedIds.has(job?.jobId));
                     for (const jobId of completedIds) {
                         window.__storeLimitlessUploadTransfers?.delete(jobId);
                     }
-                    void fetchFiles();
+                    const directories = new Set(completedJobs.map(job => job.directory || "/home"));
+                    await Promise.all([...directories].map(async directory => {
+                        try {
+                            await refreshDirectory(directory);
+                        } catch (error) {
+                            console.error("Failed to sync a completed upload into the local tree:", error);
+                        }
+                    }));
                 }
             } finally {
                 polling = false;
@@ -95,7 +103,7 @@ export default function useUploadJobs(fetchFiles) {
             cancelled = true;
             window.clearInterval(intervalId);
         };
-    }, [fetchFiles]);
+    }, [refreshDirectory]);
 
     /**
      * Remove an upload job from persistent state and the dashboard tray.

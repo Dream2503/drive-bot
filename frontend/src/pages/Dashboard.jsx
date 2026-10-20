@@ -1,29 +1,20 @@
 import {useEffect, useMemo, useRef, useState} from "react";
 import {useLocation, useNavigate} from "react-router-dom";
-import MoveModal from "./MoveModal.jsx";
-import UploadPage from "./UploadModal.jsx";
+import MoveModal from "./dashboard/components/MoveModal.jsx";
+import UploadPage from "./dashboard/components/UploadModal.jsx";
 import Sidebar from "./dashboard/components/Sidebar.jsx";
 import CreateFolderModal from "./dashboard/components/CreateFolderModal.jsx";
 import RenameItemModal from "./dashboard/components/RenameItemModal.jsx";
+import ItemDetailsModal from "./dashboard/components/ItemDetailsModal.jsx";
 import DashboardContextMenu from "./dashboard/components/DashboardContextMenu.jsx";
 import DashboardWorkspace from "./dashboard/components/DashboardWorkspace.jsx";
 import UploadJobsTray from "./dashboard/components/UploadJobsTray.jsx";
 import BulkActionConfirmModal from "./dashboard/components/BulkActionConfirmModal.jsx";
-import useDashboardData from "./dashboard/hooks/useDashboardData.js";
+import useDashboardData, {clearDashboardTreeCache} from "./dashboard/hooks/useDashboardData.js";
 import useGlobalFileSearch from "./dashboard/hooks/useGlobalFileSearch.js";
 import useUploadJobs from "./dashboard/hooks/useUploadJobs.js";
-import {
-    API_URL,
-    DASHBOARD_SELECTION_STORAGE_KEY,
-    DASHBOARD_SELECTIONS_BY_VIEW_KEY,
-} from "./dashboard/constants.js";
-import {
-    decodePathSegment,
-    folderPathToRoute,
-    getFileKind,
-    getToken,
-    makeSelectionViewKey,
-} from "./dashboard/utils.js";
+import {API_URL, DASHBOARD_SELECTION_STORAGE_KEY, DASHBOARD_SELECTIONS_BY_VIEW_KEY,} from "./dashboard/constants.js";
+import {decodePathSegment, folderPathToRoute, getFileIcon, getFileKind, getToken, makeSelectionViewKey,} from "./dashboard/utils.js";
 
 /** @typedef {"files" | "trash"} DashboardTab */
 /** @typedef {{icon: string, color: string}} FileIconStyle */
@@ -64,8 +55,22 @@ import {
  * @property {number} [total]
  * @property {string} [message]
  */
+
 /** @typedef {{kind: "background"} | {kind: "item", item: SelectableItem}} ContextMenuPayload */
 /** @typedef {ContextMenuPayload & {x: number, y: number}} ContextMenuState */
+
+function isPathWithinFolder(candidatePath, folderPath) {
+    const candidate = String(candidatePath || "").replace(/\/$/, "");
+    const folder = String(folderPath || "").replace(/\/$/, "");
+    return Boolean(folder) && (candidate === folder || candidate.startsWith(`${folder}/`));
+}
+
+function replacePathPrefix(pathValue, oldPath, newPath) {
+    const path = String(pathValue || "");
+    if (path === oldPath) return newPath;
+    if (path.startsWith(`${oldPath}/`)) return `${newPath}${path.slice(oldPath.length)}`;
+    return path;
+}
 
 /**
  * Render file browsing, search, selection, and file-management interactions.
@@ -91,10 +96,10 @@ export default function DashboardPage() {
 
     const {
         files, setFiles, folders, setFolders, storageUsed, loadingFiles,
-        loadedFolder, pageError, setPageError, fetchFiles,
+        loadedFolder, pageError, setPageError, fetchFiles, refreshDirectory,
     } = useDashboardData(currentFolder, navigate);
-    const {searchResults, setSearchResults, searchLoading, searchError} = useGlobalFileSearch(searchQuery, activeTab, navigate);
-    const {uploadJobs, dismissUploadJob, cancelUploadJob} = useUploadJobs(fetchFiles);
+    const {searchResults, searchLoading, searchError} = useGlobalFileSearch(searchQuery, activeTab, files);
+    const {uploadJobs, dismissUploadJob, cancelUploadJob} = useUploadJobs(refreshDirectory);
     const [showFolderModal, setShowFolderModal] = useState(false);
     const [showUploadModal, setShowUploadModal] = useState(false);
     /** @type {[SelectableItem[] | null, import("react").Dispatch<import("react").SetStateAction<SelectableItem[] | null>>]} */
@@ -120,6 +125,7 @@ export default function DashboardPage() {
     const [bulkActionLoading, setBulkActionLoading] = useState(false);
     const [bulkActionError, setBulkActionError] = useState("");
     const [renameTarget, setRenameTarget] = useState(null);
+    const [detailsTarget, setDetailsTarget] = useState(null);
     const renameSelectionSnapshotRef = useRef(null);
     const cancelConfirmButtonRef = useRef(null);
     const destructiveConfirmButtonRef = useRef(null);
@@ -299,7 +305,13 @@ export default function DashboardPage() {
                 throw new Error(message);
             }
 
-            await fetchFiles();
+            if (permanent) {
+                setFiles((current) => current.filter((file) => String(file.id) !== String(fileId)));
+            } else {
+                setFiles((current) => current.map((file) => String(file.id) === String(fileId)
+                    ? {...file, is_deleted: true, modified_at: new Date().toISOString()}
+                    : file));
+            }
         } catch (error) {
             console.error("Delete failed:", error);
             alert(error.message || "Failed to delete file.");
@@ -335,7 +347,9 @@ export default function DashboardPage() {
                 throw new Error(message);
             }
 
-            await fetchFiles();
+            setFiles((current) => current.map((file) => String(file.id) === String(itemId)
+                ? {...file, is_deleted: false, deleted_at: null, modified_at: new Date().toISOString()}
+                : file));
         } catch (error) {
             console.error("Restore failed:", error);
             alert(error.message || "Failed to restore item.");
@@ -370,7 +384,9 @@ export default function DashboardPage() {
                 throw new Error(message);
             }
 
-            await fetchFiles();
+            setFolders((current) => current.map((folder) => String(folder.id) === String(folderId)
+                ? {...folder, is_deleted: false, deleted_at: null, modified_at: new Date().toISOString()}
+                : folder));
         } catch (error) {
             console.error("Folder restore failed:", error);
             alert(error.message || "Failed to restore folder.");
@@ -400,7 +416,7 @@ export default function DashboardPage() {
         const data = await response.json();
         if (!response.ok) throw new Error(data.detail || "Failed to create folder.");
 
-        await fetchFiles();
+        await refreshDirectory(directory);
         setShowFolderModal(false);
     };
 
@@ -442,7 +458,14 @@ export default function DashboardPage() {
                 throw new Error(data.detail || "Failed to delete folder.");
             }
 
-            await fetchFiles();
+            if (permanent) {
+                setFolders((current) => current.filter((folder) => !isPathWithinFolder(folder.path, folderPath)));
+                setFiles((current) => current.filter((file) => !isPathWithinFolder(file.directory, folderPath)));
+            } else {
+                setFolders((current) => current.map((folder) => String(folder.id) === String(folderId)
+                    ? {...folder, is_deleted: true, modified_at: new Date().toISOString()}
+                    : folder));
+            }
         } catch (error) {
             console.error("Folder deletion failed:", error);
             alert(error.message || "Failed to delete folder.");
@@ -504,6 +527,7 @@ export default function DashboardPage() {
 
         let succeeded = 0;
         const failures = [];
+        const cacheMutations = [];
         const inTrash = activeTab === "trash";
 
         try {
@@ -515,13 +539,22 @@ export default function DashboardPage() {
                 try {
                     if (confirmAction.mode === "trash") {
                         await requestSelectionDelete(ordinaryEndpoint);
+                        cacheMutations.push({item, mode: "trash"});
                     } else if (inTrash) {
                         await requestSelectionDelete(permanentEndpoint);
+                        cacheMutations.push({item, mode: "permanent"});
                     } else {
-                        // Shift+Delete from active files first moves the item to
-                        // Trash, then immediately permanently deletes it.
+                        // Shift+Delete first moves the item to Trash, then permanently deletes it.
                         await requestSelectionDelete(ordinaryEndpoint);
-                        await requestSelectionDelete(permanentEndpoint);
+                        try {
+                            await requestSelectionDelete(permanentEndpoint);
+                            cacheMutations.push({item, mode: "permanent"});
+                        } catch (error) {
+                            // The first request succeeded, so reflect its Trash state even if
+                            // the permanent-delete request failed.
+                            cacheMutations.push({item, mode: "trash"});
+                            throw error;
+                        }
                     }
                     succeeded += 1;
                 } catch (error) {
@@ -529,10 +562,26 @@ export default function DashboardPage() {
                 }
             }
 
+            for (const {item, mode} of cacheMutations) {
+                if (item.type === "file") {
+                    setFiles((current) => mode === "permanent"
+                        ? current.filter((file) => String(file.id) !== String(item.id))
+                        : current.map((file) => String(file.id) === String(item.id)
+                            ? {...file, is_deleted: true, modified_at: new Date().toISOString()}
+                            : file));
+                } else if (mode === "permanent") {
+                    setFolders((current) => current.filter((folder) => !isPathWithinFolder(folder.path, item.path)));
+                    setFiles((current) => current.filter((file) => !isPathWithinFolder(file.directory, item.path)));
+                } else {
+                    setFolders((current) => current.map((folder) => String(folder.id) === String(item.id)
+                        ? {...folder, is_deleted: true, modified_at: new Date().toISOString()}
+                        : folder));
+                }
+            }
+
             setConfirmAction(null);
             setSelectedItems(new Set());
             selectionAnchorRef.current = null;
-            await fetchFiles();
 
             if (failures.length) {
                 const firstFailures = failures.slice(0, 3).join("; ");
@@ -549,6 +598,7 @@ export default function DashboardPage() {
      * @returns {void}
      */
     const handleLogout = () => {
+        clearDashboardTreeCache(getToken());
         localStorage.removeItem("token");
         navigate("/");
     };
@@ -675,6 +725,10 @@ export default function DashboardPage() {
             // work or try to move a child out of a folder that is moving with it.
             const topLevelItems = reduceMoveItemsToTopLevel(actionItems);
             if (topLevelItems.length) setMoveDialogItems(topLevelItems);
+            return;
+        }
+        if (action === "details") {
+            setDetailsTarget(item);
             return;
         }
         if (action === "delete") {
@@ -831,8 +885,11 @@ export default function DashboardPage() {
             fontFamily: "Inter, ui-sans-serif, system-ui, sans-serif",
             pointerEvents: "none",
             zIndex: "2147483647",
-            opacity: "0",
-            transform: "translate3d(0, 8px, 0) scale(0.96)",
+            // Keep the preview visible immediately. Waiting for requestAnimationFrame
+            // left it transparent when the browser began a native text drag from a
+            // filename and paused the custom mouse-move lifecycle.
+            opacity: "1",
+            transform: "translate3d(0, 0, 0) scale(1)",
             transformOrigin: "top left",
             transition: "opacity 150ms ease-out, transform 150ms cubic-bezier(0.2, 0.75, 0.25, 1)",
             willChange: "opacity, transform",
@@ -861,14 +918,26 @@ export default function DashboardPage() {
             });
 
             const icon = document.createElement("span");
-            icon.textContent = item.type === "folder" ? "folder" : getFileIcon(item.name).icon;
+            // Keep drag-preview rendering independent from API data shape. A malformed
+            // or missing filename must never prevent the preview from being created.
+            let fileIcon = "draft";
+            if (item.type === "folder") {
+                fileIcon = "folder";
+            } else {
+                try {
+                    fileIcon = getFileIcon(String(item.name ?? "")).icon || "draft";
+                } catch {
+                    fileIcon = "draft";
+                }
+            }
+            icon.textContent = fileIcon;
             icon.style.fontFamily = "'Material Symbols Outlined'";
             Object.assign(icon.style, {
                 flex: "0 0 auto", fontSize: "18px", color: item.type === "folder" ? "#3ecf8e" : "#70b8ff",
             });
 
             const name = document.createElement("span");
-            name.textContent = item.name;
+            name.textContent = String(item.name ?? "Untitled");
             Object.assign(name.style, {
                 display: "block", minWidth: "0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: "1",
             });
@@ -884,13 +953,6 @@ export default function DashboardPage() {
         }
 
         document.body.appendChild(preview);
-        // Let the browser paint the initial state before transitioning into the
-        // floating preview, giving the still-to-drag change a soft entrance.
-        window.requestAnimationFrame(() => {
-            if (!preview.isConnected) return;
-            preview.style.opacity = "1";
-            preview.style.transform = "translate3d(0, 0, 0) scale(1)";
-        });
         return preview;
     };
 
@@ -919,6 +981,11 @@ export default function DashboardPage() {
     const beginMoveDrag = (event, item) => {
         if (event.button !== 0 || isTrash || item.is_deleted || movingItems || confirmAction) return;
         if (event.target.closest("[data-selection-ignore]")) return;
+
+        // File names are rendered as text inside a button. Prevent the browser's
+        // native text-drag operation on mousedown so it cannot take over the
+        // pointer stream before our floating preview becomes visible.
+        if (item.type === "file") event.preventDefault();
 
         const isPartOfSelection = selectedItems.has(item.key);
         const selected = isPartOfSelection ? selectableItems.filter((candidate) => selectedItems.has(candidate.key) && !candidate.is_deleted) : [item];
@@ -1011,10 +1078,30 @@ export default function DashboardPage() {
                 };
             }
 
+            const sourceItems = new Map(topLevelItems.map((item) => [`${item.type}:${String(item.id)}`, item]));
+            for (const movedItem of Array.isArray(data.moved) ? data.moved : []) {
+                const source = sourceItems.get(`${movedItem.type}:${String(movedItem.id)}`);
+                if (!source) continue;
+                if (movedItem.type === "file") {
+                    const destination = movedItem.directory || targetPath;
+                    setFiles((current) => current.map((file) => String(file.id) === String(movedItem.id)
+                        ? {...file, directory: destination === "/home" ? "" : destination, directory_id: movedItem.directory_id ?? file.directory_id}
+                        : file));
+                } else if (movedItem.type === "folder" && source.path) {
+                    const nextPath = movedItem.path || `${targetPath.replace(/\/$/, "")}/${source.name}`;
+                    setFolders((current) => current.map((folder) => ({
+                        ...folder,
+                        path: replacePathPrefix(folder.path, source.path, nextPath),
+                    })));
+                    setFiles((current) => current.map((file) => ({
+                        ...file,
+                        directory: replacePathPrefix(file.directory || "", source.path, nextPath),
+                    })));
+                }
+            }
+
             clearSelection();
             setSearchQuery("");
-            setSearchResults([]);
-            await fetchFiles();
         } catch (error) {
             const message = error.message || "Failed to move selected items.";
             setPageError(message);
@@ -1125,32 +1212,19 @@ export default function DashboardPage() {
         const finalName = data.name || newName;
         if (item.type === "file") {
             setFiles((current) => current.map((file) => (String(file.id) === String(item.id) ? {...file, name: finalName} : file)));
-            setSearchResults((current) => current.map((file) => (String(file.id) === String(item.id) ? {...file, name: finalName} : file)));
         } else {
             const oldPath = item.path;
             const newPath = data.path || `${oldPath.slice(0, oldPath.lastIndexOf("/"))}/${finalName}`;
-            /**
-             * Replace a renamed or moved directory prefix in a stored path.
-             * @param {string} path
-             * @returns {string}
-             */
-            const replacePath = (path) => {
-                if (path === oldPath) return newPath;
-                if (path.startsWith(`${oldPath}/`)) return `${newPath}${path.slice(oldPath.length)}`;
-                return path;
-            };
-            setFolders((current) => current.map((folder) => ({...folder, path: replacePath(folder.path)})));
-            setFiles((current) => current.map((file) => ({
-                ...file, directory: replacePath(file.directory || ""),
+            setFolders((current) => current.map((folder) => ({
+                ...folder, path: replacePathPrefix(folder.path, oldPath, newPath),
             })));
-            setSearchResults((current) => current.map((file) => ({
-                ...file, directory: replacePath(file.directory || ""),
+            setFiles((current) => current.map((file) => ({
+                ...file, directory: replacePathPrefix(file.directory || "", oldPath, newPath),
             })));
         }
 
         setRenameTarget(null);
         renameSelectionSnapshotRef.current = null;
-        await fetchFiles();
     };
 
     /**
@@ -1255,16 +1329,30 @@ export default function DashboardPage() {
                 const dy = event.clientY - move.startY;
 
                 if (!move.active && Math.hypot(dx, dy) >= 6) {
+                    // Build and attach the floating preview before hiding the source
+                    // item. Previously a preview-rendering exception could leave a
+                    // file invisible with nothing following the pointer.
+                    let preview = null;
+                    try {
+                        preview = createMoveDragPreview(move.payload, event.clientX + 12, event.clientY + 12);
+                    } catch (error) {
+                        console.error("Could not create the move drag preview:", error);
+                    }
+                    if (!preview?.isConnected) {
+                        movePointerRef.current = null;
+                        move.active = false;
+                        return;
+                    }
+
                     move.active = true;
                     suppressClickRef.current = true;
                     moveDragRef.current = move.payload;
+                    dragPreviewNodeRef.current = preview;
                     if (!move.wasSelected) {
                         setSelectedItems(new Set([move.item.key]));
                         selectionAnchorRef.current = move.item.key;
                     }
                     setDraggingKeys(new Set(move.payload.map((entry) => entry.key)));
-                    const preview = createMoveDragPreview(move.payload, event.clientX + 12, event.clientY + 12);
-                    dragPreviewNodeRef.current = preview;
                 }
 
                 if (move.active) {
@@ -1503,6 +1591,15 @@ export default function DashboardPage() {
 
             const target = event.target;
             if (target instanceof HTMLElement && (target.isContentEditable || target.closest("input, textarea, select, [contenteditable='true']"))) return;
+
+            if (event.altKey && event.key === "Enter") {
+                const selected = selectableItems.filter((item) => selectedItems.has(item.key));
+                if (selected.length === 1) {
+                    event.preventDefault();
+                    setDetailsTarget(selected[0]);
+                }
+                return;
+            }
 
             if (event.key === "F2") {
                 const selected = selectableItems.filter((item) => selectedItems.has(item.key));
@@ -1749,6 +1846,11 @@ export default function DashboardPage() {
             onRename={renameItem}
         />)}
 
+        {detailsTarget && (<ItemDetailsModal
+            item={detailsTarget}
+            onClose={() => setDetailsTarget(null)}
+        />)}
+
         {showFolderModal && (<CreateFolderModal
             targetPath={currentFolder}
             onClose={() => setShowFolderModal(false)}
@@ -1764,6 +1866,7 @@ export default function DashboardPage() {
         {moveDialogItems && (<MoveModal
             items={moveDialogItems}
             currentFolder={currentFolder || "/home"}
+            folders={folders}
             canMoveTo={canDropItemsIntoDirectory}
             onClose={() => setMoveDialogItems(null)}
             onMove={(items, destinationPath) => moveItemsToDirectory(items, destinationPath)}

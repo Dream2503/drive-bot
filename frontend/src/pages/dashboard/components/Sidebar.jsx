@@ -15,7 +15,7 @@ export default function Sidebar({activeTab, onTabSelect, onLogout, storageUsed})
                     </span>
             </div>
             <div className="leading-tight">
-                <h1 className="text-sm font-medium tracking-tight text-[#fafafa]">DriveBot</h1>
+                <h1 className="text-sm font-medium tracking-tight text-[#fafafa]">StoreLimitless</h1>
                 <p className="text-[11px] text-[#707070]">File Management</p>
             </div>
         </div>
@@ -54,16 +54,6 @@ export default function Sidebar({activeTab, onTabSelect, onLogout, storageUsed})
             </div>
 
             <div className="flex flex-col gap-0.5 border-t border-[#2e2e2e] pt-3">
-                <button
-                    type="button"
-                    className="flex h-8 items-center gap-2.5 rounded-md px-2.5 text-sm text-[#898989] transition-colors hover:bg-[#232323] hover:text-[#fafafa]"
-                >
-                        <span className="material-symbols-outlined text-[18px]" aria-hidden="true">
-                            help_outline
-                        </span>
-                    Help
-                </button>
-
                 <button
                     type="button"
                     onClick={onLogout}

@@ -452,7 +452,7 @@ export default function UploadPage({modal = false, targetDirectory = "", onClose
                             cloud
                         </span>
                     </div>
-                    <span className="text-sm font-medium tracking-tight">DriveBot</span>
+                    <span className="text-sm font-medium tracking-tight">StoreLimitless</span>
                 </div>
             </header>)}
             {modal && (<header className="flex items-center justify-between border-b border-[#2e2e2e] px-5 py-4">

@@ -75,6 +75,19 @@ export default function DashboardWorkspace(props) {
                     />
                 </div>
             </div>
+            <button
+                type="button"
+                onClick={fetchFiles}
+                disabled={loadingFiles}
+                title="Reload all files and folders from the server"
+                aria-label="Refresh files and folders"
+                className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md border border-[#363636] bg-[#242424] px-2.5 text-xs text-[#b4b4b4] transition-colors hover:border-[#4d4d4d] hover:bg-[#2a2a2a] hover:text-[#fafafa] disabled:cursor-not-allowed disabled:opacity-50 sm:px-3"
+            >
+                <span className={`material-symbols-outlined text-[17px] ${loadingFiles ? "animate-spin" : ""}`} aria-hidden="true">
+                    {loadingFiles ? "progress_activity" : "refresh"}
+                </span>
+                <span className="hidden sm:inline">Refresh</span>
+            </button>
         </header>
 
         {/* Main View Area */}
@@ -155,7 +168,7 @@ export default function DashboardWorkspace(props) {
                     <span className="material-symbols-outlined mb-3 animate-spin text-[32px]" aria-hidden="true">
                         progress_activity
                     </span>
-                    {isSearchBusy ? "Searching all folders…" : "Loading files…"}
+                    {isSearchBusy ? "Searching cached files…" : "Loading your files and folders…"}
                 </div>) : (<>
                     {isSearching && !searchError && (<p className="mb-4 text-xs text-[#707070]">
                         Search results across all folders
@@ -169,7 +182,7 @@ export default function DashboardWorkspace(props) {
                         </h3>
 
                         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-                            {filteredFolders.map(({path, id, is_deleted: folderIsDeleted}) => {
+                            {filteredFolders.map(({path, id, is_deleted: folderIsDeleted, total_size_bytes: totalSizeBytes}) => {
                                 const displayName = path.split("/").pop();
                                 const itemKey = `folder:${id}`;
                                 const isSelected = selectedItems.has(itemKey);
@@ -180,7 +193,7 @@ export default function DashboardWorkspace(props) {
                                     name: displayName,
                                     path,
                                     is_deleted: Boolean(folderIsDeleted),
-                                    object: {path, id, is_deleted: Boolean(folderIsDeleted)}
+                                    object: {path, id, is_deleted: Boolean(folderIsDeleted), total_size_bytes: totalSizeBytes ?? 0}
                                 };
                                 const folderDropKey = `folder-drop:${id}`;
                                 const isFolderDropTarget = dropTargetKey === folderDropKey;
@@ -188,6 +201,7 @@ export default function DashboardWorkspace(props) {
                                     key={path}
                                     data-selection-id={itemKey}
                                     onMouseDown={(event) => beginMoveDrag(event, selectionItem)}
+                                    onDragStart={(event) => event.preventDefault()}
                                     data-drop-path={path}
                                     data-drop-key={folderDropKey}
                                     onClick={(event) => handleSelectItem(selectionItem, event)}
@@ -197,14 +211,15 @@ export default function DashboardWorkspace(props) {
                                         event.preventDefault();
                                         openFolder(path);
                                     }}
-                                    className={`group relative cursor-default rounded-lg border p-4 text-left transition-all duration-200 ease-out motion-reduce:transition-none ${isFolderDropTarget ? "border-[#3ecf8e] bg-[#3ecf8e]/[0.14] ring-2 ring-[#3ecf8e]/30" : isSelected ? "border-[#3ecf8e]/60 bg-[#3ecf8e]/[0.08] ring-1 ring-[#3ecf8e]/30" : "border-[#2e2e2e] bg-[#1f1f1f] hover:border-[#4d4d4d] hover:bg-[#232323]"}`}
+                                    className={`group relative select-none cursor-default rounded-lg border p-4 text-left transition-all duration-200 ease-out motion-reduce:transition-none ${isFolderDropTarget ? "border-[#3ecf8e] bg-[#3ecf8e]/[0.14] ring-2 ring-[#3ecf8e]/30" : isSelected ? "border-[#3ecf8e]/60 bg-[#3ecf8e]/[0.08] ring-1 ring-[#3ecf8e]/30" : "border-[#2e2e2e] bg-[#1f1f1f] hover:border-[#4d4d4d] hover:bg-[#232323]"}`}
                                     style={draggingKeys.has(itemKey) ? {
                                         opacity: 0, transform: "scale(0.985)", pointerEvents: "none",
                                     } : undefined}
                                 >
                                     <button
                                         type="button"
-                                        className={`block w-full text-left ${isTrash ? "cursor-default" : "cursor-pointer"}`}
+                                        draggable={false}
+                                        className={`block w-full select-none text-left ${isTrash ? "cursor-default" : "cursor-pointer"}`}
                                     >
                                                 <span
                                                     className="material-symbols-outlined text-[36px] text-[#898989] transition-colors group-hover:text-[#3ecf8e]"
@@ -290,7 +305,13 @@ export default function DashboardWorkspace(props) {
                                 return (<div
                                     key={file.id}
                                     data-selection-id={itemKey}
+                                    draggable={false}
                                     onMouseDown={(event) => beginMoveDrag(event, selectionItem)}
+                                    onDragStart={(event) => {
+                                        event.preventDefault();
+                                        event.stopPropagation();
+                                    }}
+                                    onSelectStart={(event) => event.preventDefault()}
                                     onClick={(event) => handleSelectItem(selectionItem, event)}
                                     onContextMenu={(event) => handleItemContextMenu(event, selectionItem)}
                                     onDoubleClick={(event) => {
@@ -298,7 +319,7 @@ export default function DashboardWorkspace(props) {
                                         event.preventDefault();
                                         openSelectedItem(selectionItem);
                                     }}
-                                    className={`group grid cursor-default grid-cols-12 items-center gap-2 px-4 py-2.5 transition-all duration-200 ease-out motion-reduce:transition-none sm:grid-cols-[minmax(0,2.7fr)_minmax(64px,0.35fr)_minmax(72px,0.45fr)_28px] ${isSelected ? "bg-[#3ecf8e]/[0.08] ring-1 ring-inset ring-[#3ecf8e]/35" : "hover:bg-[#232323]"} ${isLast ? "" : "border-b border-[#2e2e2e]"}`}
+                                    className={`group grid select-none cursor-default grid-cols-12 items-center gap-2 px-4 py-2.5 transition-all duration-200 ease-out motion-reduce:transition-none sm:grid-cols-[minmax(0,2.7fr)_minmax(64px,0.35fr)_minmax(72px,0.45fr)_28px] ${isSelected ? "bg-[#3ecf8e]/[0.08] ring-1 ring-inset ring-[#3ecf8e]/35" : "hover:bg-[#232323]"} ${isLast ? "" : "border-b border-[#2e2e2e]"}`}
                                     style={draggingKeys.has(itemKey) ? {
                                         opacity: 0, transform: "scale(0.995)", pointerEvents: "none",
                                     } : undefined}
@@ -311,7 +332,8 @@ export default function DashboardWorkspace(props) {
                                         <div className="min-w-0">
                                             {isTrash ? (<p className="truncate text-sm text-[#fafafa]">{file.name}</p>) : (<button
                                                 type="button"
-                                                className="block max-w-full truncate text-left text-sm text-[#fafafa] transition-colors hover:text-white"
+                                                draggable={false}
+                                                className="block max-w-full select-none truncate text-left text-sm text-[#fafafa] transition-colors hover:text-white"
                                             >
                                                 {file.name}
                                             </button>)}

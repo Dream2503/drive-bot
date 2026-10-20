@@ -1,5 +1,5 @@
-import {useState} from "react";
-import {useNavigate} from "react-router-dom";
+import {useEffect, useState} from "react";
+import {Link, useNavigate} from "react-router-dom";
 
 /**
  * @typedef {Object} AuthFormData
@@ -18,9 +18,9 @@ const inputClass = "w-full h-[38px] rounded-md border border-[#363636] bg-white/
  * Render the sign-in and account-registration form.
  * @returns {import("react").ReactElement}
  */
-export default function Auth() {
+export default function Auth({initialMode = "login"}) {
     const navigate = useNavigate();
-    const [isLogin, setIsLogin] = useState(true);
+    const [isLogin, setIsLogin] = useState(initialMode !== "signup");
     /** @type {[AuthFormData, import("react").Dispatch<import("react").SetStateAction<AuthFormData>>]} */
     const [formData, setFormData] = useState({
         first_name: "", last_name: "", username: "", password: ""
@@ -28,6 +28,10 @@ export default function Auth() {
     const [message, setMessage] = useState("");
     const [messageIsError, setMessageIsError] = useState(true);
     const [loading, setLoading] = useState(false);
+
+    useEffect(() => {
+        setIsLogin(initialMode !== "signup");
+    }, [initialMode]);
 
     /** @type {string | undefined} */
     const API_URL = window.STORELIMITLESS_CONFIG?.API_URL ?? import.meta.env.VITE_API_URL
@@ -70,6 +74,7 @@ export default function Auth() {
                 setIsLogin(true);
                 setMessageIsError(false);
                 setMessage("Registration successful. Please login.");
+                navigate("/login", {replace: true});
             }
         } catch (error) {
             setMessageIsError(true);
@@ -85,22 +90,19 @@ export default function Auth() {
     >
         {/* Header */}
         <header className="h-16 flex items-center px-6">
-            <div className="flex items-center gap-2.5">
-                <div className="w-7 h-7 rounded-md bg-[#3ecf8e] flex items-center justify-center">
-                    <span
-                        className="material-symbols-outlined text-[#0f0f0f] text-[18px]"
-                        style={{fontVariationSettings: "'FILL' 1"}}
-                    >
-                        cloud
-                    </span>
+            <Link to="/"
+                  className="flex items-center gap-2.5 rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#3ecf8e]"
+                  aria-label="StoreLimitless home">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#3ecf8e]">
+                    <span className="material-symbols-outlined text-[19px] text-[#0f0f0f]" aria-hidden="true">cloud</span>
                 </div>
-                <span className="text-[15px] font-medium tracking-tight">DriveBot</span>
-            </div>
+                <span className="text-[15px] font-semibold tracking-tight">Store<span className="text-[#3ecf8e]">Limitless</span></span>
+            </Link>
         </header>
 
         {/* Form */}
         <main className="flex-1 flex items-center justify-center px-6 pb-16">
-            <div className="w-full max-w-[340px]">
+            <div className="w-full max-w-[388px] rounded-xl border border-[#363636] p-6">
                 <h1 className="text-2xl font-medium tracking-tight">
                     {isLogin ? "Welcome back" : "Get started"}
                 </h1>
@@ -183,9 +185,11 @@ export default function Auth() {
                     <button
                         type="button"
                         onClick={() => {
-                            setIsLogin(!isLogin);
+                            const nextIsLogin = !isLogin;
+                            setIsLogin(nextIsLogin);
                             setMessage("");
                             setMessageIsError(true);
+                            navigate(nextIsLogin ? "/login" : "/signup");
                         }}
                         className="ml-1.5 text-[#fafafa] underline underline-offset-4 decoration-[#4d4d4d] hover:decoration-[#fafafa] transition-colors"
                     >
