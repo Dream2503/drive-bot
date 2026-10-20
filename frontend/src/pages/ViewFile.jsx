@@ -400,7 +400,7 @@ function VideoPlayer({file, streamUrl, heightClass = "h-[70vh]", pauseForVlc = f
  * Resolve a signed stream URL and render the selected preview.
  * @returns {import("react").ReactElement}
  */
-export default function ViewPage() {
+export default function ViewFile() {
     const {fileId} = useParams();
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();

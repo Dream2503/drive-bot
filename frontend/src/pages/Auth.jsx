@@ -18,7 +18,7 @@ const inputClass = "w-full h-[38px] rounded-md border border-[#363636] bg-white/
  * Render the sign-in and account-registration form.
  * @returns {import("react").ReactElement}
  */
-export default function AuthPage() {
+export default function Auth() {
     const navigate = useNavigate();
     const [isLogin, setIsLogin] = useState(true);
     /** @type {[AuthFormData, import("react").Dispatch<import("react").SetStateAction<AuthFormData>>]} */

@@ -85,12 +85,12 @@ const formatBytes = (bytes) => {
  * Render the file and URL upload workflow.
  * @returns {import("react").ReactElement}
  */
-export default function UploadPage() {
+export default function UploadPage({modal = false, targetDirectory = "", onClose = null} = {}) {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
 
     // Current directory from dashboard
-    const directory = searchParams.get("directory") || "/home";
+    const directory = targetDirectory || searchParams.get("directory") || "/home";
 
     // Upload states
     /** @type {[File[], import("react").Dispatch<import("react").SetStateAction<File[]>>]} */
@@ -345,7 +345,7 @@ export default function UploadPage() {
                 }
             }
 
-            navigate(directoryToRoute(directory));
+            if (modal) onClose?.(); else navigate(directoryToRoute(directory));
         } catch (error) {
             console.error("Upload setup error:", error);
             setMessage(error instanceof Error ? error.message : "Upload failed");
@@ -378,7 +378,7 @@ export default function UploadPage() {
     const isUploadDisabled = (!dataCenter || status === "uploading" || (uploadMode === "file" && files.length === 0) || (uploadMode === "link" && links.length === 0));
 
     // Keep the latest state available to the one-time global keyboard listener.
-    keyboardActionsRef.current = {isUploadDisabled, directory, navigate};
+    keyboardActionsRef.current = {isUploadDisabled, directory, navigate, modal, onClose};
 
     useEffect(() => {
         const handleKeyboardShortcuts = (event) => {
@@ -386,11 +386,18 @@ export default function UploadPage() {
 
             const target = event.target;
             const isEditingText = target instanceof HTMLElement && (target.isContentEditable || (target instanceof HTMLInputElement && target.type !== "file") || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement);
-            const {isUploadDisabled: uploadDisabled, directory: currentDirectory, navigate: goTo} = keyboardActionsRef.current;
+            const {
+                isUploadDisabled: uploadDisabled, directory: currentDirectory, navigate: goTo, modal: isModal, onClose: closeModal
+            } = keyboardActionsRef.current;
 
             if (event.key === "Escape") {
                 event.preventDefault();
-                goTo(directoryToRoute(currentDirectory));
+                if (isModal) {
+                    event.stopPropagation();
+                    closeModal?.();
+                } else {
+                    goTo(directoryToRoute(currentDirectory));
+                }
                 return;
             }
 
@@ -418,254 +425,277 @@ export default function UploadPage() {
     }, []);
 
     return (<div
-        className="min-h-screen bg-[#171717] text-[#fafafa] flex flex-col"
+        data-upload-dialog={modal ? "true" : undefined}
+        role={modal ? "dialog" : undefined}
+        aria-modal={modal ? "true" : undefined}
+        aria-label={modal ? "Upload files" : undefined}
+        className={modal ? "fixed inset-0 z-[230] flex items-center justify-center bg-black/65 px-4 py-6 backdrop-blur-sm" : "min-h-screen bg-[#171717] text-[#fafafa] flex flex-col"}
+        onMouseDown={modal ? (event) => {
+            if (event.target === event.currentTarget && status !== "uploading") onClose?.();
+        } : undefined}
         style={{fontFamily: "Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif"}}
     >
-
-        {/* ==========================================
-            TOP BAR
-        ========================================== */}
-        <header className="h-14 border-b border-[#2e2e2e] bg-[#171717] flex items-center px-6 gap-4">
-            <div className="flex items-center gap-2.5">
-                <div className="w-7 h-7 rounded-md bg-[#3ecf8e] flex items-center justify-center">
-                    <span
-                        className="material-symbols-outlined text-[#0f0f0f] text-[18px]"
-                        style={{
-                            fontVariationSettings: "'FILL' 1",
-                        }}
-                    >
-                        cloud
-                    </span>
+        <div
+            className={modal ? "max-h-[92vh] w-full max-w-[640px] overflow-y-auto rounded-xl border border-[#343434] bg-[#171717] text-[#fafafa] shadow-2xl" : "min-h-screen flex flex-col"}
+            onClick={modal ? (event) => event.stopPropagation() : undefined}
+        >
+            {/* ==========================================
+                TOP BAR
+            ========================================== */}
+            {!modal && (<header className="h-14 border-b border-[#2e2e2e] bg-[#171717] flex items-center px-6 gap-4">
+                <div className="flex items-center gap-2.5">
+                    <div className="w-7 h-7 rounded-md bg-[#3ecf8e] flex items-center justify-center">
+                        <span
+                            className="material-symbols-outlined text-[#0f0f0f] text-[18px]"
+                            style={{fontVariationSettings: "'FILL' 1"}}
+                        >
+                            cloud
+                        </span>
+                    </div>
+                    <span className="text-sm font-medium tracking-tight">DriveBot</span>
                 </div>
-                <span className="text-sm font-medium tracking-tight">
-                    DriveBot
-                </span>
-            </div>
-        </header>
+            </header>)}
+            {modal && (<header className="flex items-center justify-between border-b border-[#2e2e2e] px-5 py-4">
+                <div className="flex items-center gap-3">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-[#3ecf8e]/20 bg-[#3ecf8e]/10 text-[#3ecf8e]">
+                        <span className="material-symbols-outlined text-[20px]" aria-hidden="true">cloud_upload</span>
+                    </div>
+                    <div>
+                        <h2 className="text-sm font-medium text-[#fafafa]">Upload files</h2>
+                        <p className="mt-0.5 text-xs text-[#898989]">Destination: {directory === "/home" ? "home" : directory.split("/").filter(Boolean).join(" / ")}</p>
+                    </div>
+                </div>
+                <button type="button" onClick={() => onClose?.()} disabled={status === "uploading"} aria-label="Close upload dialog"
+                        className="flex h-8 w-8 items-center justify-center rounded-md text-[#898989] transition-colors hover:bg-[#2a2a2a] hover:text-[#fafafa] disabled:opacity-50">
+                    <span className="material-symbols-outlined text-[19px]" aria-hidden="true">close</span>
+                </button>
+            </header>)}
 
-        {/* ==========================================
-            MAIN CONTENT
-        ========================================== */}
-        <div className="flex-1 flex items-center justify-center px-4 py-12">
-            <div className="w-full max-w-[480px]">
-                <h1 className="text-2xl font-medium tracking-tight text-[#fafafa] mb-2">
-                    Upload File
-                </h1>
-                <p className="text-sm text-[#898989] mb-8">
-                    Select a data center and choose how you want to upload your file.
-                </p>
+            {/* ==========================================
+                MAIN CONTENT
+            ========================================== */}
+            <div className={modal ? "px-5 py-5 sm:px-6" : "flex-1 flex items-center justify-center px-4 py-12"}>
+                <div className={modal ? "w-full" : "w-full max-w-[480px]"}>
+                    <h1 className="text-2xl font-medium tracking-tight text-[#fafafa] mb-2">
+                        {modal ? "Choose files or links" : "Upload File"}
+                    </h1>
+                    <p className="text-sm text-[#898989] mb-8">
+                        Select a data center and choose how you want to upload your file.
+                    </p>
 
-                {/* ==========================================
+                    {/* ==========================================
                     SELECT DATA CENTER
                 ========================================== */}
-                <div className="mb-6">
-                    <p className={labelClass}>
-                        Data center
-                    </p>
-                    <div className="flex gap-3">
-                        {DATA_CENTERS.map((dc) => (<button
-                            key={dc}
-                            type="button"
-                            onClick={() => setDataCenter(dc)}
-                            disabled={status === "uploading"}
-                            className={`${optionBase} ${dataCenter === dc ? optionOn : optionOff}`}
-                        >
+                    <div className="mb-6">
+                        <p className={labelClass}>
+                            Data center
+                        </p>
+                        <div className="flex gap-3">
+                            {DATA_CENTERS.map((dc) => (<button
+                                key={dc}
+                                type="button"
+                                onClick={() => setDataCenter(dc)}
+                                disabled={status === "uploading"}
+                                className={`${optionBase} ${dataCenter === dc ? optionOn : optionOff}`}
+                            >
                                 <span className={`material-symbols-outlined text-[18px] ${dataCenter === dc ? "text-[#3ecf8e]" : ""}`}>
                                     {dc === "Discord" ? "forum" : "send"}
                                 </span>
-                            {dc}
-                        </button>))}
+                                {dc}
+                            </button>))}
+                        </div>
                     </div>
-                </div>
 
-                {/* ==========================================
+                    {/* ==========================================
                     SELECT UPLOAD METHOD
                 ========================================== */}
-                <div className="mb-6">
-                    <p className={labelClass}>
-                        Upload method
-                    </p>
-                    <div className="flex gap-3">
+                    <div className="mb-6">
+                        <p className={labelClass}>
+                            Upload method
+                        </p>
+                        <div className="flex gap-3">
 
-                        {/* LOCAL FILE */}
-                        <button
-                            type="button"
-                            disabled={status === "uploading"}
-                            onClick={() => {
-                                setUploadMode("file");
-                                setStatus("idle");
-                            }}
-                            className={`${optionBase} flex-1 ${uploadMode === "file" ? optionOn : optionOff}`}
-                        >
+                            {/* LOCAL FILE */}
+                            <button
+                                type="button"
+                                disabled={status === "uploading"}
+                                onClick={() => {
+                                    setUploadMode("file");
+                                    setStatus("idle");
+                                }}
+                                className={`${optionBase} flex-1 ${uploadMode === "file" ? optionOn : optionOff}`}
+                            >
                             <span className={`material-symbols-outlined text-[18px] ${uploadMode === "file" ? "text-[#3ecf8e]" : ""}`}>
                                 upload_file
                             </span>
-                            Upload File
-                        </button>
+                                Upload File
+                            </button>
 
-                        {/* LINK */}
-                        <button
-                            type="button"
-                            disabled={status === "uploading"}
-                            onClick={() => {
-                                setUploadMode("link");
-                                setStatus("idle");
-                            }}
-                            className={`${optionBase} flex-1 ${uploadMode === "link" ? optionOn : optionOff}`}
-                        >
+                            {/* LINK */}
+                            <button
+                                type="button"
+                                disabled={status === "uploading"}
+                                onClick={() => {
+                                    setUploadMode("link");
+                                    setStatus("idle");
+                                }}
+                                className={`${optionBase} flex-1 ${uploadMode === "link" ? optionOn : optionOff}`}
+                            >
                             <span className={`material-symbols-outlined text-[18px] ${uploadMode === "link" ? "text-[#3ecf8e]" : ""}`}>
                                 add_link
                             </span>
-                            Link
-                        </button>
+                                Link
+                            </button>
+                        </div>
                     </div>
-                </div>
 
-                {/* ==========================================
+                    {/* ==========================================
                     LOCAL FILE UPLOAD
                 ========================================== */}
-                {uploadMode === "file" && (<div className="mb-6">
-                    <p className={labelClass}>Files</p>
-                    <label
-                        htmlFor="file-input"
-                        onDragOver={(event) => {
-                            event.preventDefault();
-                            if (status !== "uploading") setDragOver(true);
-                        }}
-                        onDragLeave={() => setDragOver(false)}
-                        onDrop={handleDrop}
-                        className={["flex flex-col items-center justify-center w-full min-h-40 rounded-lg", "border border-dashed cursor-pointer transition-colors", dragOver ? "border-[#3ecf8e] bg-[#3ecf8e]/5" : files.length ? "border-[#3ecf8e]/40 bg-[#1f1f1f]" : "border-[#363636] bg-[#1f1f1f] hover:border-[#4d4d4d] hover:bg-[#232323]", status === "uploading" ? "opacity-60 cursor-not-allowed" : "",].join(" ")}
-                    >
+                    {uploadMode === "file" && (<div className="mb-6">
+                        <p className={labelClass}>Files</p>
+                        <label
+                            htmlFor="file-input"
+                            onDragOver={(event) => {
+                                event.preventDefault();
+                                if (status !== "uploading") setDragOver(true);
+                            }}
+                            onDragLeave={() => setDragOver(false)}
+                            onDrop={handleDrop}
+                            className={["flex flex-col items-center justify-center w-full min-h-40 rounded-lg", "border border-dashed cursor-pointer transition-colors", dragOver ? "border-[#3ecf8e] bg-[#3ecf8e]/5" : files.length ? "border-[#3ecf8e]/40 bg-[#1f1f1f]" : "border-[#363636] bg-[#1f1f1f] hover:border-[#4d4d4d] hover:bg-[#232323]", status === "uploading" ? "opacity-60 cursor-not-allowed" : "",].join(" ")}
+                        >
                         <span className={`material-symbols-outlined text-[36px] mb-2 ${files.length ? "text-[#3ecf8e]" : "text-[#4d4d4d]"}`}>
                             {files.length ? "library_add_check" : "cloud_upload"}
                         </span>
-                        <div className="text-center px-4 py-2">
-                            <p className="text-sm text-[#898989]">
-                                Drop files here or <span className="text-[#fafafa] underline underline-offset-4 decoration-[#4d4d4d]">browse</span>
-                            </p>
-                            <p className="text-xs text-[#707070] mt-1">Select multiple files at once, or add more by dropping them here.</p>
-                        </div>
-                        <input
-                            id="file-input"
-                            type="file"
-                            multiple
-                            className="hidden"
-                            disabled={status === "uploading"}
-                            onChange={(event) => {
-                                const selectedFiles = Array.from(event.target.files || []);
-                                if (selectedFiles.length) setFiles((current) => [...current, ...selectedFiles]);
-                                event.target.value = "";
-                            }}
-                        />
-                    </label>
-                    {files.length > 0 && (<div className="mt-3 rounded-lg border border-[#2e2e2e] bg-[#1f1f1f] divide-y divide-[#2e2e2e]">
-                        <div className="flex items-center justify-between px-3 py-2 text-xs text-[#898989]">
-                            <span>{files.length} file{files.length === 1 ? "" : "s"} selected</span>
-                            <button type="button" disabled={status === "uploading"} onClick={() => setFiles([])}
-                                    className="text-[#898989] hover:text-[#ff6369] disabled:opacity-50">Clear all
-                            </button>
-                        </div>
-                        <div className="max-h-48 overflow-y-auto">
-                            {files.map((selectedFile, index) => (
-                                <div key={`${selectedFile.name}-${selectedFile.size}-${selectedFile.lastModified}-${index}`}
-                                     className="flex items-center gap-3 px-3 py-2.5">
-                                    <span className="material-symbols-outlined text-[18px] text-[#898989]">draft</span>
-                                    <div className="min-w-0 flex-1">
-                                        <p className="truncate text-sm text-[#fafafa]" title={selectedFile.name}>{selectedFile.name}</p>
-                                        <p className="text-xs text-[#898989]">{formatBytes(selectedFile.size)}</p>
-                                    </div>
-                                    <button type="button" disabled={status === "uploading"}
-                                            onClick={() => setFiles((current) => current.filter((_, fileIndex) => fileIndex !== index))}
-                                            aria-label={`Remove ${selectedFile.name}`} title="Remove file"
-                                            className="rounded p-1 text-[#898989] hover:bg-white/5 hover:text-[#ff6369] disabled:opacity-50">
-                                        <span className="material-symbols-outlined text-[18px]">close</span>
-                                    </button>
-                                </div>))}
-                        </div>
+                            <div className="text-center px-4 py-2">
+                                <p className="text-sm text-[#898989]">
+                                    Drop files here or <span
+                                    className="text-[#fafafa] underline underline-offset-4 decoration-[#4d4d4d]">browse</span>
+                                </p>
+                                <p className="text-xs text-[#707070] mt-1">Select multiple files at once, or add more by dropping them here.</p>
+                            </div>
+                            <input
+                                id="file-input"
+                                type="file"
+                                multiple
+                                className="hidden"
+                                disabled={status === "uploading"}
+                                onChange={(event) => {
+                                    const selectedFiles = Array.from(event.target.files || []);
+                                    if (selectedFiles.length) setFiles((current) => [...current, ...selectedFiles]);
+                                    event.target.value = "";
+                                }}
+                            />
+                        </label>
+                        {files.length > 0 && (<div className="mt-3 rounded-lg border border-[#2e2e2e] bg-[#1f1f1f] divide-y divide-[#2e2e2e]">
+                            <div className="flex items-center justify-between px-3 py-2 text-xs text-[#898989]">
+                                <span>{files.length} file{files.length === 1 ? "" : "s"} selected</span>
+                                <button type="button" disabled={status === "uploading"} onClick={() => setFiles([])}
+                                        className="text-[#898989] hover:text-[#ff6369] disabled:opacity-50">Clear all
+                                </button>
+                            </div>
+                            <div className="max-h-48 overflow-y-auto">
+                                {files.map((selectedFile, index) => (
+                                    <div key={`${selectedFile.name}-${selectedFile.size}-${selectedFile.lastModified}-${index}`}
+                                         className="flex items-center gap-3 px-3 py-2.5">
+                                        <span className="material-symbols-outlined text-[18px] text-[#898989]">draft</span>
+                                        <div className="min-w-0 flex-1">
+                                            <p className="truncate text-sm text-[#fafafa]" title={selectedFile.name}>{selectedFile.name}</p>
+                                            <p className="text-xs text-[#898989]">{formatBytes(selectedFile.size)}</p>
+                                        </div>
+                                        <button type="button" disabled={status === "uploading"}
+                                                onClick={() => setFiles((current) => current.filter((_, fileIndex) => fileIndex !== index))}
+                                                aria-label={`Remove ${selectedFile.name}`} title="Remove file"
+                                                className="rounded p-1 text-[#898989] hover:bg-white/5 hover:text-[#ff6369] disabled:opacity-50">
+                                            <span className="material-symbols-outlined text-[18px]">close</span>
+                                        </button>
+                                    </div>))}
+                            </div>
+                        </div>)}
                     </div>)}
-                </div>)}
 
-                {/* ==========================================
+                    {/* ==========================================
                     LINK INPUT
                 ========================================== */}
-                {uploadMode === "link" && (<div className="mb-6">
-                    <p className={labelClass}>
-                        File links
-                    </p>
-                    <div className="bg-[#1f1f1f] border border-[#2e2e2e] rounded-lg p-4">
-                        <div className="flex items-center gap-3 mb-4">
-                            <div className="w-9 h-9 rounded-md border border-[#363636] bg-[#242424] flex items-center justify-center">
+                    {uploadMode === "link" && (<div className="mb-6">
+                        <p className={labelClass}>
+                            File links
+                        </p>
+                        <div className="bg-[#1f1f1f] border border-[#2e2e2e] rounded-lg p-4">
+                            <div className="flex items-center gap-3 mb-4">
+                                <div className="w-9 h-9 rounded-md border border-[#363636] bg-[#242424] flex items-center justify-center">
                                 <span className="material-symbols-outlined text-[18px] text-[#898989]">
                                     link
                                 </span>
+                                </div>
+                                <div>
+                                    <p className="text-sm text-[#fafafa]">
+                                        Import from Links
+                                    </p>
+                                    <p className="text-xs text-[#898989]">
+                                        Paste one link per line. All links will be imported.
+                                    </p>
+                                </div>
                             </div>
-                            <div>
-                                <p className="text-sm text-[#fafafa]">
-                                    Import from Links
-                                </p>
-                                <p className="text-xs text-[#898989]">
-                                    Paste one link per line. All links will be imported.
-                                </p>
-                            </div>
-                        </div>
 
-                        {/* LINK INPUT */}
-                        <div className="relative">
+                            {/* LINK INPUT */}
+                            <div className="relative">
                             <span className="material-symbols-outlined absolute left-3 top-3 text-[18px] text-[#707070]">
                                 link
                             </span>
-                            <textarea
-                                rows={5}
-                                value={link}
-                                disabled={status === "uploading"}
-                                onChange={(event) => setLink(event.target.value)}
-                                placeholder={"https://example.com/file-one.zip\nhttps://example.com/file-two.mkv\nhttps://example.com/file-three.pdf"}
-                                className={["w-full min-h-28 rounded-md border border-[#363636]", "bg-white/[0.026] pl-10 pr-3 py-2 text-sm text-[#fafafa]", "placeholder:text-[#707070] outline-none transition-colors", "focus:border-[#707070] focus:ring-2 focus:ring-[#4d4d4d]/50", "disabled:opacity-60",].join(" ")}
-                            />
-                        </div>
+                                <textarea
+                                    rows={5}
+                                    value={link}
+                                    disabled={status === "uploading"}
+                                    onChange={(event) => setLink(event.target.value)}
+                                    placeholder={"https://example.com/file-one.zip\nhttps://example.com/file-two.mkv\nhttps://example.com/file-three.pdf"}
+                                    className={["w-full min-h-28 rounded-md border border-[#363636]", "bg-white/[0.026] pl-10 pr-3 py-2 text-sm text-[#fafafa]", "placeholder:text-[#707070] outline-none transition-colors", "focus:border-[#707070] focus:ring-2 focus:ring-[#4d4d4d]/50", "disabled:opacity-60",].join(" ")}
+                                />
+                            </div>
 
-                        {/* LINK DETECTED */}
-                        {links.length > 0 && (<div className="flex items-center gap-1.5 mt-3 text-[#3ecf8e]">
+                            {/* LINK DETECTED */}
+                            {links.length > 0 && (<div className="flex items-center gap-1.5 mt-3 text-[#3ecf8e]">
                             <span className="material-symbols-outlined text-[16px]">
                                 check_circle
                             </span>
-                            <p className="text-xs">
-                                {links.length} link{links.length === 1 ? "" : "s"} ready to import
+                                <p className="text-xs">
+                                    {links.length} link{links.length === 1 ? "" : "s"} ready to import
+                                </p>
+                            </div>)}
+                            <p className="text-xs text-[#707070] mt-3 leading-relaxed">
+                                Use one publicly accessible HTTP(S) link per line. Each link gets its own upload
+                                job and appears separately in the dashboard upload tray.
                             </p>
-                        </div>)}
-                        <p className="text-xs text-[#707070] mt-3 leading-relaxed">
-                            Use one publicly accessible HTTP(S) link per line. Each link gets its own upload
-                            job and appears separately in the dashboard upload tray.
-                        </p>
-                    </div>
-                </div>)}
+                        </div>
+                    </div>)}
 
-                {/* ==========================================
+                    {/* ==========================================
                     UPLOAD BUTTON
                 ========================================== */}
-                <button
-                    ref={uploadButtonRef}
-                    type="button"
-                    onClick={handleUpload}
-                    disabled={isUploadDisabled}
-                    className={["w-full h-[38px] flex items-center justify-center gap-2 rounded-md border", "border-[#3ecf8e]/40 bg-[#006239] text-sm text-[#fafafa] transition-colors", "hover:border-[#3ecf8e]/70 hover:bg-[#007a46] disabled:opacity-50", "disabled:cursor-not-allowed",].join(" ")}
-                >
-                    {status === "uploading" ? (<>
+                    <button
+                        ref={uploadButtonRef}
+                        type="button"
+                        onClick={handleUpload}
+                        disabled={isUploadDisabled}
+                        className={["w-full h-[38px] flex items-center justify-center gap-2 rounded-md border", "border-[#3ecf8e]/40 bg-[#006239] text-sm text-[#fafafa] transition-colors", "hover:border-[#3ecf8e]/70 hover:bg-[#007a46] disabled:opacity-50", "disabled:cursor-not-allowed",].join(" ")}
+                    >
+                        {status === "uploading" ? (<>
                         <span className="material-symbols-outlined text-[16px] animate-spin">
                             autorenew
                         </span>
-                        {uploadMode === "link" ? "Importing..." : "Uploading..."}
-                    </>) : (<>
+                            {uploadMode === "link" ? "Importing..." : "Uploading..."}
+                        </>) : (<>
                         <span className="material-symbols-outlined text-[16px]">
                             cloud_upload
                         </span>
-                        {uploadMode === "link" ? `Import ${links.length} Link${links.length === 1 ? "" : "s"}` : `Upload ${files.length} File${files.length === 1 ? "" : "s"}`}
-                    </>)}
-                </button>
+                            {uploadMode === "link" ? `Import ${links.length} Link${links.length === 1 ? "" : "s"}` : `Upload ${files.length} File${files.length === 1 ? "" : "s"}`}
+                        </>)}
+                    </button>
 
-                {status === "error" && (<p role="alert" className="mt-3 text-sm text-[#ff6369]">
-                    {message || "Upload setup failed. Please try again."}
-                </p>)}
+                    {status === "error" && (<p role="alert" className="mt-3 text-sm text-[#ff6369]">
+                        {message || "Upload setup failed. Please try again."}
+                    </p>)}
+                </div>
             </div>
         </div>
     </div>);

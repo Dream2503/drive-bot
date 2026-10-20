@@ -198,14 +198,30 @@ generated caches, virtual environments, and dependency folders are deliberately 
 │   │   └── vite.svg
 │   ├── README.md
 │   ├── src/
-│   │   ├── App.jsx                   # Client-side routes
-│   │   ├── main.jsx                  # React entry point
-│   │   ├── index.css                 # Global styles
+│   │   ├── App.jsx                       # Client-side routes
+│   │   ├── main.jsx                      # React entry point
+│   │   ├── index.css                     # Global styles
 │   │   └── pages/
-│   │       ├── AuthPage.jsx          # Sign-in and registration
-│   │       ├── Dashboard.jsx         # File/folder dashboard and upload tray
-│   │       ├── upFiles.jsx            # Multi-file and multi-link upload UI
-│   │       └── ViewPage.jsx          # File preview and media player
+│   │       ├── Auth.jsx                  # Sign-in and registration
+│   │       ├── Dashboard.jsx             # Dashboard orchestration and interaction state
+│   │       ├── MoveModal.jsx              # File/folder move dialog
+│   │       ├── UploadModal.jsx            # Multi-file and multi-link upload UI
+│   │       ├── ViewFile.jsx               # File preview and media player
+│   │       └── dashboard/
+│   │           ├── constants.js           # API URL and dashboard storage keys
+│   │           ├── utils.js               # Path, selection, token, and file helpers
+│   │           ├── components/
+│   │           │   ├── Sidebar.jsx
+│   │           │   ├── DashboardWorkspace.jsx
+│   │           │   ├── DashboardContextMenu.jsx
+│   │           │   ├── CreateFolderModal.jsx
+│   │           │   ├── RenameItemModal.jsx
+│   │           │   ├── BulkActionConfirmModal.jsx
+│   │           │   └── UploadJobsTray.jsx
+│   │           └── hooks/
+│   │               ├── useDashboardData.js
+│   │               ├── useGlobalFileSearch.js
+│   │               └── useUploadJobs.js
 │   ├── eslint.config.js
 │   ├── index.html
 │   ├── package.json
@@ -326,7 +342,7 @@ in source mode) surviving a shutdown.
 
 ### Browser file upload
 
-The browser upload implementation is split between `frontend/src/pages/upFiles.jsx`, the upload routes, Redis upload-state helpers, and the core
+The browser upload implementation is split between `frontend/src/pages/UploadModal.jsx`, the upload routes, Redis upload-state helpers, and the core
 transfer layer.
 
 1. The frontend requests an upload job using `POST /auth/upload`, passing the selected data center, directory, and file name in headers.
@@ -521,30 +537,65 @@ operational state such as upload sessions and progress. Do not treat Redis cache
 
 ## Frontend guide
 
-The frontend uses React, React Router, Vite, and Tailwind-style utility classes. Components use `.jsx` files and JSDoc comments for some type
-documentation.
+The frontend uses React, React Router, Vite, and Tailwind-style utility classes. JSX pages live under `frontend/src/pages/`. The dashboard has been
+split into focused components, hooks, and shared helpers so its UI and data-management logic are easier to maintain. Components use `.jsx` files and
+JSDoc comments for some type documentation.
 
 ### Browser routes
 
 | Route           | Page                                                       |
 |-----------------|------------------------------------------------------------|
-| `/`             | Sign-in and registration (`AuthPage.jsx`).                 |
+| `/`             | Sign-in and registration (`Auth.jsx`).                     |
 | `/home`         | Dashboard root.                                            |
 | `/home/*`       | Dashboard at a nested folder route.                        |
 | `/dashboard`    | Legacy route that redirects to the matching `/home` route. |
-| `/upload`       | File upload and remote-link import (`upFiles.jsx`).        |
-| `/view/:fileId` | File preview and media player (`ViewPage.jsx`).            |
+| `/upload`       | File upload and remote-link import (`UploadModal.jsx`).    |
+| `/view/:fileId` | File preview and media player (`ViewFile.jsx`).            |
 
-### Key frontend modules
+### Frontend module map
 
-- `AuthPage.jsx` switches between sign-in and registration and stores the bearer token in `localStorage` under `token`.
-- `Dashboard.jsx` handles folder navigation, file/folder display, search, metadata display, creation, rename/move actions, trash/restore/permanent
-  deletion, public links, and download actions. Upload job state is also preserved in browser storage under `storelimitless_upload_jobs`.
-- `upFiles.jsx` manages local-file chunk uploads, multiple-link imports, upload job persistence, and cancellation.
-- `ViewPage.jsx` obtains a public stream URL and provides a custom media player with play/pause, seeking, playback-rate, volume, fullscreen,
-  picture-in-picture, and keyboard-related controls.
+#### Page-level files
+
 - `App.jsx` declares the client-side routes.
 - `main.jsx` mounts React into the HTML root element; `index.css` contains global styling.
+- `pages/Auth.jsx` handles sign-in and registration and stores the bearer token in `localStorage` under `token`.
+- `pages/Dashboard.jsx` coordinates dashboard state and user interactions, including folder navigation, selection, drag-and-drop operations, bulk
+  actions, dialogs, search, and file actions. Rendering and reusable data logic are delegated to the dashboard modules below.
+- `pages/MoveModal.jsx` provides the file/folder move dialog.
+- `pages/UploadModal.jsx` manages local-file uploads and multi-link imports, including upload-page keyboard shortcuts.
+- `pages/ViewFile.jsx` obtains a public stream URL and provides the media player, including seeking, playback-rate, volume, fullscreen, and
+  picture-in-picture controls.
+
+#### Dashboard components and helpers
+
+All dashboard-specific modules are under `pages/dashboard/`:
+
+- `components/Sidebar.jsx` renders the dashboard navigation/sidebar.
+- `components/DashboardWorkspace.jsx` renders the main file/folder workspace, breadcrumbs, loading/error states, and file/folder presentation.
+- `components/DashboardContextMenu.jsx` renders the background/item context menu.
+- `components/CreateFolderModal.jsx` and `components/RenameItemModal.jsx` contain the create-folder and rename dialogs.
+- `components/BulkActionConfirmModal.jsx` handles confirmation for destructive or bulk actions.
+- `components/UploadJobsTray.jsx` displays active and failed upload/import jobs and exposes job actions.
+- `constants.js` centralizes the API URL and dashboard browser-storage keys.
+- `utils.js` contains shared path, token, file-kind, route, and selection helpers.
+
+#### Dashboard hooks
+
+- `hooks/useDashboardData.js` loads and manages the current directory's files, folders, storage usage, loading state, and page errors.
+- `hooks/useGlobalFileSearch.js` manages cross-folder search results and search status.
+- `hooks/useUploadJobs.js` restores and persists upload jobs, polls server-side status, updates progress, removes completed jobs, and refreshes the
+  current directory after completion.
+
+This separation keeps `Dashboard.jsx` focused on coordinating interactions rather than containing every visual component and data workflow in one
+large file. When adding dashboard behavior, place reusable UI in `components/`, data lifecycle logic in the appropriate hook, and shared
+constants/helpers in `constants.js` or `utils.js`.
+
+### Upload progress and directory refresh
+
+The dashboard upload tray stores pending job details in browser `localStorage` under `storelimitless_upload_jobs`. `useUploadJobs.js` polls each
+active job's status, updates the displayed progress, and removes completed jobs from the persisted list and tray. When a job completes, the hook
+refreshes the current directory so the new file appears without requiring a manual page reload. Failed jobs retain their error status so the user can
+inspect or dismiss them. Keep the storage key and backend status contract aligned when changing this flow.
 
 ### Upload page keyboard shortcuts and multiple links
 
@@ -553,16 +604,9 @@ On the upload page:
 - **Escape** returns to the dashboard route for the current directory.
 - **Backspace** returns to the dashboard when focus is not in an editable field; normal text editing is preserved.
 - **Enter** triggers the upload/import button when enabled, except inside the multi-link text area, where Enter inserts a new line. Key repeat is
-  ignored
-  for triggering the upload action so holding Enter does not repeatedly submit it.
+  ignored for triggering the upload action so holding Enter does not repeatedly submit it.
 - In **Link** mode, paste or type one HTTP (S) URL per line. Blank lines are ignored. The page validates all entered URLs before creating one
-  server-side
-  import job per link, then returns to the dashboard so the upload tray can show their progress.
-
-The upload tray stores pending job details in browser `localStorage` under `storelimitless_upload_jobs`. The dashboard polls each job's status;
-completed
-jobs are removed from the tray and the directory view refreshes so newly imported files appear. Failed jobs retain their error status for diagnosis or
-dismissal.
+  server-side import job per link, then returns to the dashboard so the upload tray can show their progress.
 
 ### API URL resolution
 
@@ -574,8 +618,8 @@ When changing the API URL mechanism, keep the following aligned:
 
 1. `core/main.py` service startup and environment variables.
 2. `backend/server/frontend.py` runtime configuration.
-3. The `frontend/index.html` script-loading order, if it loads `/config.js`.
-4. The API URL resolution in the React pages.
+3. `frontend/index.html` script-loading order, if it loads `/config.js`.
+4. API URL resolution in the frontend modules, including the shared `pages/dashboard/constants.js` value used by dashboard hooks.
 5. CORS origins in `backend/server/app.py` and the Cloud-mode middleware.
 
 The browser-facing URL must be reachable from the browser itself. `127.0.0.1` always means the computer running the browser, not a remote host.
@@ -601,7 +645,7 @@ supplied frontend and server modules.
 | `POST /auth/login?username=...&password=...` | Verify credentials and return the bearer token, profile, and home directory. |
 | `GET /auth/metadata`                         | Return account metadata including the calculated storage usage.              |
 
-Access tokens use HS256 and have a 60-minute lifetime in the current code. The login endpoint currently accepts credentials in query parameters;
+Access tokens use HS256 and have a 24-hour lifetime in the current code. The login endpoint currently accepts credentials in query parameters;
 see [Security notes](#security-notes).
 
 ### Directory and file management
@@ -1008,7 +1052,8 @@ This project should be treated as a self-hosted application that requires securi
 - **New folder/file operation:** the corresponding router in `backend/server/routers/directories.py`, plus model methods as required.
 - **New account behavior:** `backend/server/routers/accounts.py`, `backend/server/jwt_handler.py`, `backend/server/security.py`, and
   `backend/database/models/user.py`.
-- **Browser upload behavior:** `frontend/src/pages/upFiles.jsx`, `backend/server/routers/uploads.py`, `backend/server/routers/upload_state.py`, and
+- **Browser upload behavior:** `frontend/src/pages/UploadModal.jsx`, `backend/server/routers/uploads.py`, `backend/server/routers/upload_state.py`,
+  and
   `core/utils/progress.py`.
 - **New storage provider:** implement the provider interface in a module under `core/utils/`, register it in the `DataCenter` provider factory, add
   its name/configuration, and test upload and download paths.

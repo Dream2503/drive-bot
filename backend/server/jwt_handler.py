@@ -11,14 +11,13 @@ from core.utils.env import SECRET_KEY
 
 OAuth2_scheme: OAuth2PasswordBearer = OAuth2PasswordBearer(tokenUrl="/auth/login")
 ALGORITHM: str = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
 
 
 def create_access_token(data: dict[str, str], expires_delta: timedelta | None = None) -> str:
     """Encode a signed access token with an expiration time."""
 
     to_encode: dict[str, str | datetime] = data.copy()
-    to_encode.update({"exp": datetime.now(UTC) + (expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))})
+    to_encode.update({"exp": datetime.now(UTC) + (expires_delta or timedelta(hours=24))})
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
 
