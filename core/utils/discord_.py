@@ -40,9 +40,7 @@ class Discord(DataCenter, metaclass=ConfigMeta):
         while True:
             try:
                 send_future = run_coroutine_threadsafe(
-                    Discord.FILE_DUMP.send(
-                        file=discord.File(ProgressStream(chunk, progress), filename=filename)
-                    ),
+                    Discord.FILE_DUMP.send(file=discord.File(ProgressStream(chunk, progress), filename=filename)),
                     Discord.LOOP,
                 )
                 message: Message = await wrap_future(send_future)

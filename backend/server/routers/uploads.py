@@ -22,11 +22,11 @@ from core.config import TRANSFER_PATH
 from core.transfer import link_upload
 from core.utils.progress import Progress
 from .upload_state import (
-    _pending_upload_key,
-    _record_written_range,
-    _run_chunk_upload_job,
-    _track_upload_task,
-    _upload_session_key,
+    pending_upload_key,
+    record_written_range,
+    run_chunk_upload_job,
+    track_upload_task,
+    upload_session_key,
     wait_for_all_chunks,
 )
 
@@ -63,7 +63,7 @@ async def upload_file(
         username=user.username
     )
     await Redis.set_json(
-        _pending_upload_key(job_id),
+        pending_upload_key(job_id),
         {"file": file.model_dump(mode="json"), "file_path": str(file_path), "username": user.username},
         ex=60 * 60,
     )
@@ -81,11 +81,11 @@ async def upload_chunk(
 ) -> JSONResponse:
     """Write an uploaded byte range and update the Redis range metadata."""
 
-    session_key: str = _upload_session_key(job_id)
+    session_key: str = upload_session_key(job_id)
     state: Any = await Redis.get_json(session_key)
 
     if not isinstance(state, dict):
-        pending: Any = await Redis.get_json(_pending_upload_key(job_id))
+        pending: Any = await Redis.get_json(pending_upload_key(job_id))
 
         if not isinstance(pending, dict):
             raise HTTPException(status_code=404, detail="Upload job not found")
@@ -122,11 +122,11 @@ async def upload_chunk(
 
         if created:
             state = new_state
-            await Redis.delete_key(_pending_upload_key(job_id))
+            await Redis.delete_key(pending_upload_key(job_id))
             await Redis.set(job_id, Progress(pending_file.name, "Receiving and uploading", 0))
             producer_task: Task[None] = create_task(wait_for_all_chunks(job_id, pending_file))
-            upload_task: Task[None] = create_task(_run_chunk_upload_job(job_id, pending_file, file_path, producer_task))
-            _track_upload_task(upload_task)
+            upload_task: Task[None] = create_task(run_chunk_upload_job(job_id, pending_file, file_path, producer_task))
+            track_upload_task(upload_task)
 
         else:
             state = await Redis.get_json(session_key)
@@ -168,7 +168,7 @@ async def upload_chunk(
             await buffer.flush()
             position += len(chunk)
 
-    contiguous: int = await _record_written_range(job_id, offset, position)
+    contiguous: int = await record_written_range(job_id, offset, position)
     return JSONResponse({"job_id": job_id, "contiguous": contiguous})
 
 

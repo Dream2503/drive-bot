@@ -6,14 +6,13 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import cast
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Body, Depends, HTTPException, Query
 from fastapi.responses import JSONResponse
 
 from backend.database.models import Directory, File, User
 from backend.server.jwt_handler import get_current_user
 from backend.server.security import create_public_stream_token
 from backend.server.utils import perform_validation
-from .schemas import BulkMoveRequest
 
 router: APIRouter = APIRouter()
 
@@ -297,24 +296,40 @@ async def move_directory(did: int, directory: str = Query(..., min_length=1), us
 
 
 @router.patch("/move")
-async def move_items(request: BulkMoveRequest, user: User = Depends(get_current_user)) -> JSONResponse:
-    """Move a mixed selection of files and folders into one destination.
+async def move_items(directory: str = Body(...), items: list[dict[str, object]] = Body(...), user: User = Depends(get_current_user)) -> JSONResponse:
+    """Move files and folders using decomposed request-body arguments."""
 
-    Each item is validated independently. The response lists successful moves,
-    items that were already in the destination, and individual failures.
-    """
-
-    if not request.items:
+    if not items:
         raise HTTPException(status_code=422, detail="Select at least one file or folder to move")
 
-    destination: Directory = await _resolve_move_destination(user, request.directory)
+    validated_items: list[tuple[str, int]] = []
+
+    for item in items:
+        item_type: object = item.get("type")
+        item_id: object = item.get("id")
+
+        if not isinstance(item_type, str) or item_type not in {"file", "folder"}:
+            raise HTTPException(status_code=422, detail="Each item must have type 'file' or 'folder'")
+
+        if isinstance(item_id, bool) or not isinstance(item_id, (int, str)):
+            raise HTTPException(status_code=422, detail="Each item must have an integer id")
+
+        try:
+            parsed_id: int = int(item_id)
+
+        except ValueError as error:
+            raise HTTPException(status_code=422, detail="Each item must have an integer id") from error
+
+        validated_items.append((item_type, parsed_id))
+
+    destination: Directory = await _resolve_move_destination(user, directory)
     moved: list[dict[str, object]] = []
     unchanged: list[dict[str, object]] = []
     failed: list[dict[str, object]] = []
     seen: set[tuple[str, int]] = set()
 
-    for item in request.items:
-        identity: tuple[str, int] = (item.type, item.id)
+    for item_type, item_id in validated_items:
+        identity: tuple[str, int] = (cast(str, item_type), cast(int, item_id))
 
         if identity in seen:
             continue
@@ -323,9 +338,9 @@ async def move_items(request: BulkMoveRequest, user: User = Depends(get_current_
 
         try:
             result: dict[str, object] = await (
-                _move_file_to_directory(user, item.id, destination)
-                if item.type == "file"
-                else _move_directory_to_destination(user, item.id, destination)
+                _move_file_to_directory(user, cast(int, item_id), destination)
+                if item_type == "file"
+                else _move_directory_to_destination(user, cast(int, item_id), destination)
             )
 
             if result.get("status") == "unchanged":
@@ -335,7 +350,12 @@ async def move_items(request: BulkMoveRequest, user: User = Depends(get_current_
                 moved.append(result)
 
         except HTTPException as error:
-            failed.append({"type": item.type, "id": item.id, "error": error.detail, "status_code": error.status_code})
+            failed.append({
+                "type": item_type,
+                "id": item_id,
+                "error": error.detail,
+                "status_code": error.status_code,
+            })
 
     return JSONResponse({
         "message": "Bulk move completed",

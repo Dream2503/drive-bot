@@ -5,7 +5,7 @@ from urllib.parse import ParseResult, urlparse
 
 from fastapi import HTTPException
 
-from core.config import POSSIBLE_DATACENTERS
+from core.config import AVAILABLE_DATACENTERS
 
 ValueType = Literal["data_center", "directory", "file_name", "link"]
 
@@ -17,7 +17,7 @@ def perform_validation(value: str, value_type: ValueType) -> str:
 
     match value_type:
         case "data_center":
-            if value not in POSSIBLE_DATACENTERS:
+            if value not in AVAILABLE_DATACENTERS:
                 raise HTTPException(status_code=400, detail="Invalid data center")
 
         case "directory":

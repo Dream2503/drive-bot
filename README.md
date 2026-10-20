@@ -1,15 +1,19 @@
 # StoreLimitless
 
 StoreLimitless is a self-hosted personal cloud-storage application. It combines a React web interface, a Python service layer, PostgreSQL metadata,
-Redis-backed coordination, and Discord/Telegram as remote storage providers. It supports browser uploads, importing files from supported links, folder
-management, trash/restore, HTTP streaming with byte-range requests, and an FTP-compatible virtual filesystem.
+Redis-backed coordination, and Discord/Telegram as remote storage providers. It supports multi-file uploads, importing one or many HTTP (S) links,
+folder management, trash/restore, HTTP streaming with byte-range requests, and an FTP-compatible virtual filesystem.
 
 The web UI is branded **DriveBot** in places, while the overall application and server are called **StoreLimitless**.
 
-> **Scope:** This document covers the StoreLimitless application: its internal backend, frontend, storage/transfer code, FTP interface, and
-> build/runtime behavior. The separate top-level `api/` SDK/package is intentionally out of scope because it belongs to a different repository. The
-> internal service under `backend/server/` is still documented because the StoreLimitless frontend, uploads, streaming, and FTP integration depend on
-> it.
+> **Scope:** This document covers the root StoreLimitless application: its internal backend, frontend, storage/transfer code, FTP interface, runtime
+> data,
+> and packaging workflow. The separate Python SDK source package is not part of the tracked application tree. The current build script can still
+> create an
+> ignored `api/src/storelimitless/bin/` directory containing copies of packaged server executables for SDK bundling; those are generated artifacts,
+> not
+> application source. The internal service under `backend/server/` is documented because the frontend, uploads, streaming, and FTP integration depend
+> on it.
 
 ---
 
@@ -56,9 +60,11 @@ The application provides these user-facing capabilities:
 
 - Register and log in to a StoreLimitless account.
 - Browse a user's virtual home directory and nested folders.
-- Upload local files from the browser.
-- Import supported Google Drive and YouTube links.
-- Track upload progress through background job state.
+- Upload multiple local files from the browser.
+- Import one or many remote links by pasting one HTTP (S) URL per line.
+- Download direct HTTP (S) file URLs, import Google Drive files, and process YouTube URLs.
+- Track each upload/import job through dashboard progress and status updates.
+- Use keyboard shortcuts on the upload page to return to the dashboard or trigger the upload/import action.
 - Rename and move files and folders, including bulk move operations.
 - Move files/folders to trash, restore them, or permanently delete trash items.
 - Create signed links for streaming or downloading a file.
@@ -125,83 +131,104 @@ FTP client ── FTP port ──► FTP virtual filesystem ──► same model
 
 ## Repository layout
 
-The source tree contains generated artifacts and runtime directories as well as application code. The important source modules are:
+This is the current application tree. Runtime files and packaged executables may appear after the application has run or the build script has been
+used;
+generated caches, virtual environments, and dependency folders are deliberately omitted here.
 
 ```text
 .
 ├── backend/
 │   ├── database/
-│   │   ├── backup/                 # CSV database exports
-│   │   ├── backup.py               # Export tables to CSV or pretty text
-│   │   ├── connection.py            # PostgreSQL pool and schema bootstrap
-│   │   ├── redis_server.py          # Async Redis client + serialization
+│   │   ├── backup/
+│   │   │   ├── directories.csv      # Directory export
+│   │   │   ├── files.csv            # File metadata export
+│   │   │   └── users.csv            # User/account export
+│   │   ├── backup.py                # Export database tables
+│   │   ├── connection.py             # PostgreSQL pool and schema bootstrap
+│   │   ├── redis_server.py           # Async Redis client and serialization
 │   │   └── models/
-│   │       ├── user.py              # User model and account persistence
-│   │       ├── directory.py         # Directory persistence and trash logic
-│   │       └── file.py              # File metadata and trash logic
+│   │       ├── __init__.py
+│   │       ├── directory.py          # Directory persistence, moves, and trash
+│   │       ├── file.py               # File metadata and lifecycle operations
+│   │       └── user.py               # User/account persistence
 │   ├── ftp/
-│   │   ├── auth.py                  # FTP login and supported permissions
-│   │   ├── handler.py               # FTP command-handler integration
-│   │   ├── server.py                # FTP server thread and lifecycle
+│   │   ├── auth.py                   # FTP authentication and permissions
+│   │   ├── handler.py                # FTP command-handler integration
+│   │   ├── server.py                 # FTP server thread and lifecycle
 │   │   └── filesystem/
-│   │       ├── filesystem.py        # Virtual paths and filesystem operations
-│   │       ├── download.py          # Seekable reader for remote files
-│   │       └── upload.py            # Staged FTP upload file adapter
+│   │       ├── __init__.py
+│   │       ├── download.py           # Seekable reader for remote files
+│   │       ├── filesystem.py         # Virtual filesystem operations
+│   │       ├── upload.py             # Staged FTP upload adapter
+│   │       └── utils.py              # FTP path/model helpers
 │   └── server/
-│       ├── app.py                   # FastAPI application and CORS setup
-│       ├── frontend.py              # Static frontend + runtime config when frozen
-│       ├── jwt_handler.py           # Bearer token creation/validation
+│       ├── app.py                    # FastAPI application and CORS
+│       ├── frontend.py               # Packaged SPA and runtime config
+│       ├── jwt_handler.py            # Bearer-token creation/validation
 │       ├── security.py               # Password hashes and signed public tokens
-│       ├── utils.py                  # Request input validation
+│       ├── utils.py                  # Input validation helpers
 │       └── routers/
-│           ├── accounts.py          # Register, login, account metadata
-│           ├── directories.py       # Browse/search, folders, moves, trash, links
-│           ├── uploads.py           # Browser uploads and URL imports
-│           ├── upload_state.py      # Redis-backed upload-session coordination
-│           ├── public_routes.py     # Ready/status, stream and download endpoints
-│           └── schemas.py           # Request payload models
+│           ├── __init__.py            # Router composition
+│           ├── accounts.py           # Registration, login, metadata
+│           ├── directories.py        # Directory/file operations, search, trash
+│           ├── public_routes.py      # Readiness, upload status, stream/download
+│           ├── uploads.py            # Browser uploads and URL-import jobs
+│           └── upload_state.py       # Redis upload-session and chunk coordination
 ├── core/
-│   ├── config.py                    # Paths, hosting mode, providers, logging
-│   ├── main.py                      # Application entry point and service manager
-│   ├── data_center.py               # Provider factory and local LRU cache
-│   ├── transfer.py                  # Upload orchestration and link-import orchestration
-│   ├── stream.py                    # Reconstruct a file / serve byte ranges
+│   ├── config.py                     # Hosting mode, paths, logging, runtime settings
+│   ├── data_center.py                # Provider factory and bounded local cache
+│   ├── main.py                       # Startup, service coordination, shutdown
+│   ├── stream.py                     # Remote-part reconstruction and byte ranges
+│   ├── transfer.py                   # File and link upload orchestration
+│   ├── utils_.py                     # Cache bookkeeping and shared helpers
 │   └── utils/
-│       ├── binaries.py              # Redis, FFmpeg and Cloudflare process helpers
-│       ├── discord_.py              # Discord storage provider client
-│       ├── telegram_.py             # Telegram storage provider client
-│       ├── download_.py             # Google Drive / YouTube downloaders
-│       ├── env.py                   # Current credential/configuration constants
-│       └── progress.py              # Progress reporting and growing-file uploader
+│       ├── __init__.py
+│       ├── binaries.py               # Redis, FFmpeg, and Cloudflare helpers
+│       ├── discord_.py               # Discord storage provider
+│       ├── download_.py              # Direct URL, Google Drive, and YouTube downloaders
+│       ├── env.py                    # Credentials/configuration constants
+│       ├── progress.py               # Progress tracking and part uploader
+│       └── telegram_.py              # Telegram storage provider
+├── data/
+│   ├── logs.lock                     # Runtime log-file lock
+│   ├── logs.log                      # Runtime application log
+│   └── transfer/                     # Temporary downloads, upload staging, and cache
 ├── frontend/
+│   ├── public/
+│   │   └── vite.svg
+│   ├── README.md
 │   ├── src/
-│   │   ├── App.jsx                  # Browser routes
-│   │   ├── main.jsx                 # React entry point
-│   │   ├── index.css                # Global styles
+│   │   ├── App.jsx                   # Client-side routes
+│   │   ├── main.jsx                  # React entry point
+│   │   ├── index.css                 # Global styles
 │   │   └── pages/
-│   │       ├── AuthPage.jsx         # Login and registration
-│   │       ├── Dashboard.jsx        # File/folder dashboard and actions
-│   │       ├── upFiles.jsx          # Upload and link-import UI
-│   │       └── ViewPage.jsx         # File preview / media player
+│   │       ├── AuthPage.jsx          # Sign-in and registration
+│   │       ├── Dashboard.jsx         # File/folder dashboard and upload tray
+│   │       ├── upFiles.jsx            # Multi-file and multi-link upload UI
+│   │       └── ViewPage.jsx          # File preview and media player
+│   ├── eslint.config.js
 │   ├── index.html
 │   ├── package.json
 │   ├── package-lock.json
-│   ├── vite.config.js
+│   ├── postcss.config.js
 │   ├── tailwind.config.js
-│   └── eslint.config.js
-├── build.sh                         # Packaging/build orchestration
-├── requirements.txt                 # Python dependencies
-├── storelimitless-backend.spec      # PyInstaller specification
+│   └── vite.config.js
+├── releases/
+│   ├── linux/                        # Linux release executable(s)
+│   └── windows/                      # Windows release executable(s)
+├── build.sh                          # Cross-platform packaging and cleanup script
+├── requirements.txt                  # Python runtime dependencies
+├── storelimitless-backend.spec       # PyInstaller specification
 ├── LICENSE
-├── build/                           # Generated packaging workspace
-├── dist/                            # Generated build outputs
-├── releases/                        # Packaged release artifacts
-└── logs.log / logs.lock             # Runtime logging files
+└── README.md
 ```
 
-The separate `api/` directory contains the independently maintained SDK/package and is not described here. The `frontend/node_modules/`,
-`frontend/dist/`, `build/`, `dist/`, `releases/`, `__pycache__/`, and virtual-environment directories are generated or installed content, not the
-primary source modules to edit.
+`data/` is runtime storage in source/development mode. In frozen mode, runtime data is instead placed in the operating system's StoreLimitless
+application
+data directory. Treat logs, CSV exports, Telegram session data, and configuration files as potentially sensitive. Generated paths such as `build/`,
+`dist/`, `frontend/node_modules/`, `frontend/dist/`, `__pycache__/`, and `.pyc`/`.pyo` files are not source files and can be recreated by the build or
+runtime workflow. The build script intentionally removes its disposable build outputs and Python bytecode caches after a successful build.
+
 
 ---
 
@@ -240,13 +267,14 @@ file's `data_center` field chooses which implementation is used for upload and d
 The current source defines a maximum part size of **10 MiB** (`10 * 1024 * 1024`). The `links` array should contain one link for each stored part. The
 streaming code verifies the part count against the recorded file size.
 
-### 4. Cache is disposable
+### 4. Cache and transfer files are disposable
 
 The local part cache lives under `TRANSFER_PATH/cached`. Its current configured limit is **256 MiB**, and it uses least-recently-used eviction
 bookkeeping. Cache files are not the canonical copy of user data.
 
-The application clears the part-cache directory during startup and removes the transfer directory during shutdown. Do not place durable user files,
-credentials, or other application data in `transfer/`.
+In source mode, `TRANSFER_PATH` is normally `data/transfer/`; in frozen mode it is placed under the OS-specific StoreLimitless data directory. The
+application resets the part cache during startup and removes transfer staging data during shutdown. Do not place durable user files, credentials, or
+other application data there.
 
 ---
 
@@ -254,14 +282,19 @@ credentials, or other application data in `transfer/`.
 
 Run `python -m core.main` from the repository root. The `main()` function is the process coordinator.
 
-At a high level, startup does the following:
+Before starting service processes in source mode, the application checks whether `frontend/node_modules/vite/package.json` exists. If frontend
+dependencies are missing, it runs `npm ci` when `package-lock.json` is present, otherwise it runs `npm install`. It verifies that Vite is present
+after
+installation. Frozen/packaged execution skips this Node.js setup because the frontend is bundled.
+
+At a high level, startup then does the following:
 
 1. Starts a local Redis process if a Redis server is not already responding on `127.0.0.1:6379`.
 2. Initializes the asynchronous Redis client and verifies connectivity.
 3. Reinitializes the disposable cached-part directory.
 4. Starts the Telegram client.
 5. Creates the FastAPI server on port `8000`.
-6. Starts the website on port `5173`. In source/development mode it launches Vite. In a frozen/packaged build it uses the bundled frontend server.
+6. Starts the website on port `5173`. In source/development mode it launches Vite; in a frozen/packaged build it uses the bundled frontend server.
 7. Starts the Discord client in a separate thread.
 8. Starts the FTP server on port `2121`.
 9. Waits until Discord is ready, then prints the service addresses and opens the interactive command prompt.
@@ -273,18 +306,19 @@ inaccessible dump channel, missing permissions, or gateway startup failure can t
 
 The current `core/main.py` prompt implements these commands:
 
-| Command   | Behavior                                                                  |
-|-----------|---------------------------------------------------------------------------|
-| `server`  | Toggle the interactive prompt display while leaving the services running. |
-| `restart` | Shut down managed services and restart the StoreLimitless process.        |
-| `exit`    | Shut down the managed services and exit.                                  |
+| Command  | Behavior                                                                  |
+|----------|---------------------------------------------------------------------------|
+| `server` | Toggle the interactive prompt display while leaving the services running. |
+| `exit`   | Shut down the managed services and exit.                                  |
 
 The current prompt is a service-control prompt, not a general file-management shell. File operations are exposed through the web UI and FTP interface.
 
 ### Shutdown
 
 The lifecycle code requests HTTP-server shutdown, closes FTP, shuts down the Discord and Telegram clients, closes Redis, stops processes launched for
-Redis/Vite/Cloudflare, and removes the temporary transfer directory. Avoid relying on unfinished files in `transfer/` surviving a shutdown.
+Redis/Vite/Cloudflare, and removes the temporary transfer directory. Avoid relying on unfinished files under `TRANSFER_PATH` (normally
+`data/transfer/`
+in source mode) surviving a shutdown.
 
 ---
 
@@ -298,32 +332,52 @@ transfer layer.
 1. The frontend requests an upload job using `POST /auth/upload`, passing the selected data center, directory, and file name in headers.
 2. The backend validates the requested provider, file name, and target directory.
 3. A job ID is created. The pending job metadata and its temporary file path are stored in Redis with a time-to-live.
-4. The frontend sends byte chunks to `PUT /public/upload/{job_id}/chunk`, with `offset` and `total` query parameters.
-5. The backend writes each chunk at its declared byte offset and records received ranges in Redis. The range helper merges overlapping/adjacent ranges
+4. The frontend divides each local file into **1 MiB chunks**, sends up to **8 chunks concurrently**, and retries transient chunk failures up to the
+   configured attempt limit.
+5. The frontend sends byte chunks to `PUT /public/upload/{job_id}/chunk`, with `offset` and `total` query parameters.
+6. The backend writes each chunk at its declared byte offset and records received ranges in Redis. The range helper merges overlapping/adjacent ranges
    and tracks the contiguous byte count from offset zero.
-6. A producer task waits for incoming bytes while the upload worker passes the growing temporary file through the core upload pipeline. The transfer
+7. A producer task waits for incoming bytes while the upload worker passes the growing temporary file through the core upload pipeline. The transfer
    can therefore begin before the complete browser file has finished arriving.
-7. The transfer layer splits the file into provider-sized parts, uploads those parts, collects their remote links, and persists final file metadata.
-8. The frontend polls `GET /public/upload/{job_id}/status` for progress and the resulting file ID.
+8. The transfer layer splits the file into provider-sized parts, uploads those parts, collects their remote links, and persists final file metadata.
+9. The frontend polls `GET /public/upload/{job_id}/status` for progress and the resulting file ID.
 
 The active/pending upload metadata has an approximately one-hour Redis TTL in the current implementation. The chunk receiver also detects
 interrupted/missing temporary files and reports a restart-required failure rather than silently treating the incomplete file as complete.
 
-Temporary browser upload files are stored beneath `TRANSFER_PATH` in a per-user/job layout. The `transfer/` directory is runtime scratch space and is
-cleaned up when the application shuts down.
+Temporary browser upload files are stored beneath `TRANSFER_PATH` in a per-user/job layout. In source mode this is under `data/transfer/`, the runtime
+scratch space cleaned up when the application shuts down.
 
-### Import from a remote link
+### Import one or many remote links
 
-`POST /auth/upload-link` starts a background import. The source code currently supports:
+`POST /auth/upload-link` starts a background import job for a single URL. The upload page supports multiple links by accepting **one HTTP (S) URL per
+line**. It trims empty lines, validates every non-empty line before submitting jobs, and creates a separate import job for each URL. The dashboard
+tracks
+each job separately, so progress and failures are associated with the relevant link.
 
-- Google Drive file links (`drive.google.com`), through the Google Drive downloader.
-- YouTube links (`youtube.com`, `m.youtube.com`, and `youtu.be`), through `yt-dlp` and FFmpeg.
+The server chooses the downloader from the URL host:
 
-The downloader writes a local temporary file and feeds it into the same storage-provider upload pipeline. Other domains are rejected by the current
-provider selection code. This is not a general-purpose arbitrary-URL importer.
+- **Direct HTTP (S) file URLs** use a streamed HTTP download. The response should contain the file bytes, not an ordinary website page. The downloader
+  uses
+  response filename metadata when available and rejects likely HTML pages that do not look like file downloads.
+- **Google Drive links** (`drive.google.com`) use the Google Drive downloader. The current implementation requests file name/size metadata through the
+  Google Drive API, so the configured Google API key and access to the file are required.
+- **YouTube links** (`youtube.com`, subdomains of `youtube.com`, and `youtu.be`) use `yt-dlp` and FFmpeg to download/process media.
 
-The Google Drive flow requires a working Google API key in the current configuration. YouTube processing requires `yt-dlp`; FFmpeg is discovered or
-installed by the binary helper on supported platforms.
+For multiple imports, enter one URL per line, for example:
+
+```text
+https://downloads.example.org/archive.zip
+https://downloads.example.org/video.mp4
+```
+
+Each line creates its own import job. Blank lines are ignored, but every non-empty URL must use HTTP or HTTPS.
+
+Downloaded content is written to a temporary file and sent through the same storage-provider upload pipeline used for other files. Direct links to
+ordinary HTML pages, authenticated downloads that the server cannot access, expired links, and unsupported provider-specific pages may fail even if
+the
+URL itself is syntactically valid. YouTube processing requires `yt-dlp`; FFmpeg is discovered or installed by the binary helper on supported
+platforms.
 
 ### How `file_upload()` works
 
@@ -486,11 +540,29 @@ documentation.
 - `AuthPage.jsx` switches between sign-in and registration and stores the bearer token in `localStorage` under `token`.
 - `Dashboard.jsx` handles folder navigation, file/folder display, search, metadata display, creation, rename/move actions, trash/restore/permanent
   deletion, public links, and download actions. Upload job state is also preserved in browser storage under `storelimitless_upload_jobs`.
-- `upFiles.jsx` manages local-file chunk uploads, remote-link imports, upload progress, and cancellation.
+- `upFiles.jsx` manages local-file chunk uploads, multiple-link imports, upload job persistence, and cancellation.
 - `ViewPage.jsx` obtains a public stream URL and provides a custom media player with play/pause, seeking, playback-rate, volume, fullscreen,
   picture-in-picture, and keyboard-related controls.
 - `App.jsx` declares the client-side routes.
 - `main.jsx` mounts React into the HTML root element; `index.css` contains global styling.
+
+### Upload page keyboard shortcuts and multiple links
+
+On the upload page:
+
+- **Escape** returns to the dashboard route for the current directory.
+- **Backspace** returns to the dashboard when focus is not in an editable field; normal text editing is preserved.
+- **Enter** triggers the upload/import button when enabled, except inside the multi-link text area, where Enter inserts a new line. Key repeat is
+  ignored
+  for triggering the upload action so holding Enter does not repeatedly submit it.
+- In **Link** mode, paste or type one HTTP (S) URL per line. Blank lines are ignored. The page validates all entered URLs before creating one
+  server-side
+  import job per link, then returns to the dashboard so the upload tray can show their progress.
+
+The upload tray stores pending job details in browser `localStorage` under `storelimitless_upload_jobs`. The dashboard polls each job's status;
+completed
+jobs are removed from the tray and the directory view refreshes so newly imported files appear. Failed jobs retain their error status for diagnosis or
+dismissal.
 
 ### API URL resolution
 
@@ -605,12 +677,13 @@ loopback.
 
 - `TRANSFER_PATH`: temporary downloads, staging files, and the disposable part cache.
 - `BACKUP_DIR`: CSV backup output directory under `backend/database/backup`.
-- `LOG_PATH` / `LOG_LOCK_PATH`: application log and file lock.
-- `TELEGRAM_SESSION`: Telethon session file path.
+- `LOG_PATH` / `LOG_LOCK_PATH`: application log and file lock (`data/logs.log` and `data/logs.lock` in source mode).
+- `TELEGRAM_SESSION`: Telethon session file path, normally under the base data directory.
 - `FRONTEND_DIST`: built frontend assets used by packaged execution.
 
 When frozen, the base data directory is under `%LOCALAPPDATA%/StoreLimitless` on Windows, or `$XDG_DATA_HOME/storeLimitless` /
-`~/.local/share/storeLimitless` on Linux. In source mode, the base directory is derived from the project location.
+`~/.local/share/storeLimitless` on Linux. In source mode, the base directory is `<repository>/data`. The source-mode `data/transfer/` subdirectory
+holds transient downloads, staging files, and cached provider parts; it is not durable storage.
 
 ### Credentials and secrets
 
@@ -690,13 +763,22 @@ unless the code is updated to read that file/environment. Verify the configurati
 
 ### Development mode
 
-From the repository root with the Python environment activated and frontend dependencies installed:
+From the repository root with the Python environment activated:
 
 ```bash
 python -m core.main
 ```
 
-`core.main` launches the local service stack. It starts Vite itself, so do **not** start a second Vite instance on port `5173` at the same time.
+`core.main` launches the local service stack. In source mode it automatically checks whether frontend dependencies are installed and runs `npm ci`
+(when
+`package-lock.json` exists) or `npm install` (when it does not) if Vite is missing. Node.js and npm must be installed on the machine for this recovery
+to
+work. The build script also removes `frontend/node_modules/` after a successful package build, so the next source-mode startup reinstalls it as
+needed.
+
+The launcher starts Vite itself, so do **not** start a second Vite instance on port `5173` at the same time. Frozen/packaged execution serves the
+bundled
+frontend and does not run npm at startup.
 
 The startup summary prints the API, website, FTP, and Redis addresses. For another device on the same LAN, use the machine's reachable LAN address
 rather than `127.0.0.1`. Cloud mode sets the runtime API URL from the public API tunnel.
@@ -735,23 +817,72 @@ whether those connections are reachable from other machines.
 
 ## Build and packaged distributions
 
-The repository includes a root `build.sh`, `storelimitless-backend.spec`, build directories, and release artifacts for Linux and Windows. The entry
-point and path logic check whether Python is running as a frozen executable.
+The root `build.sh` builds the React frontend, then packages the Python service with PyInstaller for Linux, Windows, or both. The entry point and path
+logic detect whether Python is running as a frozen executable.
+
+### Build commands
+
+Run the script from any working directory; it resolves paths relative to itself:
+
+```bash
+# Build only the Linux server
+./build.sh 1 0
+
+# Build only the Windows server (requires Wine on Linux)
+./build.sh 0 1
+
+# Build both server targets
+./build.sh 1 1
+
+# Choose a release version label for output filenames
+VERSION=0.1.1 ./build.sh 1 1
+```
+
+The two positional arguments must each be `0` or `1`; at least one target must be enabled. The script requires Python 3, `file`, and npm. The Windows
+build additionally requires Wine, `wineboot`, `winepath`, and `wget`; it installs a 64-bit Windows Python runtime under its Wine prefix. Because Wine
+installs may omit pip despite `Include_pip=1`, the script attempts `ensurepip` and falls back to the official `get-pip.py` bootstrap before installing
+Windows dependencies.
+
+Release executables are copied to:
+
+- `releases/linux/StoreLimitlessServer_<VERSION>`
+- `releases/windows/StoreLimitlessServer_<VERSION>.exe`
+
+The current build script also copies target executables to `api/src/storelimitless/bin/linux/` and `api/src/storelimitless/bin/windows/` for SDK
+bundling.
+Those directories are generated/ignored paths and may not exist in a fresh source checkout; the script creates them when building. They are not part
+of
+the root application's tracked source tree shown above.
+
+### Build cleanup
+
+After a **successful** build, the script removes regeneratable artifacts:
+
+- `build/`, including the temporary Linux virtual environment, Wine prefix, Windows installer/bootstrap files, and PyInstaller work directories.
+- `dist/linux/`, `dist/windows/`, and the now-empty `dist/` parent.
+- `frontend/node_modules/` and `frontend/dist/`.
+- Project `__pycache__/` directories and `.pyc`/`.pyo` files, while pruning `.git`, `.venv`, `venv`, and `node_modules` directories.
+- `build.log`, removed last after successful cleanup.
+
+The cleanup is deliberately placed at the end of the script. If a build fails, intermediate artifacts and `build.log` are retained to help diagnose
+it. The
+script preserves `releases/`, the generated SDK-bundled executable copies, and existing user virtual environments. Since `frontend/node_modules/` is
+removed after a successful build, source-mode startup restores the frontend dependencies automatically when Vite is missing.
+
+### Frozen frontend runtime
 
 The packaged startup mode differs from development:
 
-- The frontend is served from `frontend/dist` instead of starting the Vite development server.
+- The frontend is served from the bundled `frontend/dist` assets instead of starting Vite.
 - `backend/server/frontend.py` serves the SPA entry point and static assets.
-- `/config.js` emits a small runtime script assigning `window.STORELIMITLESS_CONFIG.API_URL`.
+- `/config.js` emits a runtime script assigning `window.STORELIMITLESS_CONFIG.API_URL`.
 - Runtime data moves to the operating system's StoreLimitless application-data directory.
 - The bundle must include the intended frontend build and required binary/runtime assets.
 
-Use the repository's actual `build.sh` and PyInstaller spec as the source of truth for build flags and bundled resources. Build artifacts under
-`build/` are intermediate output, while `dist/` and `releases/` contain generated runnable outputs. Do not hand-edit generated JavaScript/CSS in
-`frontend/dist`; make changes under `frontend/src/` and rebuild.
-
-Because packaging is platform-specific, build and smoke-test each target on its intended operating system where possible. A successful PyInstaller
-build alone does not prove that credentials, writable directories, Redis, media tools, tunnels, or provider authentication work at runtime.
+Do not hand-edit generated JavaScript/CSS in `frontend/dist`; make changes under `frontend/src/` and rebuild. Packaging is platform-specific, so build
+and
+smoke-test each target on its intended operating system where possible. A successful PyInstaller build alone does not prove that credentials, writable
+directories, Redis, media tools, tunnels, or provider authentication work at runtime.
 
 ---
 
@@ -837,7 +968,10 @@ This project should be treated as a self-hosted application that requires securi
 - Confirm the selected data center name is exactly `Discord` or `Telegram`.
 - Verify access to the configured remote dump destination.
 - Check whether the temporary file still exists and whether the Redis upload session expired.
-- For URL imports, confirm that the link is a supported Google Drive or YouTube link and that FFmpeg/`yt-dlp`/Google API access works as required.
+- For URL imports, check that every link uses HTTP (S). Direct links must return downloadable file content, Google Drive imports require a valid file
+  link and configured Google API access, and YouTube imports require `yt-dlp` and FFmpeg.
+- When importing several links, use one URL per line. Check each job's separate status in the dashboard tray if one import fails while others
+  continue.
 - Inspect the returned upload status and server logs for the background transfer error.
 
 ### Streaming or seeking fails
@@ -895,7 +1029,8 @@ This project should be treated as a self-hosted application that requires securi
 - Folder move/rename operations must update descendant paths.
 - Public stream tokens and bearer tokens have distinct purposes: bearer tokens authorize account actions; public tokens authorize access to a specific
   file stream/download.
-- `transfer/` is temporary. Canonical file bytes live in the configured storage provider, and canonical metadata lives in PostgreSQL.
+- `data/transfer/` in source mode (or the equivalent frozen data-directory path) is temporary. Canonical file bytes live in the configured storage
+  provider, and canonical metadata lives in PostgreSQL.
 
 ### Recommended verification after a change
 
@@ -919,8 +1054,11 @@ public-token expiry, and FTP seek behavior.
 
 ## Known boundaries and verification notes
 
-- The separate SDK under `api/` is intentionally not covered here.
-- Supported remote-link imports are limited to the Google Drive and YouTube hosts listed in the current code.
+- The separate SDK source package is not part of the tracked application tree documented here. The current build script can generate ignored
+  `api/src/storelimitless/bin/` paths to store bundled server copies for SDK distribution.
+- URL imports support YouTube processing, Google Drive links, and direct HTTP (S) download URLs. A syntactically valid HTTP (S) URL is not guaranteed
+  to
+  be a downloadable file; ordinary HTML pages and sources requiring unavailable authentication can fail.
 - The configured storage backends in the current source are Discord and Telegram; this is not a generic plug-and-play cloud-provider system yet.
 - The FTP server is a virtual filesystem adapter, not a full local filesystem shell. Symbolic links and chmod are unsupported.
 - Cloud mode in the current startup code opens HTTP tunnels for the API and website only. It does not provide public FTP tunneling or passive-port

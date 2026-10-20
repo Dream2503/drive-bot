@@ -216,8 +216,32 @@ if [[ "$BUILD_WINDOWS" == "1" ]]; then
     echo "==> Windows Python:"
     "$WINE_BIN" "$WINDOWS_PYTHON" --version
 
-    echo "==> Installing Windows Python dependencies"
+    # Wine installations can complete without making pip available, even when
+    # Include_pip=1 was requested. Bootstrap it before installing dependencies.
+    if ! "$WINE_BIN" "$WINDOWS_PYTHON" -m pip --version >/dev/null 2>&1; then
+        echo "==> pip is missing; attempting to bootstrap it with ensurepip"
+        "$WINE_BIN" "$WINDOWS_PYTHON" -m ensurepip --upgrade || true
+    fi
 
+    if ! "$WINE_BIN" "$WINDOWS_PYTHON" -m pip --version >/dev/null 2>&1; then
+        echo "==> ensurepip did not provide pip; downloading get-pip.py"
+        GET_PIP="$ROOT/build/get-pip.py"
+        GET_PIP_URL="https://bootstrap.pypa.io/get-pip.py"
+
+        wget -q --show-progress "$GET_PIP_URL" -O "$GET_PIP" \
+            || die "Could not download get-pip.py."
+
+        [[ -s "$GET_PIP" ]] || die "get-pip.py download was empty."
+
+        GET_PIP_WINDOWS="$(winepath -w "$GET_PIP")"
+        "$WINE_BIN" "$WINDOWS_PYTHON" "$GET_PIP_WINDOWS" \
+            || die "Could not bootstrap pip for Windows Python."
+    fi
+
+    "$WINE_BIN" "$WINDOWS_PYTHON" -m pip --version \
+        || die "pip is still unavailable in the Windows Python installation."
+
+    echo "==> Installing Windows Python dependencies"
     "$WINE_BIN" "$WINDOWS_PYTHON" -m pip install --upgrade pip
 
     WINDOWS_REQUIREMENTS="$(winepath -w "$REQUIREMENTS")"
@@ -281,3 +305,42 @@ find "$ROOT/releases/windows" -maxdepth 1 -type f -print
 echo
 echo "==> SDK server binaries:"
 find "$ROOT/api/src/storelimitless/bin" -maxdepth 2 -type f -print
+
+# --------------------------------------------------
+# Remove artifacts that this script can regenerate.
+# Keep release executables and SDK-bundled binaries.
+# This runs only after a successful build, so failed builds retain logs
+# and intermediate files to help diagnose the failure.
+# --------------------------------------------------
+
+echo
+echo "==> Removing temporary build artifacts"
+
+rm -rf -- \
+    "$ROOT/build" \
+    "$ROOT/dist/linux" \
+    "$ROOT/dist/windows" \
+    "$FRONTEND/node_modules" \
+    "$FRONTEND_DIST"
+
+# Remove the temporary dist parent only if it is now empty.
+rmdir "$ROOT/dist" 2>/dev/null || true
+
+# Remove Python bytecode caches generated while importing project modules.
+# Preserve virtual environments and Git metadata; their caches are not project artifacts.
+echo "==> Removing Python bytecode caches"
+find "$ROOT" \
+    -type d \( -name .git -o -name .venv -o -name venv -o -name node_modules \) -prune -o \
+    -type d -name '__pycache__' -prune -exec rm -rf -- {} +
+find "$ROOT" \
+    -type d \( -name .git -o -name .venv -o -name venv -o -name node_modules \) -prune -o \
+    -type f \( -name '*.pyc' -o -name '*.pyo' \) -exec rm -f -- {} +
+
+echo "==> Removed build/, dist/linux, dist/windows, frontend/node_modules, frontend/dist"
+echo "==> Removed project __pycache__, .pyc, and .pyo files"
+echo "==> Keeping releases/, api/src/storelimitless/bin/, and virtual environments"
+echo "==> Build artifacts cleanup complete"
+
+# The log is useful when the build fails, but not needed after a successful build.
+# Remove it last because tee is still writing this shell's output to the log.
+rm -f -- "$ROOT/build.log"

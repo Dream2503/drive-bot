@@ -5,7 +5,7 @@ from __future__ import annotations
 from asyncio import Task
 from pathlib import Path
 from traceback import format_exc
-from typing import AsyncGenerator, Callable, cast
+from typing import AsyncGenerator, Callable
 from urllib.parse import ParseResult, urlparse
 
 from backend.database.models import File, User
@@ -33,13 +33,7 @@ async def file_upload(
         write_log("INFO", data_center, "UPLOAD", file.username, f"Found local file: {file_path.name}")
         progress: Progress = Progress(file.name, "Uploading File", 0)
 
-        async for progress_value in upload_growing_file(
-                file=file,
-                path=file_path,
-                data_center=data_center,
-                progress=progress,
-                producer=upload_task,
-        ):
+        async for progress_value in upload_growing_file(file, file_path, data_center, progress, upload_task):
             yield progress_value
 
         if not intermediate:
@@ -56,11 +50,11 @@ async def file_upload(
 
 
 async def link_upload(file: File, link: str) -> AsyncGenerator[Progress, None]:
-    """Download a supported remote link and upload its contents to the configured provider."""
+    """Download a YouTube or direct HTTP(S) link and upload it to the configured provider."""
 
-    from core.utils.download_ import download_google_drive, download_youtube
+    from core.utils.download_ import download_processed_link, download_unprocessed_link
 
-    user: User | None = cast(User | None, await User.get(file.username))
+    user: User | None = await User.get(file.username)
 
     if user is None:
         raise ValueError(f"User not found: {file.username}")
@@ -78,16 +72,14 @@ async def link_upload(file: File, link: str) -> AsyncGenerator[Progress, None]:
         parsed: ParseResult = urlparse(link)
         host: str = (parsed.hostname or "").lower().removeprefix("www.")
 
-        downloader: Callable[[File, str], AsyncGenerator[Progress, None]]
+        if parsed.scheme not in {"http", "https"} or not parsed.hostname:
+            raise ValueError(f"Expected an HTTP(S) download URL: {link}")
 
-        if host == "drive.google.com":
-            downloader = download_google_drive
-
-        elif host in {"youtube.com", "youtu.be", "m.youtube.com"}:
-            downloader = download_youtube
+        if host == "youtu.be" or host == "youtube.com" or host.endswith(".youtube.com"):
+            downloader: Callable[[File, str], AsyncGenerator[Progress, None]] = download_processed_link
 
         else:
-            raise ValueError(f"Unsupported link: {link}")
+            downloader = download_unprocessed_link
 
         async for progress_value in downloader(file, link):
             yield progress_value

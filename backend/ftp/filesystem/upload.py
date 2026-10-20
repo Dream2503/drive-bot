@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from threading import Lock
 from types import TracebackType
-from typing import BinaryIO, TYPE_CHECKING
+from typing import TYPE_CHECKING, IO
 
 if TYPE_CHECKING:
     from backend.database.models.file import File
@@ -25,7 +25,7 @@ class FTPUploadFile:
         self.name: str = str(path)
         self.closed: bool = False
         self._lock: Lock = Lock()
-        self.file_object: BinaryIO = path.open(mode)
+        self.file_object: IO = path.open(mode)
 
     def read(self, size: int = -1) -> bytes:
         """Read bytes from the staged file."""
@@ -95,7 +95,7 @@ class FTPUploadFile:
             finally:
                 self.file_object.close()
 
-        self.filesystem._finish_upload(self.file, self.path)
+        self.filesystem.finish_upload(self.file, self.path)
 
     def __enter__(self) -> FTPUploadFile:
         """Return this upload object for use in a context manager."""

@@ -14,33 +14,33 @@ from backend.database.redis_server import Redis
 from core.transfer import file_upload
 from core.utils.progress import Progress
 
-_BACKGROUND_UPLOAD_TASKS: set[Task[None]] = set()
+BACKGROUND_UPLOAD_TASKS: set[Task[None]] = set()
 
 
-def _pending_upload_key(job_id: str) -> str:
+def pending_upload_key(job_id: str) -> str:
     """Build the Redis key for an upload awaiting its first chunk."""
 
     return f"upload:pending:{job_id}"
 
 
-def _upload_session_key(job_id: str) -> str:
+def upload_session_key(job_id: str) -> str:
     """Build the Redis key for an active chunk upload session."""
 
     return f"upload:session:{job_id}"
 
 
-def _track_upload_task(task: Task[None]) -> None:
+def track_upload_task(task: Task[None]) -> None:
     """Keep a background task strongly referenced until it completes."""
 
-    _BACKGROUND_UPLOAD_TASKS.add(task)
-    task.add_done_callback(_BACKGROUND_UPLOAD_TASKS.discard)
+    BACKGROUND_UPLOAD_TASKS.add(task)
+    task.add_done_callback(BACKGROUND_UPLOAD_TASKS.discard)
 
 
 async def wait_for_all_chunks(job_id: str, file: File) -> None:
     """Wait on Redis-backed contiguous-byte metadata rather than an in-memory Event."""
 
     while True:
-        state: Any = await Redis.get_json(_upload_session_key(job_id))
+        state: Any = await Redis.get_json(upload_session_key(job_id))
 
         if not isinstance(state, dict):
             raise TimeoutError("Upload session expired before all chunks arrived")
@@ -59,10 +59,10 @@ async def wait_for_all_chunks(job_id: str, file: File) -> None:
         await sleep(0.25)
 
 
-async def _record_written_range(job_id: str, start: int, end: int) -> int:
+async def record_written_range(job_id: str, start: int, end: int) -> int:
     """Merge a completed chunk range atomically in Redis and return contiguous bytes."""
 
-    session_key: str = _upload_session_key(job_id)
+    session_key: str = upload_session_key(job_id)
     lock: Any = Redis.redis.lock(f"upload:lock:{job_id}", timeout=30, blocking_timeout=30)
 
     async with lock:
@@ -101,7 +101,7 @@ async def _record_written_range(job_id: str, start: int, end: int) -> int:
         return contiguous
 
 
-async def _run_chunk_upload_job(job_id: str, file: File, file_path: Path, producer_task: Task[None]) -> None:
+async def run_chunk_upload_job(job_id: str, file: File, file_path: Path, producer_task: Task[None]) -> None:
     """Stream received chunks to the data center and clean up Redis session state."""
 
     try:
@@ -118,8 +118,8 @@ async def _run_chunk_upload_job(job_id: str, file: File, file_path: Path, produc
         await Redis.set(job_id, Progress(file.name, f"Upload failed: {error}", 0))
 
     finally:
-        await Redis.delete_key(_upload_session_key(job_id))
-        await Redis.delete_key(_pending_upload_key(job_id))
+        await Redis.delete_key(upload_session_key(job_id))
+        await Redis.delete_key(pending_upload_key(job_id))
         file_path.unlink(missing_ok=True)
 
         try:

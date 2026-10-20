@@ -6,6 +6,7 @@ table when the format argument is pretty.
 import os
 from argparse import ArgumentParser, Namespace
 from pathlib import Path
+from typing import cast
 
 import pandas as pd
 from pandas import DataFrame, Series
@@ -41,7 +42,7 @@ except Exception as e:
 for table in tables:
     print(f"Downloading table: {table}...")
     try:
-        primary_key: str = pd.read_sql(
+        primary_key: str = cast(str, pd.read_sql(
             f"""
             SELECT kcu.column_name
             FROM information_schema.table_constraints tc
@@ -55,7 +56,7 @@ for table in tables:
             LIMIT 1
             """,
             DATABASE_URL
-        ).iloc[0, 0]
+        ).iloc[0, 0])
 
         df: DataFrame = pd.read_sql(
             f"""

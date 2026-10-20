@@ -1,4 +1,4 @@
-import {useState} from "react";
+import {useEffect, useRef, useState} from "react";
 import {useNavigate, useSearchParams} from "react-router-dom";
 
 /** @typedef {{cancelled: boolean}} UploadCancelToken */
@@ -46,7 +46,7 @@ const MAX_CHUNK_ATTEMPTS = 3;
 
 // Supabase-style classes
 const labelClass = "block text-sm text-[#b4b4b4] mb-2";
-const optionBase = "flex items-center justify-center gap-2 h-[38px] rounded-md border px-4 text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-50";
+const optionBase = ["flex items-center justify-center gap-2 h-[38px] rounded-md border px-4 text-sm transition-colors", "disabled:cursor-not-allowed disabled:opacity-50",].join(" ");
 const optionOff = "border-[#363636] bg-white/[0.026] text-[#898989] hover:border-[#4d4d4d] hover:text-[#fafafa]";
 const optionOn = "border-[#3ecf8e]/50 bg-[#3ecf8e]/10 text-[#fafafa]";
 
@@ -96,6 +96,7 @@ export default function UploadPage() {
     /** @type {[File[], import("react").Dispatch<import("react").SetStateAction<File[]>>]} */
     const [files, setFiles] = useState([]);
     const [link, setLink] = useState("");
+    const links = link.split(/\r?\n/).map((value) => value.trim()).filter(Boolean);
     /** @type {["file" | "link", import("react").Dispatch<import("react").SetStateAction<"file" | "link">>]} */
     const [uploadMode, setUploadMode] = useState("file");
 
@@ -105,6 +106,8 @@ export default function UploadPage() {
     const [message, setMessage] = useState("");
     const [status, setStatus] = useState("idle");
     const [dragOver, setDragOver] = useState(false);
+    const uploadButtonRef = useRef(null);
+    const keyboardActionsRef = useRef({isUploadDisabled: true, directory, navigate});
 
     /**
      * Wait for a specified number of milliseconds.
@@ -231,7 +234,20 @@ export default function UploadPage() {
     const handleUpload = async () => {
         if (!dataCenter) return;
         if (uploadMode === "file" && files.length === 0) return;
-        if (uploadMode === "link" && !link.trim()) return;
+        if (uploadMode === "link" && links.length === 0) return;
+
+        if (uploadMode === "link") {
+            for (const [index, value] of links.entries()) {
+                try {
+                    const parsed = new URL(value);
+                    if (!["http:", "https:"].includes(parsed.protocol)) throw new Error();
+                } catch {
+                    setMessage(`Invalid HTTP(S) URL on line ${index + 1}: ${value}`);
+                    setStatus("error");
+                    return;
+                }
+            }
+        }
 
         setStatus("uploading");
 
@@ -246,9 +262,10 @@ export default function UploadPage() {
             /**
              * Create a server job, persist its tray entry, and start its transfer if needed.
              * @param {File | null} selectedFile
+             * @param {string} selectedLink
              * @returns {Promise<void>}
              */
-            const createJob = async (selectedFile) => {
+            const createJob = async (selectedFile, selectedLink = "") => {
                 let res;
                 if (uploadMode === "file") {
                     res = await fetch(`${API_URL}/auth/upload`, {
@@ -257,7 +274,7 @@ export default function UploadPage() {
                         },
                     });
                 } else {
-                    const params = new URLSearchParams({link: link.trim(), data_center: dataCenter, directory});
+                    const params = new URLSearchParams({link: selectedLink, data_center: dataCenter, directory});
                     res = await fetch(`${API_URL}/auth/upload-link?${params.toString()}`, {
                         method: "POST", headers: {Authorization: `Bearer ${token}`},
                     });
@@ -279,7 +296,7 @@ export default function UploadPage() {
 
                 const job = {
                     jobId,
-                    name: uploadMode === "file" ? selectedFile.name : link.trim(),
+                    name: uploadMode === "file" ? selectedFile.name : selectedLink,
                     kind: uploadMode,
                     directory,
                     dataCenter,
@@ -322,7 +339,10 @@ export default function UploadPage() {
                     await createJob(selectedFile);
                 }
             } else {
-                await createJob(null);
+                // Submit one independent server-side import job for every URL line.
+                for (const selectedLink of links) {
+                    await createJob(null, selectedLink);
+                }
             }
 
             navigate(directoryToRoute(directory));
@@ -355,7 +375,47 @@ export default function UploadPage() {
     // ==========================================
     // CHECK IF UPLOAD BUTTON SHOULD BE DISABLED
     // ==========================================
-    const isUploadDisabled = !dataCenter || status === "uploading" || (uploadMode === "file" && files.length === 0) || (uploadMode === "link" && !link.trim());
+    const isUploadDisabled = (!dataCenter || status === "uploading" || (uploadMode === "file" && files.length === 0) || (uploadMode === "link" && links.length === 0));
+
+    // Keep the latest state available to the one-time global keyboard listener.
+    keyboardActionsRef.current = {isUploadDisabled, directory, navigate};
+
+    useEffect(() => {
+        const handleKeyboardShortcuts = (event) => {
+            if (event.altKey || event.ctrlKey || event.metaKey) return;
+
+            const target = event.target;
+            const isEditingText = target instanceof HTMLElement && (target.isContentEditable || (target instanceof HTMLInputElement && target.type !== "file") || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement);
+            const {isUploadDisabled: uploadDisabled, directory: currentDirectory, navigate: goTo} = keyboardActionsRef.current;
+
+            if (event.key === "Escape") {
+                event.preventDefault();
+                goTo(directoryToRoute(currentDirectory));
+                return;
+            }
+
+            if (event.key === "Backspace") {
+                if (isEditingText) return;
+
+                event.preventDefault();
+                goTo(directoryToRoute(currentDirectory));
+                return;
+            }
+
+            if (event.key === "Enter") {
+                // A newline is needed when pasting or typing multiple links in the textarea.
+                if (target instanceof HTMLTextAreaElement) return;
+
+                // Prevent key repeat from starting the same upload more than once.
+                event.preventDefault();
+                if (event.repeat || uploadDisabled) return;
+                uploadButtonRef.current?.click();
+            }
+        };
+
+        document.addEventListener("keydown", handleKeyboardShortcuts);
+        return () => document.removeEventListener("keydown", handleKeyboardShortcuts);
+    }, []);
 
     return (<div
         className="min-h-screen bg-[#171717] text-[#fafafa] flex flex-col"
@@ -474,7 +534,7 @@ export default function UploadPage() {
                         }}
                         onDragLeave={() => setDragOver(false)}
                         onDrop={handleDrop}
-                        className={`flex flex-col items-center justify-center w-full min-h-40 rounded-lg border border-dashed cursor-pointer transition-colors ${dragOver ? "border-[#3ecf8e] bg-[#3ecf8e]/5" : files.length ? "border-[#3ecf8e]/40 bg-[#1f1f1f]" : "border-[#363636] bg-[#1f1f1f] hover:border-[#4d4d4d] hover:bg-[#232323]"} ${status === "uploading" ? "opacity-60 cursor-not-allowed" : ""}`}
+                        className={["flex flex-col items-center justify-center w-full min-h-40 rounded-lg", "border border-dashed cursor-pointer transition-colors", dragOver ? "border-[#3ecf8e] bg-[#3ecf8e]/5" : files.length ? "border-[#3ecf8e]/40 bg-[#1f1f1f]" : "border-[#363636] bg-[#1f1f1f] hover:border-[#4d4d4d] hover:bg-[#232323]", status === "uploading" ? "opacity-60 cursor-not-allowed" : "",].join(" ")}
                     >
                         <span className={`material-symbols-outlined text-[36px] mb-2 ${files.length ? "text-[#3ecf8e]" : "text-[#4d4d4d]"}`}>
                             {files.length ? "library_add_check" : "cloud_upload"}
@@ -530,7 +590,7 @@ export default function UploadPage() {
                 ========================================== */}
                 {uploadMode === "link" && (<div className="mb-6">
                     <p className={labelClass}>
-                        File link
+                        File links
                     </p>
                     <div className="bg-[#1f1f1f] border border-[#2e2e2e] rounded-lg p-4">
                         <div className="flex items-center gap-3 mb-4">
@@ -541,40 +601,41 @@ export default function UploadPage() {
                             </div>
                             <div>
                                 <p className="text-sm text-[#fafafa]">
-                                    Import from Link
+                                    Import from Links
                                 </p>
                                 <p className="text-xs text-[#898989]">
-                                    Paste a link to the file.
+                                    Paste one link per line. All links will be imported.
                                 </p>
                             </div>
                         </div>
 
                         {/* LINK INPUT */}
                         <div className="relative">
-                            <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[18px] text-[#707070]">
+                            <span className="material-symbols-outlined absolute left-3 top-3 text-[18px] text-[#707070]">
                                 link
                             </span>
-                            <input
-                                type="url"
+                            <textarea
+                                rows={5}
                                 value={link}
                                 disabled={status === "uploading"}
                                 onChange={(event) => setLink(event.target.value)}
-                                placeholder="https://..."
-                                className="w-full h-[38px] rounded-md border border-[#363636] bg-white/[0.026] pl-10 pr-3 text-sm text-[#fafafa] placeholder:text-[#707070] outline-none transition-colors focus:border-[#707070] focus:ring-2 focus:ring-[#4d4d4d]/50 disabled:opacity-60"
+                                placeholder={"https://example.com/file-one.zip\nhttps://example.com/file-two.mkv\nhttps://example.com/file-three.pdf"}
+                                className={["w-full min-h-28 rounded-md border border-[#363636]", "bg-white/[0.026] pl-10 pr-3 py-2 text-sm text-[#fafafa]", "placeholder:text-[#707070] outline-none transition-colors", "focus:border-[#707070] focus:ring-2 focus:ring-[#4d4d4d]/50", "disabled:opacity-60",].join(" ")}
                             />
                         </div>
 
                         {/* LINK DETECTED */}
-                        {link.trim() && (<div className="flex items-center gap-1.5 mt-3 text-[#3ecf8e]">
+                        {links.length > 0 && (<div className="flex items-center gap-1.5 mt-3 text-[#3ecf8e]">
                             <span className="material-symbols-outlined text-[16px]">
                                 check_circle
                             </span>
                             <p className="text-xs">
-                                Link added
+                                {links.length} link{links.length === 1 ? "" : "s"} ready to import
                             </p>
                         </div>)}
                         <p className="text-xs text-[#707070] mt-3 leading-relaxed">
-                            Make sure the link is publicly accessible.
+                            Use one publicly accessible HTTP(S) link per line. Each link gets its own upload
+                            job and appears separately in the dashboard upload tray.
                         </p>
                     </div>
                 </div>)}
@@ -583,9 +644,11 @@ export default function UploadPage() {
                     UPLOAD BUTTON
                 ========================================== */}
                 <button
+                    ref={uploadButtonRef}
+                    type="button"
                     onClick={handleUpload}
                     disabled={isUploadDisabled}
-                    className="w-full h-[38px] flex items-center justify-center gap-2 rounded-md border border-[#3ecf8e]/40 bg-[#006239] text-sm text-[#fafafa] transition-colors hover:border-[#3ecf8e]/70 hover:bg-[#007a46] disabled:opacity-50 disabled:cursor-not-allowed"
+                    className={["w-full h-[38px] flex items-center justify-center gap-2 rounded-md border", "border-[#3ecf8e]/40 bg-[#006239] text-sm text-[#fafafa] transition-colors", "hover:border-[#3ecf8e]/70 hover:bg-[#007a46] disabled:opacity-50", "disabled:cursor-not-allowed",].join(" ")}
                 >
                     {status === "uploading" ? (<>
                         <span className="material-symbols-outlined text-[16px] animate-spin">
@@ -596,7 +659,7 @@ export default function UploadPage() {
                         <span className="material-symbols-outlined text-[16px]">
                             cloud_upload
                         </span>
-                        {uploadMode === "link" ? "Import File" : `Upload ${files.length} File${files.length === 1 ? "" : "s"}`}
+                        {uploadMode === "link" ? `Import ${links.length} Link${links.length === 1 ? "" : "s"}` : `Upload ${files.length} File${files.length === 1 ? "" : "s"}`}
                     </>)}
                 </button>
 

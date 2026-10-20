@@ -1,7 +1,23 @@
-import core.transfer
+"""Download remote links and upload their content to configured storage providers."""
+
+from __future__ import annotations
+
+from asyncio import Task, create_task, sleep, to_thread
+from datetime import datetime, timezone
+from email.message import Message
+from mimetypes import guess_type
+from pathlib import Path
+from shutil import rmtree
+from traceback import format_exc
+from typing import Any, AsyncGenerator, cast
+from urllib.parse import parse_qs, unquote, urlparse
+from uuid import uuid4
+
 import gdown
 import requests
-from asyncio import Task, to_thread, create_task, sleep
+from yt_dlp import YoutubeDL
+
+import core.transfer
 from backend.database.models import File
 from core.config import TRANSFER_PATH
 from core.data_center import DataCenter
@@ -9,90 +25,154 @@ from core.utils import write_log
 from core.utils.binaries import get_ffmpeg_path
 from core.utils.env import GOOGLE_API_KEY
 from core.utils.progress import Progress, upload_growing_file
-from datetime import datetime, timezone
-from mimetypes import guess_type
-from pathlib import Path
-from traceback import format_exc
-from typing import Any, AsyncGenerator, cast
-from yt_dlp import YoutubeDL
 
 
-async def download_google_drive(file: File, link: str) -> AsyncGenerator[Progress, None]:
-    data_center: DataCenter = DataCenter(file.data_center)
-    temp_dir: Path = TRANSFER_PATH / file.username / "gdown"
+async def download_unprocessed_link(file: File, link: str) -> AsyncGenerator[Progress, None]:
+    """Download a Google Drive file or direct HTTP(S) file while uploading completed chunks."""
+
+    data_center: type[DataCenter] | None = DataCenter(file.data_center)
+
+    if data_center is None:
+        raise ValueError(f"Unsupported data center: {file.data_center}")
+
+    parsed = urlparse(link)
+
+    if parsed.scheme not in {"http", "https"} or not parsed.hostname:
+        raise ValueError(f"Expected an HTTP(S) download URL: {link}")
+
+    is_google_drive: bool = parsed.hostname.lower().removeprefix("www.") == "drive.google.com"
+    temp_dir: Path = TRANSFER_PATH / file.username / "link-download" / uuid4().hex
     temp_dir.mkdir(parents=True, exist_ok=True)
+    download_task: Task[Any] | None = None
+    response: requests.Response | None = None
+    output: Path = temp_dir / "pending-download"
+    response_type: str | None = None
+    total_size: int = 0
 
-    for path in temp_dir.iterdir():
-        if path.is_file():
-            path.unlink()
+    def safe_filename(name: str) -> str:
+        name = name.replace("\\", "/").rsplit("/", 1)[-1].strip()
+        return name if name not in {"", ".", ".."} else "download"
 
     try:
-        progress: Progress = Progress(file.name, f"Uploading File", 0)
-        file_id: str = link.split("/file/d/")[1].split("/")[0]
-        response = await to_thread(
-            requests.get,
-            f"https://www.googleapis.com/drive/v3/files/{file_id}",
-            params={"fields": "name,size", "key": GOOGLE_API_KEY},
-            timeout=30
-        )
+        if is_google_drive:
+            file_id: str | None = None
 
-        if not response.ok:
-            raise OSError(f"Google Drive API error: {response.status_code}: {response.text}")
+            if "/file/d/" in parsed.path:
+                file_id = parsed.path.split("/file/d/", 1)[1].split("/", 1)[0]
 
-        data: dict[str, str] = response.json()
+            if not file_id:
+                file_id = parse_qs(parsed.query).get("id", [None])[0]
 
-        if "size" not in data:
-            raise OSError("Could not determine Google Drive file size")
+            if not file_id:
+                raise ValueError("Could not determine the Google Drive file ID from the URL")
 
-        file.name = data.get("name") or file_id
-        total_size: int = int(data["size"])
-        progress.name = file.name
-        progress.total = total_size
-        download_task: Task[Any] = create_task(to_thread(gdown.download, link, output=str(temp_dir), quiet=True))
+            metadata_response: requests.Response = await to_thread(
+                requests.get,
+                f"https://www.googleapis.com/drive/v3/files/{file_id}",
+                params={"fields": "name,size", "key": GOOGLE_API_KEY},
+                timeout=30,
+            )
 
-        while True:
-            files = [path for path in temp_dir.iterdir() if path.is_file()]
+            try:
+                if not metadata_response.ok:
+                    raise OSError(f"Google Drive API error: {metadata_response.status_code}: {metadata_response.text}")
 
-            if files:
-                output = files[0]
-                break
+                metadata: dict[str, Any] = metadata_response.json()
 
-            await sleep(0.1)
+            finally:
+                metadata_response.close()
 
-        progress_value: Progress
+            if "size" not in metadata:
+                raise OSError("Could not determine Google Drive file size")
 
-        async for progress_value in upload_growing_file(
-                file=file,
-                path=output,
-                data_center=data_center,
-                progress=progress,
-                producer=download_task,
-                total_size=total_size
-        ):
+            file.name = safe_filename(str(metadata.get("name") or file_id))
+            total_size = int(metadata["size"])
+            output = temp_dir / file.name
+            output.touch()
+
+            def download_google_drive_file() -> None:
+                downloaded: str | None = gdown.download(link, output=str(output), quiet=True)
+
+                if downloaded is None or not output.is_file():
+                    raise OSError("Google Drive download failed")
+
+            download_task = create_task(to_thread(download_google_drive_file))
+
+        else:
+            response = await to_thread(
+                requests.get,
+                link,
+                stream=True,
+                allow_redirects=True,
+                headers={"User-Agent": "Mozilla/5.0", "Accept-Encoding": "identity"},
+                timeout=(30, 60),
+            )
+            response.raise_for_status()
+            disposition: Message = Message()
+            disposition["content-disposition"] = response.headers.get("Content-Disposition", "")
+            header_name: str | None = disposition.get_filename()
+            url_name: str = unquote(urlparse(response.url).path.rstrip("/").rsplit("/", 1)[-1])
+            file.name = safe_filename(header_name or url_name or file.name)
+            response_type = response.headers.get("Content-Type", "").split(";", 1)[0].strip() or None
+
+            if response_type == "text/html" and not header_name and Path(file.name).suffix.lower() not in {".html", ".htm"}:
+                raise ValueError("The URL returned an HTML page rather than a direct file download")
+
+            try:
+                total_size = max(0, int(response.headers.get("Content-Length", "0")))
+
+            except ValueError:
+                total_size = 0
+
+            output = temp_dir / file.name
+            output.touch()
+            response_to_stream: requests.Response = response
+
+            def stream_response() -> None:
+                try:
+                    with output.open("wb", buffering=0) as destination:
+                        for chunk in response_to_stream.iter_content(chunk_size=1024 * 1024):
+                            if chunk:
+                                destination.write(chunk)
+
+                finally:
+                    response_to_stream.close()
+
+            download_task = create_task(to_thread(stream_response))
+
+        progress: Progress = Progress(file.name, "Downloading and uploading file", total_size)
+
+        async for progress_value in upload_growing_file(file, output, data_center, progress, download_task, total_size):
             yield progress_value
 
-        file.type = guess_type(file.name)[0] or "application/octet-stream"
+        file.size = output.stat().st_size
+        file.type = guess_type(file.name)[0] or response_type or "application/octet-stream"
         file.modified_at = datetime.now(timezone.utc)
 
-    except Exception as e:
-        write_log("ERROR", data_center, "UPLOAD", file.username, f"Unhandled exception: {e}\n{format_exc()}")
+    except Exception as error:
+        write_log("ERROR", data_center, "UPLOAD", file.username, f"Unhandled exception: {error}\n{format_exc()}")
         raise
 
     finally:
-        if temp_dir.exists():
-            for path in temp_dir.iterdir():
-                if path.is_file():
-                    path.unlink()
+        try:
+            if response is not None:
+                response.close()
+
+            if download_task is not None:
+                try:
+                    await download_task
+
+                except Exception:
+                    pass
+
+        finally:
+            rmtree(temp_dir, ignore_errors=True)
 
 
-async def download_youtube(file: File, link: str) -> AsyncGenerator[Progress, None]:
+async def download_processed_link(file: File, link: str) -> AsyncGenerator[Progress, None]:
     ffmpeg_path: Path = get_ffmpeg_path()
-    temp_dir: Path = TRANSFER_PATH / file.username / "yt-dlp"
+    temp_dir: Path = TRANSFER_PATH / file.username / "yt-dlp" / uuid4().hex
     temp_dir.mkdir(parents=True, exist_ok=True)
-
-    for path in temp_dir.iterdir():
-        if path.is_file():
-            path.unlink()
 
     download_progress: Progress = Progress(file.name, "Downloading Video", 0)
     audio_progress: Progress = Progress(file.name, "Downloading Audio", 0)
@@ -235,7 +315,4 @@ async def download_youtube(file: File, link: str) -> AsyncGenerator[Progress, No
             yield progress
 
     finally:
-        if temp_dir.exists():
-            for path in temp_dir.iterdir():
-                if path.is_file():
-                    path.unlink()
+        rmtree(temp_dir, ignore_errors=True)

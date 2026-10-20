@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from asyncio import sleep
+from typing import cast
 
 from telethon import TelegramClient
 from telethon.errors import RPCError
@@ -38,13 +39,13 @@ class Telegram(DataCenter, metaclass=ConfigMeta):
             progress.transfer += current - last
             last = current
 
-        message: Message | None = await Telegram.FILE_DUMP.send_file(
+        message: Message | None = cast(Message | None, await Telegram.FILE_DUMP.send_file(
             Telegram.FILE_DUMP_ID,
             chunk,
             file_name=filename,
             force_document=True,
             progress_callback=progress_callback,
-        )
+        ))
         if message is None or message.document is None:
             raise OSError(f"Telegram upload failed for '{filename}'")
 
@@ -56,7 +57,7 @@ class Telegram(DataCenter, metaclass=ConfigMeta):
 
         for attempt in range(5):
             try:
-                message: Message | None = await Telegram.FILE_DUMP.get_messages(Telegram.FILE_DUMP_ID, ids=int(flink))
+                message: Message | None = cast(Message | None, await Telegram.FILE_DUMP.get_messages(Telegram.FILE_DUMP_ID, ids=int(flink)))
 
                 if message is None or message.media is None:
                     raise OSError(f"Telegram message not found: {flink}")
@@ -103,6 +104,8 @@ class Telegram(DataCenter, metaclass=ConfigMeta):
 
             if client is not None:
                 await client.disconnect()
+
+            TELEGRAM_SESSION.unlink()
 
             write_log("INFO", Telegram, "SHUTDOWN", "", "Telegram client stopped.")
 

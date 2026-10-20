@@ -4,13 +4,12 @@ from __future__ import annotations
 
 import sys
 from asyncio import CancelledError, Task, create_task, gather, get_running_loop, run, sleep, to_thread
-from os import environ, execv, system
+from os import environ
 from pathlib import Path
 from shutil import rmtree
-from socket import AF_INET, SOCK_DGRAM, socket
-from subprocess import DEVNULL, Popen, TimeoutExpired
+from subprocess import DEVNULL, Popen, run as subprocess_run
 from threading import Thread
-from typing import Any
+from typing import cast
 
 from fastapi.middleware.cors import CORSMiddleware
 from uvicorn import Config, Server
@@ -24,40 +23,20 @@ from core.data_center import DataCenter
 from core.utils.binaries import start_cloudflare_tunnel, start_redis_server
 from core.utils.discord_ import Discord
 from core.utils.telegram_ import Telegram
-
-
-def _get_local_ip() -> str:
-    """Discover the preferred outbound interface address, falling back offline safely."""
-
-    try:
-        with socket(AF_INET, SOCK_DGRAM) as sock:
-            sock.connect(("8.8.8.8", 80))
-            return str(sock.getsockname()[0])
-
-    except OSError:
-        return "127.0.0.1"
-
-
-def _stop_process(process: Popen[Any], timeout: float = 5) -> None:
-    """Terminate a child process, escalating to kill if graceful shutdown times out."""
-
-    if process.poll() is not None:
-        return
-
-    process.terminate()
-
-    try:
-        process.wait(timeout=timeout)
-
-    except TimeoutExpired:
-        process.kill()
-        process.wait()
+from core.utils_ import get_local_ip, stop_process, ensure_frontend_dependencies
 
 
 async def main() -> None:
-    """Start all StoreLimitless services and cleanly stop them on exit or restart."""
+    """Start all StoreLimitless services and cleanly stop them on exit."""
 
-    system("cls" if sys.platform == "win32" else "clear")
+    subprocess_run("cls" if sys.platform == "win32" else "clear", shell=True)
+    frozen: bool = bool(getattr(sys, "frozen", False))
+    frontend_dir: Path | None = None
+
+    if not frozen:
+        frontend_dir = Path(__file__).resolve().parent.parent / "frontend"
+        await to_thread(ensure_frontend_dependencies, cast(Path, frontend_dir))
+
     redis_process: Popen[bytes] | None = start_redis_server()
     frontend_process: Popen[bytes] | None = None
     frontend_server: Server | None = None
@@ -70,8 +49,6 @@ async def main() -> None:
     discord_thread: Thread | None = None
     discord_started: bool = False
     telegram_started: bool = False
-    restart: bool = False
-    frozen: bool = bool(getattr(sys, "frozen", False))
 
     try:
         await Redis.initialize()
@@ -81,7 +58,7 @@ async def main() -> None:
 
         discord_thread = Thread(target=Discord.main, daemon=True, name="storelimitless-discord")
         ftp_server = StoreLimitlessFTPServer(get_running_loop())
-        ip: str = _get_local_ip()
+        ip: str = get_local_ip()
 
         if HOST == "CLOUD":
             api_tunnel, api_url = await to_thread(start_cloudflare_tunnel, "http://127.0.0.1:8000", "API")
@@ -109,7 +86,9 @@ async def main() -> None:
             frontend_task = create_task(frontend_server.serve(), name="storelimitless-frontend")
 
         else:
-            frontend_dir: Path = Path(__file__).resolve().parent.parent / "frontend"
+            if frontend_dir is None:
+                raise RuntimeError("Frontend source directory was not initialized.")
+
             frontend_env: dict[str, str] = environ.copy()
             frontend_env["VITE_API_URL"] = api_url
             frontend_process = Popen(
@@ -119,6 +98,7 @@ async def main() -> None:
                 stdout=DEVNULL,
                 stderr=DEVNULL,
             )
+
         discord_thread.start()
         discord_started = True
         ftp_server.start()
@@ -160,11 +140,6 @@ async def main() -> None:
 
                         else:
                             print("Interactive prompt restored.")
-
-                    elif command == "restart":
-                        print("Restarting StoreLimitless...")
-                        restart = True
-                        break
 
                     elif command == "exit":
                         print("Shutting down StoreLimitless...")
@@ -210,22 +185,15 @@ async def main() -> None:
         await Redis.close()
 
         for process in cloudflare_processes:
-            _stop_process(process)
+            stop_process(process)
 
         if redis_process is not None:
-            _stop_process(redis_process)
+            stop_process(redis_process)
 
         if frontend_process is not None:
-            _stop_process(frontend_process)
+            stop_process(frontend_process)
 
         rmtree(TRANSFER_PATH, ignore_errors=True)
-
-    if restart:
-        if frozen:
-            execv(sys.executable, [sys.executable, *sys.argv[1:]])
-
-        else:
-            execv(sys.executable, [sys.executable, "-m", "core.main"])
 
 
 if __name__ == "__main__":

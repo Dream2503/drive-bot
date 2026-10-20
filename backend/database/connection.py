@@ -16,13 +16,13 @@ try:
     UserDict = dict[str, str | datetime]
     DirectoryDict = dict[str, int | str | datetime | None]
     FileDict = dict[str, int | str | datetime | list[str] | None]
-    GitHubCursorDict = dict[str, int]
 
     POOL: ConnectionPool[Connection[dict[str, int | str | datetime | list[str] | None]]] = cast(
         ConnectionPool[Connection[dict[str, int | str | datetime | list[str] | None]]], cast(object, ConnectionPool(
             DATABASE_URL,
             kwargs={"row_factory": dict_row},
-        )))
+        ))
+    )
 
     with POOL.connection() as connection:
         connection.execute(

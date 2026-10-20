@@ -7,7 +7,7 @@ from io import BytesIO
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, AsyncGenerator
 
-from core.utils import write_log
+from core.utils import write_log, read_chunk
 
 if TYPE_CHECKING:
     from core.data_center import DataCenter
@@ -41,7 +41,7 @@ class ProgressStream(BytesIO):
         super().__init__(data)
         self.progress: Progress = progress
 
-    def read(self, size: int = -1) -> bytes:
+    def read(self, size: int | None = -1) -> bytes:
         """Read bytes and add the returned byte count to the shared progress record."""
 
         chunk: bytes = super().read(size)
@@ -67,7 +67,7 @@ async def upload_growing_file(
     upload_tasks: set[Task[tuple[int, str]]] = set()
     results: dict[int, str] = {}
     part: int = start_part
-    max_tasks: int = 8
+    max_tasks: int = 2
 
     async def upload_part(index: int, size: int) -> tuple[int, str]:
         """Read one part off the event loop and retry provider I/O errors."""
@@ -75,7 +75,7 @@ async def upload_growing_file(
         while True:
             try:
                 offset: int = (index - start_part) * data_center.MAX_SIZE
-                chunk: bytes = await to_thread(_read_chunk, path, offset, size)
+                chunk: bytes = await to_thread(read_chunk, path, offset, size)
                 message_id: str = await data_center.upload(chunk, f"{file.name}.part{index:03d}", progress)
 
                 if total_size:
@@ -116,7 +116,7 @@ async def upload_growing_file(
 
             size: int = path.stat().st_size
 
-            while (size >= (part - start_part + 1) * data_center.MAX_SIZE and len(upload_tasks) < max_tasks):
+            while size >= (part - start_part + 1) * data_center.MAX_SIZE and len(upload_tasks) < max_tasks:
                 upload_tasks.add(create_task(upload_part(part, data_center.MAX_SIZE)))
                 part += 1
 
@@ -186,11 +186,3 @@ async def upload_growing_file(
 
         if pending_tasks:
             await gather(*pending_tasks, return_exceptions=True)
-
-
-def _read_chunk(path: Path, offset: int, size: int) -> bytes:
-    """Read exactly the requested file slice in a worker thread."""
-
-    with path.open("rb") as buffer:
-        buffer.seek(offset)
-        return buffer.read(size)

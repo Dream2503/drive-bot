@@ -11,7 +11,7 @@ from typing import Literal, TextIO
 
 from filelock import FileLock
 
-HOST: Literal["LOCAL", "CLOUD"] = "LOCAL"
+HOST: Literal["LOCAL", "CLOUD"] = "CLOUD"
 FROZEN: bool = bool(getattr(sys, "frozen", False))
 
 if FROZEN:
@@ -24,9 +24,9 @@ if FROZEN:
     BASE_DIR.mkdir(parents=True, exist_ok=True)
 
 else:
-    BASE_DIR = Path(__file__).resolve().parent.parent
+    BASE_DIR = Path(__file__).resolve().parent.parent / "data"
 
-BACKUP_DIR: Path = BASE_DIR / "backend" / "database" / "backup"
+BACKUP_DIR: Path = BASE_DIR.parent / "backend" / "database" / "backup"
 BACKUP_DIR.mkdir(parents=True, exist_ok=True)
 
 RESOURCE_DIR: Path = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent.parent))
@@ -38,13 +38,7 @@ TELEGRAM_SESSION: Path = BASE_DIR / "telegram_bot"
 TRANSFER_PATH: Path = BASE_DIR / "transfer"
 TRANSFER_PATH.mkdir(parents=True, exist_ok=True)
 
-POSSIBLE_DATACENTERS: frozenset[str] = frozenset({"Discord", "Telegram"})
-SUPPORTED_DOMAINS: frozenset[str] = frozenset({
-    "drive.google.com",
-    "youtube.com",
-    "youtu.be",
-    "m.youtube.com",
-})
+AVAILABLE_DATACENTERS: frozenset[str] = frozenset({"Discord", "Telegram"})
 
 LOG_HANDLER: TextIO = open(LOG_PATH, "a", encoding="utf-8")
 LOCK: FileLock = FileLock(LOG_LOCK_PATH)

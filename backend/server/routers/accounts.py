@@ -10,7 +10,6 @@ from backend.database.redis_server import Redis
 from backend.server.jwt_handler import create_access_token, get_current_user
 from backend.server.security import hash_password, verify_password
 
-
 router: APIRouter = APIRouter()
 
 
