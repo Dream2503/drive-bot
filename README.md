@@ -1373,6 +1373,14 @@ This project should be treated as a self-hosted application that requires securi
 
 ## Developer guide
 
+### Type annotations and typing boundaries
+
+The supplied Python source was audited for function-signature annotations across `backend/` and `core/`. All 256 Python function and method definitions have return annotations, and all explicit parameters other than the conventional instance/class parameters (`self` and `cls`) have annotations. No missing Python function-parameter or return annotations were found in this source snapshot, so those signatures were left unchanged rather than rewriting already annotated code or altering its formatting.
+
+The internal Vercel/Next.js service under `backend/storelimitlessbackend/` uses TypeScript for `.ts` and `.tsx` files and has `strict: true` in `tsconfig.json`. The primary Vite/React frontend under `frontend/` is JavaScript (`.js`/`.jsx`), not TypeScript; JavaScript does not support native parameter/return type syntax. Its source was kept in JavaScript rather than converting files or adding broad `any` annotations that would create the appearance of type safety without providing it. If static type checking is desired for that frontend, add deliberate JSDoc types and enable TypeScript `checkJs` incrementally, resolving inferred prop, event, API-response, and state types instead of blanket-casting them.
+
+Typing verification for this source snapshot: an AST audit found no missing Python function argument/return annotations, and Python compilation was checked with `compileall`. This is a coverage audit, not a claim that a full mypy/pyright analysis or a production frontend build passed.
+
 ### Where to make changes
 
 - **Public landing/authentication or route behavior:** `frontend/src/pages/Landing.jsx`, `frontend/src/pages/Auth.jsx`, and `frontend/src/App.jsx`.
@@ -1475,4 +1483,4 @@ public-token expiry, and FTP seek behavior.
   deployment
   mode or workflow has been integration-tested.
 
-For licensing terms, see the repository's `LICENSE` file.
+The supplied ZIP does not include a root `LICENSE` file; add one if this repository is intended to publish explicit licensing terms.

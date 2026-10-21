@@ -55,7 +55,8 @@ class Discord(DataCenter, metaclass=ConfigMeta):
                     Discord,
                     "UPLOAD",
                     "",
-                    f"Transient Discord connection error uploading {filename} (attempt {attempt}/{max_attempts}): {error}",
+                    f"Transient Discord connection error uploading {filename} "
+                    f"(attempt {attempt}/{max_attempts}): {error}",
                 )
 
             except discord.HTTPException as error:
@@ -69,10 +70,9 @@ class Discord(DataCenter, metaclass=ConfigMeta):
                     "",
                     f"Transient Discord HTTP {error.status} uploading {filename} (attempt {attempt}/{max_attempts})",
                 )
-
             await sleep(min(2 ** (attempt - 1), 8))
 
-        return await Discord.upload(chunk, filename, progress)
+        exit(0)  # do something i dont want the return type to be ``str | None`` i want ``str``
 
     @staticmethod
     async def download(flink: str) -> bytes:

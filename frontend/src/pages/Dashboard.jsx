@@ -10,6 +10,8 @@ import ItemDetailsModal from "./dashboard/components/ItemDetailsModal.jsx";
 import DashboardContextMenu from "./dashboard/components/DashboardContextMenu.jsx";
 import DashboardWorkspace from "./dashboard/components/DashboardWorkspace.jsx";
 import UploadJobsTray from "./dashboard/components/UploadJobsTray.jsx";
+import DownloadJobsTray from "./dashboard/components/DownloadJobsTray.jsx";
+import {listResumableDownloads, removeResumableDownload, saveResumableDownload} from "./dashboard/utils/resumableDownloads.js";
 import BulkActionConfirmModal from "./dashboard/components/BulkActionConfirmModal.jsx";
 import useDashboardData, {clearDashboardTreeCache} from "./dashboard/hooks/useDashboardData.js";
 import useGlobalFileSearch from "./dashboard/hooks/useGlobalFileSearch.js";
@@ -96,11 +98,147 @@ export default function DashboardPage() {
     const [searchQuery, setSearchQuery] = useState("");
 
     const {
-        files, setFiles, folders, setFolders, storageUsed, loadingFiles,
-        loadedFolder, pageError, setPageError, fetchFiles, refreshDirectory,
+        files, setFiles, folders, setFolders, storageUsed, loadingFiles, loadedFolder, pageError, setPageError, fetchFiles, refreshDirectory,
     } = useDashboardData(currentFolder, navigate);
     const {searchResults, searchLoading, searchError} = useGlobalFileSearch(searchQuery, activeTab, files);
     const {uploadJobs, dismissUploadJob, cancelUploadJob, clearAllUploadJobs} = useUploadJobs(refreshDirectory);
+    const [downloadJobs, setDownloadJobs] = useState([]);
+    const downloadJobsRef = useRef([]);
+    const downloadControllersRef = useRef(new Map());
+
+    useEffect(() => {
+        downloadJobsRef.current = downloadJobs;
+    }, [downloadJobs]);
+
+    useEffect(() => () => {
+        downloadControllersRef.current.forEach((controller) => controller.abort());
+        downloadControllersRef.current.clear();
+    }, []);
+
+    useEffect(() => {
+        let cancelled = false;
+        listResumableDownloads().then((storedJobs) => {
+            if (cancelled) return;
+            const restored = storedJobs.map((job) => job.status === "downloading" ? {
+                ...job, status: "paused", message: "Paused after page reload"
+            } : job);
+            downloadJobsRef.current = restored;
+            setDownloadJobs(restored);
+            restored.forEach((job) => {
+                if (job.status !== "downloading") saveResumableDownload(job).catch(() => {
+                });
+            });
+        }).catch((error) => console.warn("Could not restore resumable downloads:", error));
+        return () => {
+            cancelled = true;
+        };
+    }, []);
+
+    const updateDownloadJob = (jobId, changes) => {
+        const current = downloadJobsRef.current;
+        const existing = current.find((job) => job.id === jobId);
+        if (!existing) return;
+        const updated = {...existing, ...changes};
+        const next = current.map((job) => job.id === jobId ? updated : job);
+        downloadJobsRef.current = next;
+        setDownloadJobs(next);
+        saveResumableDownload(updated).catch((error) => console.warn("Could not persist download progress:", error));
+    };
+
+    const runResumableDownload = async (job) => {
+        if (downloadControllersRef.current.has(job.id)) return;
+        const controller = new AbortController();
+        downloadControllersRef.current.set(job.id, controller);
+        updateDownloadJob(job.id, {status: "downloading", message: "Downloading"});
+
+        try {
+            const permission = await job.handle.queryPermission({mode: "readwrite"});
+            const granted = permission === "granted" || await job.handle.requestPermission({mode: "readwrite"}) === "granted";
+            if (!granted) throw new Error("Permission to write the selected download file was denied.");
+
+            const head = await fetch(job.url, {method: "HEAD", signal: controller.signal});
+            if (!head.ok) throw new Error(`Could not verify download source (${head.status}).`);
+            const latestTotal = Number(head.headers.get("content-length") || job.total || 0);
+            const latestEtag = head.headers.get("etag") || job.etag || "";
+            let offset = Math.min(Number(job.transferred || 0), (await job.handle.getFile()).size, latestTotal);
+
+            if (job.etag && latestEtag && job.etag !== latestEtag && offset > 0) offset = 0;
+            let truncateWriter = await job.handle.createWritable({keepExistingData: true});
+            await truncateWriter.truncate(offset);
+            await truncateWriter.close();
+            updateDownloadJob(job.id, {total: latestTotal, etag: latestEtag, transferred: offset, message: "Downloading"});
+
+            while (offset < latestTotal) {
+                if (controller.signal.aborted) throw new DOMException("Download paused", "AbortError");
+                const end = Math.min(offset + 8 * 1024 * 1024, latestTotal) - 1;
+                let chunk = null;
+                let lastError = null;
+
+                for (let attempt = 0; attempt < 5; attempt += 1) {
+                    try {
+                        const headers = {Range: `bytes=${offset}-${end}`};
+                        if (latestEtag) headers["If-Range"] = latestEtag;
+                        const requestSignal = typeof AbortSignal.any === "function" && typeof AbortSignal.timeout === "function" ? AbortSignal.any([controller.signal, AbortSignal.timeout(180000)]) : controller.signal;
+                        const response = await fetch(job.url, {headers, signal: requestSignal, cache: "no-store"});
+                        if (response.status === 200) {
+                            await response.body?.cancel();
+                            throw new Error("Server did not honor the byte range; refusing to append an unsafe response.");
+                        }
+                        if (response.status !== 206) throw new Error(`Download range failed (${response.status}).`);
+                        const contentRange = response.headers.get("content-range") || "";
+                        if (contentRange !== `bytes ${offset}-${end}/${latestTotal}`) throw new Error(`Unexpected Content-Range: ${contentRange || "missing"}`);
+                        const bytes = await response.arrayBuffer();
+                        if (bytes.byteLength !== end - offset + 1) throw new Error(`Incomplete range: received ${bytes.byteLength} bytes.`);
+                        chunk = bytes;
+                        break;
+                    } catch (error) {
+                        if (controller.signal.aborted || error?.name === "AbortError") throw error;
+                        lastError = error;
+                        if (attempt < 4) await new Promise((resolve) => window.setTimeout(resolve, Math.min(1000 * (2 ** attempt), 8000)));
+                    }
+                }
+
+                if (!chunk) throw lastError || new Error("Download range failed after repeated attempts.");
+                const writer = await job.handle.createWritable({keepExistingData: true});
+                await writer.seek(offset);
+                await writer.write(chunk);
+                await writer.close();
+                offset += chunk.byteLength;
+                updateDownloadJob(job.id, {transferred: offset, total: latestTotal, etag: latestEtag, message: "Downloading"});
+            }
+
+            updateDownloadJob(job.id, {status: "completed", transferred: latestTotal, total: latestTotal, message: "Download complete"});
+        } catch (error) {
+            if (error?.name === "AbortError" || controller.signal.aborted) {
+                updateDownloadJob(job.id, {status: "paused", message: "Paused"});
+            } else {
+                updateDownloadJob(job.id, {status: "error", message: error?.message || "Download failed"});
+            }
+        } finally {
+            downloadControllersRef.current.delete(job.id);
+        }
+    };
+
+    const pauseDownload = (jobId) => downloadControllersRef.current.get(jobId)?.abort();
+    const resumeDownload = (jobId) => {
+        const job = downloadJobsRef.current.find((item) => item.id === jobId);
+        if (job) runResumableDownload(job);
+    };
+    const removeDownload = (jobId) => {
+        downloadControllersRef.current.get(jobId)?.abort();
+        downloadControllersRef.current.delete(jobId);
+        const next = downloadJobsRef.current.filter((job) => job.id !== jobId);
+        downloadJobsRef.current = next;
+        setDownloadJobs(next);
+        removeResumableDownload(jobId).catch((error) => console.warn("Could not remove download task:", error));
+    };
+    const clearCompletedDownloads = () => {
+        downloadJobsRef.current.filter((job) => job.status === "completed" || job.status === "error").forEach((job) => removeResumableDownload(job.id).catch(() => {
+        }));
+        const next = downloadJobsRef.current.filter((job) => job.status !== "completed" && job.status !== "error");
+        downloadJobsRef.current = next;
+        setDownloadJobs(next);
+    };
     const [showFolderModal, setShowFolderModal] = useState(false);
     const [showUploadModal, setShowUploadModal] = useState(false);
     const [externalDragOver, setExternalDragOver] = useState(false);
@@ -245,6 +383,68 @@ export default function DashboardPage() {
             return;
         }
 
+        // File System Access API lets us commit verified byte ranges to disk as they
+        // arrive, so multi-gigabyte downloads do not need to fit in browser memory.
+        if (typeof window.showSaveFilePicker === "function") {
+            let handle;
+            try {
+                const file = files.find((item) => String(item.id) === String(fileId));
+                handle = await window.showSaveFilePicker({suggestedName: file?.name || "download"});
+            } catch (error) {
+                if (error?.name === "AbortError") return;
+                console.warn("Save picker unavailable; falling back to browser download:", error);
+            }
+
+            if (handle) {
+                try {
+                    const response = await fetch(`${API_URL}/auth/file/${fileId}/public-link`, {
+                        method: "POST", headers: {Authorization: `Bearer ${token}`},
+                    });
+                    const data = await response.json().catch(() => ({}));
+                    if (!response.ok) {
+                        if (response.status === 401) {
+                            localStorage.removeItem("token");
+                            navigate("/");
+                            return;
+                        }
+                        throw new Error(data.detail || "Failed to prepare the download.");
+                    }
+                    if (!data.public_token) throw new Error("The server did not return a download token.");
+                    const url = `${API_URL}/public/download/${data.public_token}`;
+                    const head = await fetch(url, {method: "HEAD"});
+                    if (!head.ok) throw new Error(`Could not prepare download (${head.status}).`);
+                    const total = Number(head.headers.get("content-length") || file?.size || 0);
+                    const writable = await handle.createWritable();
+                    await writable.truncate(0);
+                    await writable.close();
+                    const job = {
+                        id: crypto.randomUUID(),
+                        fileId: String(fileId),
+                        name: file?.name || handle.name || "download",
+                        handle,
+                        url,
+                        total,
+                        etag: head.headers.get("etag") || "",
+                        transferred: 0,
+                        status: "paused",
+                        message: "Queued",
+                        createdAt: Date.now(),
+                    };
+                    const next = [job, ...downloadJobsRef.current];
+                    downloadJobsRef.current = next;
+                    setDownloadJobs(next);
+                    await saveResumableDownload(job);
+                    runResumableDownload(job);
+                    return;
+                } catch (error) {
+                    console.error("Could not start resumable download:", error);
+                    alert(error.message || "Could not start the download.");
+                    return;
+                }
+            }
+        }
+
+        // Browsers without File System Access keep the existing native-download path.
         try {
             const response = await fetch(`${API_URL}/auth/file/${fileId}/public-link`, {
                 method: "POST", headers: {Authorization: `Bearer ${token}`},
@@ -259,10 +459,8 @@ export default function DashboardPage() {
                 throw new Error(data.detail || "Failed to prepare the download.");
             }
             if (!data.public_token) throw new Error("The server did not return a download token.");
-            const downloadUrl = `${API_URL}/public/download/${data.public_token}`;
-
             const anchor = document.createElement("a");
-            anchor.href = downloadUrl;
+            anchor.href = `${API_URL}/public/download/${data.public_token}`;
             anchor.setAttribute("download", "");
             document.body.appendChild(anchor);
             anchor.click();
@@ -295,9 +493,9 @@ export default function DashboardPage() {
         const previousFiles = files;
         const modifiedAt = new Date().toISOString();
         setDeletingId(null);
-        setFiles((current) => permanent
-            ? current.filter((file) => String(file.id) !== String(fileId))
-            : current.map((file) => String(file.id) === String(fileId) ? {...file, is_deleted: true, modified_at: modifiedAt} : file));
+        setFiles((current) => permanent ? current.filter((file) => String(file.id) !== String(fileId)) : current.map((file) => String(file.id) === String(fileId) ? {
+            ...file, is_deleted: true, modified_at: modifiedAt
+        } : file));
 
         // Fire the database mutation after the local view has already updated.
         void (async () => {
@@ -348,9 +546,9 @@ export default function DashboardPage() {
                 throw new Error(message);
             }
 
-            setFiles((current) => current.map((file) => String(file.id) === String(itemId)
-                ? {...file, is_deleted: false, deleted_at: null, modified_at: new Date().toISOString()}
-                : file));
+            setFiles((current) => current.map((file) => String(file.id) === String(itemId) ? {
+                ...file, is_deleted: false, deleted_at: null, modified_at: new Date().toISOString()
+            } : file));
         } catch (error) {
             console.error("Restore failed:", error);
             alert(error.message || "Failed to restore item.");
@@ -385,9 +583,9 @@ export default function DashboardPage() {
                 throw new Error(message);
             }
 
-            setFolders((current) => current.map((folder) => String(folder.id) === String(folderId)
-                ? {...folder, is_deleted: false, deleted_at: null, modified_at: new Date().toISOString()}
-                : folder));
+            setFolders((current) => current.map((folder) => String(folder.id) === String(folderId) ? {
+                ...folder, is_deleted: false, deleted_at: null, modified_at: new Date().toISOString()
+            } : folder));
         } catch (error) {
             console.error("Folder restore failed:", error);
             alert(error.message || "Failed to restore folder.");
@@ -446,10 +644,12 @@ export default function DashboardPage() {
             setFolders((current) => current.filter((folder) => !isPathWithinFolder(folder.path, folderPath)));
             setFiles((current) => current.filter((file) => !isPathWithinFolder(file.directory, folderPath)));
         } else {
-            setFolders((current) => current.map((folder) => isPathWithinFolder(folder.path, folderPath)
-                ? {...folder, is_deleted: true, modified_at: modifiedAt} : folder));
-            setFiles((current) => current.map((file) => isPathWithinFolder(file.directory, folderPath)
-                ? {...file, is_deleted: true, modified_at: modifiedAt} : file));
+            setFolders((current) => current.map((folder) => isPathWithinFolder(folder.path, folderPath) ? {
+                ...folder, is_deleted: true, modified_at: modifiedAt
+            } : folder));
+            setFiles((current) => current.map((file) => isPathWithinFolder(file.directory, folderPath) ? {
+                ...file, is_deleted: true, modified_at: modifiedAt
+            } : file));
         }
 
         void (async () => {
@@ -525,17 +725,19 @@ export default function DashboardPage() {
         for (const item of topLevelItems) {
             const permanent = mode === "permanent";
             if (item.type === "file") {
-                setFiles((current) => permanent
-                    ? current.filter((file) => String(file.id) !== String(item.id))
-                    : current.map((file) => String(file.id) === String(item.id) ? {...file, is_deleted: true, modified_at: modifiedAt} : file));
+                setFiles((current) => permanent ? current.filter((file) => String(file.id) !== String(item.id)) : current.map((file) => String(file.id) === String(item.id) ? {
+                    ...file, is_deleted: true, modified_at: modifiedAt
+                } : file));
             } else if (permanent) {
                 setFolders((current) => current.filter((folder) => !isPathWithinFolder(folder.path, item.path)));
                 setFiles((current) => current.filter((file) => !isPathWithinFolder(file.directory, item.path)));
             } else {
-                setFolders((current) => current.map((folder) => isPathWithinFolder(folder.path, item.path)
-                    ? {...folder, is_deleted: true, modified_at: modifiedAt} : folder));
-                setFiles((current) => current.map((file) => isPathWithinFolder(file.directory, item.path)
-                    ? {...file, is_deleted: true, modified_at: modifiedAt} : file));
+                setFolders((current) => current.map((folder) => isPathWithinFolder(folder.path, item.path) ? {
+                    ...folder, is_deleted: true, modified_at: modifiedAt
+                } : folder));
+                setFiles((current) => current.map((file) => isPathWithinFolder(file.directory, item.path) ? {
+                    ...file, is_deleted: true, modified_at: modifiedAt
+                } : file));
             }
         }
 
@@ -625,14 +827,9 @@ export default function DashboardPage() {
      */
     const showContextMenuAt = (x, y, payload) => {
         const menuWidth = 192;
-        const selectedCount = payload.kind === "item" && selectedItems.has(payload.item?.key)
-            ? selectableItems.filter((item) => selectedItems.has(item.key)).length
-            : 1;
+        const selectedCount = payload.kind === "item" && selectedItems.has(payload.item?.key) ? selectableItems.filter((item) => selectedItems.has(item.key)).length : 1;
         const multiSelection = selectedCount > 1;
-        const menuHeight = payload.kind === "background" ? 80
-            : payload.item?.is_deleted ? 80
-                : multiSelection ? 80
-                    : payload.item?.type === "folder" ? 120 : 160;
+        const menuHeight = payload.kind === "background" ? 80 : payload.item?.is_deleted ? 80 : multiSelection ? 80 : payload.item?.type === "folder" ? 120 : 160;
         setContextMenu({
             ...payload,
             x: Math.max(8, Math.min(x, window.innerWidth - menuWidth - 8)),
@@ -774,9 +971,7 @@ export default function DashboardPage() {
         const item = menu.item;
         if (!item) return;
 
-        const actionItems = selectedItems.has(item.key)
-            ? selectableItems.filter((candidate) => selectedItems.has(candidate.key))
-            : [item];
+        const actionItems = selectedItems.has(item.key) ? selectableItems.filter((candidate) => selectedItems.has(candidate.key)) : [item];
 
         if (action === "move") {
             // If a parent folder and any of its descendants are selected together,
@@ -798,17 +993,11 @@ export default function DashboardPage() {
             setBulkActionError("");
             setConfirmFocus("cancel");
             setConfirmAction({
-                mode,
-                items: actionItems,
-                selectionSnapshot: snapshot,
-                selectionAnchor: item.key,
+                mode, items: actionItems, selectionSnapshot: snapshot, selectionAnchor: item.key,
             });
             return;
         }
-        if (action === "rename" && actionItems.length === 1) openRenameDialog(item);
-        else if (action === "download" && item.type === "file") downloadFile(item.id);
-        else if (action === "restore" && item.type === "file") restoreItem(item.id);
-        else if (action === "restore" && item.type === "folder") restoreFolder(item.id);
+        if (action === "rename" && actionItems.length === 1) openRenameDialog(item); else if (action === "download" && item.type === "file") downloadFile(item.id); else if (action === "restore" && item.type === "file") restoreItem(item.id); else if (action === "restore" && item.type === "folder") restoreFolder(item.id);
     };
 
     /* ------------------------------ derived data ---------------------------- */
@@ -943,8 +1132,7 @@ export default function DashboardPage() {
             boxShadow: "0 16px 40px rgba(0, 0, 0, 0.4)",
             fontFamily: "Inter, ui-sans-serif, system-ui, sans-serif",
             pointerEvents: "none",
-            zIndex: "2147483647",
-            // Keep the preview visible immediately. Waiting for requestAnimationFrame
+            zIndex: "2147483647", // Keep the preview visible immediately. Waiting for requestAnimationFrame
             // left it transparent when the browser began a native text drag from a
             // filename and paused the custom mouse-move lifecycle.
             opacity: "1",
@@ -1093,8 +1281,9 @@ export default function DashboardPage() {
         // Optimistic local movement gives the user the result immediately.
         for (const item of topLevelItems) {
             if (item.type === "file") {
-                setFiles((current) => current.map((file) => String(file.id) === String(item.id)
-                    ? {...file, directory: targetPath === "/home" ? "" : targetPath} : file));
+                setFiles((current) => current.map((file) => String(file.id) === String(item.id) ? {
+                    ...file, directory: targetPath === "/home" ? "" : targetPath
+                } : file));
             } else if (item.type === "folder" && item.path) {
                 const nextPath = `${targetPath.replace(/\/$/, "")}/${item.name}`;
                 setFolders((current) => current.map((folder) => ({...folder, path: replacePathPrefix(folder.path, item.path, nextPath)})));
@@ -1111,7 +1300,8 @@ export default function DashboardPage() {
         void (async () => {
             try {
                 const response = await fetch(`${API_URL}/auth/move`, {
-                    method: "PATCH", headers: {Authorization: `Bearer ${token}`, "Content-Type": "application/json"},
+                    method: "PATCH",
+                    headers: {Authorization: `Bearer ${token}`, "Content-Type": "application/json"},
                     body: JSON.stringify({directory: targetPath, items: topLevelItems.map(({type, id}) => ({type, id}))}),
                 });
                 let data = {};
@@ -1139,17 +1329,13 @@ export default function DashboardPage() {
                     if (!source) continue;
                     if (movedItem.type === "file") {
                         const destination = movedItem.directory || targetPath;
-                        setFiles((current) => current.map((file) => String(file.id) === String(movedItem.id)
-                            ? {
-                                ...file,
-                                directory: destination === "/home" ? "" : destination,
-                                directory_id: movedItem.directory_id ?? file.directory_id
-                            } : file));
+                        setFiles((current) => current.map((file) => String(file.id) === String(movedItem.id) ? {
+                            ...file, directory: destination === "/home" ? "" : destination, directory_id: movedItem.directory_id ?? file.directory_id
+                        } : file));
                     } else if (movedItem.type === "folder" && source.path) {
                         const nextPath = movedItem.path || `${targetPath.replace(/\/$/, "")}/${source.name}`;
                         setFolders((current) => current.map((folder) => ({
-                            ...folder,
-                            path: replacePathPrefix(folder.path, `${targetPath.replace(/\/$/, "")}/${source.name}`, nextPath)
+                            ...folder, path: replacePathPrefix(folder.path, `${targetPath.replace(/\/$/, "")}/${source.name}`, nextPath)
                         })));
                     }
                 }
@@ -1192,8 +1378,7 @@ export default function DashboardPage() {
         // behavior users expect from mobile file managers.
         if (touchSelectionModeRef.current && !event.shiftKey && !event.ctrlKey && !event.metaKey) {
             const next = new Set(selectedItems);
-            if (next.has(item.key)) next.delete(item.key);
-            else next.add(item.key);
+            if (next.has(item.key)) next.delete(item.key); else next.add(item.key);
             setSelectedItems(next);
             selectionAnchorRef.current = item.key;
             if (next.size === 0) touchSelectionModeRef.current = false;
@@ -1395,12 +1580,7 @@ export default function DashboardPage() {
 
         const touch = event.touches[0];
         const gesture = {
-            kind: "item",
-            item,
-            startX: touch.clientX,
-            startY: touch.clientY,
-            longPressed: false,
-            timer: null,
+            kind: "item", item, startX: touch.clientX, startY: touch.clientY, longPressed: false, timer: null,
         };
         touchGestureRef.current = gesture;
         gesture.timer = window.setTimeout(() => {
@@ -1430,8 +1610,7 @@ export default function DashboardPage() {
                 payload: itemsToMove,
                 active: false,
                 destinationPath: null,
-                targetKey: null,
-                // The long press has already added the item to the selection.
+                targetKey: null, // The long press has already added the item to the selection.
                 // Preserve the complete multi-selection when the finger moves.
                 wasSelected: true,
                 touch: true,
@@ -1452,11 +1631,7 @@ export default function DashboardPage() {
 
         const touch = event.touches[0];
         const gesture = {
-            kind: "background",
-            startX: touch.clientX,
-            startY: touch.clientY,
-            longPressed: false,
-            timer: null,
+            kind: "background", startX: touch.clientX, startY: touch.clientY, longPressed: false, timer: null,
         };
         touchGestureRef.current = gesture;
         gesture.timer = window.setTimeout(() => {
@@ -1465,12 +1640,7 @@ export default function DashboardPage() {
             touchSelectionModeRef.current = true;
             suppressClickRef.current = true;
             dragStateRef.current = {
-                startX: gesture.startX,
-                startY: gesture.startY,
-                dragging: false,
-                baseSelection: new Set(selectedItems),
-                preserve: false,
-                touch: true,
+                startX: gesture.startX, startY: gesture.startY, dragging: false, baseSelection: new Set(selectedItems), preserve: false, touch: true,
             };
         }, 430);
     };
@@ -1642,8 +1812,7 @@ export default function DashboardPage() {
             event.preventDefault();
             const surface = selectionSurfaceRef.current;
             const surfaceRect = surface?.getBoundingClientRect();
-            if (!surfaceRect || touch.clientX < surfaceRect.left || touch.clientX > surfaceRect.right
-                || touch.clientY < surfaceRect.top || touch.clientY > surfaceRect.bottom) {
+            if (!surfaceRect || touch.clientX < surfaceRect.left || touch.clientX > surfaceRect.right || touch.clientY < surfaceRect.top || touch.clientY > surfaceRect.bottom) {
                 // A touch gesture that escapes the dashboard surface is cancelled,
                 // rather than silently dropping into the last folder it crossed.
                 onTouchCancel();
@@ -2097,6 +2266,14 @@ export default function DashboardPage() {
             cancelUploadJob={cancelUploadJob}
             dismissUploadJob={dismissUploadJob}
             clearAllUploadJobs={clearAllUploadJobs}
+        />
+
+        <DownloadJobsTray
+            jobs={downloadJobs}
+            onPause={pauseDownload}
+            onResume={resumeDownload}
+            onRemove={removeDownload}
+            onClearCompleted={clearCompletedDownloads}
         />
 
         <BulkActionConfirmModal

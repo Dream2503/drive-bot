@@ -30,12 +30,13 @@ export function getFileKind(filename) {
     return null;
 }
 
-/** Format a byte count using binary units. */
+/** Format byte counts using decimal units to match Linux Files (base 1000). */
 export function formatFileSize(bytes) {
-    if (!bytes || bytes <= 0) return "0 B";
-    const units = ["B", "KB", "MB", "GB", "TB"];
-    const i = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
-    return `${(bytes / Math.pow(1024, i)).toFixed(1)} ${units[i]}`;
+    const value = Number(bytes);
+    if (!Number.isFinite(value) || value <= 0) return "0 B";
+    const units = ["B", "KB", "MB", "GB", "TB", "PB"];
+    const index = Math.min(Math.floor(Math.log(value) / Math.log(1000)), units.length - 1);
+    return `${(value / (1000 ** index)).toFixed(index === 0 ? 0 : 1)} ${units[index]}`;
 }
 
 /** Read the current bearer token from browser storage. */

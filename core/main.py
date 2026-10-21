@@ -72,7 +72,7 @@ async def main() -> None:
                 allow_credentials=True,
                 allow_methods=["*"],
                 allow_headers=["*"],
-                expose_headers=["Content-Range", "Accept-Ranges", "Content-Length", "Content-Disposition"],
+                expose_headers=["Content-Range", "Accept-Ranges", "Content-Length", "Content-Disposition", "ETag"],
             )
 
         elif HOST == "LOCAL":
@@ -86,7 +86,7 @@ async def main() -> None:
                 allow_credentials=True,
                 allow_methods=["*"],
                 allow_headers=["*"],
-                expose_headers=["Content-Range", "Accept-Ranges", "Content-Length", "Content-Disposition"],
+                expose_headers=["Content-Range", "Accept-Ranges", "Content-Length", "Content-Disposition", "ETag"],
             )
 
         else:

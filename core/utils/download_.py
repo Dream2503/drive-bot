@@ -105,7 +105,7 @@ async def download_unprocessed_link(file: File, link: str) -> AsyncGenerator[Pro
     temp_dir.mkdir(parents=True, exist_ok=True)
     download_task: Task[Any] | None = None
     response: Response | None = None
-    output: Path = temp_dir / "pending-download"
+    temp_dir / "pending-download"
     response_type: str | None = None
 
     try:

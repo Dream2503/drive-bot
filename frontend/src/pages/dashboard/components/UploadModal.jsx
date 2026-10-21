@@ -39,16 +39,16 @@ const directoryToRoute = (directory) => {
  * @returns {string}
  */
 const formatBytes = (bytes) => {
-    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1000) return `${bytes} B`;
 
     const units = ["KB", "MB", "GB", "TB"];
     let value = bytes;
     let unit = -1;
 
     do {
-        value /= 1024;
+        value /= 1000;
         unit++;
-    } while (value >= 1024 && unit < units.length - 1);
+    } while (value >= 1000 && unit < units.length - 1);
 
     return `${value.toFixed(1)} ${units[unit]}`;
 };
@@ -307,8 +307,7 @@ export default function UploadPage({modal = false, targetDirectory = "", onClose
             file: selectedFile, relativePath: getUploadRelativePath(selectedFile),
         })) : [];
         const queueItems = uploadMode === "file" ? filesWithPaths.map(({file, relativePath}) => ({
-            name: relativePath,
-            size: file.size
+            name: relativePath, size: file.size
         })) : links.map((value) => ({name: value, size: 0}));
         const queueTotal = queueItems.length;
         setQueueProgress({current: 0, total: queueTotal});

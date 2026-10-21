@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from asyncio import sleep, wait_for
 from bisect import bisect_right
 from dataclasses import dataclass
 from re import Match, fullmatch
@@ -9,6 +10,7 @@ from typing import AsyncGenerator
 
 from backend.database.models.file import File
 from core.data_center import DataCenter
+from core.utils_ import part_path
 
 
 class Stream:
@@ -29,8 +31,64 @@ class Stream:
         start: int
         end: int
 
+    @classmethod
+    async def prepare(cls, file: File, range_header: str | None = None) -> "Stream":
+        """Resolve the real stored byte length from the final storage part before building headers."""
+
+        if not file.links:
+            raise OSError("File has no stored data parts")
+
+        provider: type[DataCenter] | None = DataCenter(file.data_center)
+
+        if provider is None:
+            raise ValueError(f"Unsupported data center: {file.data_center}")
+
+        last_index = len(file.links) - 1
+        cached_last = await DataCenter.get_cached_part(str(file.id), last_index)
+        expected_last = None
+
+        if cached_last is not None and 0 < len(cached_last) <= provider.MAX_SIZE:
+            expected_last = cached_last
+
+        else:
+            for attempt in range(5):
+                try:
+                    candidate = await wait_for(provider.download(file.links[last_index]), timeout=120)
+
+                    if not candidate or len(candidate) > provider.MAX_SIZE:
+                        raise OSError(f"Final storage part has invalid size {len(candidate)} bytes "    f"(maximum {provider.MAX_SIZE})")
+
+                    expected_last = candidate
+                    await DataCenter.cache_part(str(file.id), last_index, candidate)
+                    break
+
+                except Exception as error:
+                    last_error = error
+
+                    if attempt == 4:
+                        raise OSError("Could not verify the final storage part after 5 attempts") from last_error
+
+                    await sleep(min(2 ** attempt, 16))
+
+        actual_size = last_index * provider.MAX_SIZE + len(expected_last)
+
+        if actual_size <= 0:
+            raise ValueError("Cannot stream an empty file")
+
+        if int(file.size) != actual_size:
+            file.size = actual_size
+
+            if file.id is not None:
+                try:
+                    await file.update()
+
+                except Exception:
+                    pass
+
+        return cls(file, range_header)
+
     def __init__(self, file: File, range_header: str | None = None) -> None:
-        """Validate the file metadata and parse an optional single HTTP byte range."""
+        """Build byte offsets from the verified size and parse an optional single HTTP byte range."""
 
         self.file: File = file
 
@@ -40,7 +98,7 @@ class Stream:
         total_chunks: int = (self.file.size + DataCenter.MAX_SIZE - 1) // DataCenter.MAX_SIZE
 
         if len(self.file.links) != total_chunks:
-            raise OSError(f"Expected {total_chunks} chunks, got {len(self.file.links)}")
+            raise OSError(f"Verified size requires {total_chunks} chunks, but metadata contains {len(self.file.links)}")
 
         self.chunks: list[Stream.FileChunk] = [
             Stream.FileChunk(flink, index * DataCenter.MAX_SIZE, min((index + 1) * DataCenter.MAX_SIZE, self.file.size) - 1)
@@ -87,6 +145,13 @@ class Stream:
         while position <= byte_range.end:
             chunk: Stream.FileChunk = self.chunks[index]
             data: bytes | None = await DataCenter.get_cached_part(str(self.file.id), index)
+            expected_size: int = chunk.end - chunk.start + 1
+
+            if data is not None and len(data) != expected_size:
+                cache_path = part_path(DataCenter.CACHE_DIR, str(self.file.id), index)
+                cache_path.unlink(missing_ok=True)
+                await DataCenter.touch_cache(str(cache_path))
+                data = None
 
             if data is None:
                 data_center: type[DataCenter] | None = DataCenter(self.file.data_center)
@@ -94,14 +159,32 @@ class Stream:
                 if data_center is None:
                     raise ValueError(f"Unsupported data center: {self.file.data_center}")
 
-                data = await data_center.download(chunk.flink)
+                last_error: Exception | None = None
 
-                if not data:
-                    raise OSError(f"Empty chunk: {chunk.flink}")
+                for attempt in range(5):
+                    try:
+                        candidate: bytes = await wait_for(data_center.download(chunk.flink), timeout=120)
+
+                        if len(candidate) != expected_size:
+                            raise OSError(
+                                f"Remote chunk {chunk.flink} returned {len(candidate)} bytes; expected {expected_size}"
+                            )
+
+                        data = candidate
+                        break
+
+                    except Exception as error:
+                        last_error = error
+                        if attempt == 4:
+                            raise OSError(
+                                f"Could not retrieve storage chunk {index + 1}/{len(self.chunks)} after 5 attempts"
+                            ) from last_error
+                        await sleep(min(2 ** attempt, 16))
+
+                if data is None:
+                    raise OSError(f"Could not retrieve storage chunk {chunk.flink}") from last_error
 
                 await DataCenter.cache_part(str(self.file.id), index, data)
-
-            expected_size: int = chunk.end - chunk.start + 1
 
             if len(data) != expected_size:
                 raise OSError(f"Stored chunk {chunk.flink} has {len(data)} bytes; expected {expected_size}")

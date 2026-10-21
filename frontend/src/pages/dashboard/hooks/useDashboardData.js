@@ -268,19 +268,31 @@ export default function useDashboardData(currentFolder, navigate) {
         }
     }, [files, folderRecords, storageUsed, treeLoaded]);
 
-    // Directory sizes are derived from the cached file metadata, counting every
-    // descendant file exactly once no matter how deeply it is nested.
+    // Derive each folder's apparent size from unique file records in that
+    // subtree. The same file can be present in overlapping cached directory
+    // responses, so de-duplicate by its stable database ID before summing.
+    // Size fields are byte counts; never add a converted/display-formatted size.
     const folders = useMemo(() => folderRecords.map((folder) => {
         const path = normalizeDirectoryPath(folder.path);
         const prefix = `${path}/`;
-        const totalSize = files.reduce((total, file) => {
+        const seenFiles = new Set();
+        const totalSize = files.reduce((total, file, index) => {
+            if (!file || file.name === ".__folder__") return total;
+
             const directory = normalizeDirectoryPath(file.directory || HOME_PATH);
-            if ((directory === path || directory.startsWith(prefix)) && (folder.is_deleted || !file.is_deleted)) {
-                const size = Number(file.size ?? file.file_size ?? 0);
-                if (Number.isFinite(size) && size > 0) return total + size;
-            }
-            return total;
+            if (!(directory === path || directory.startsWith(prefix))) return total;
+            if (!folder.is_deleted && file.is_deleted) return total;
+
+            const identity = file.id ?? file.fid ?? file.file_id;
+            const key = identity !== undefined && identity !== null ? `id:${identity}` : `path:${directory}/${file.name ?? ""}:${file.modified_at ?? ""}:${index}`;
+            if (seenFiles.has(key)) return total;
+            seenFiles.add(key);
+
+            const rawSize = file.size_bytes ?? file.file_size_bytes ?? file.size ?? file.file_size ?? 0;
+            const size = Number(rawSize);
+            return Number.isFinite(size) && size > 0 ? total + size : total;
         }, 0);
+
         return {...folder, total_size_bytes: totalSize};
     }), [folderRecords, files]);
 
