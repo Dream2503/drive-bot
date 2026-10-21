@@ -8,8 +8,9 @@ The web UI is branded **DriveBot** in places, while the overall application and 
 
 > **Scope:** This document covers the StoreLimitless application, including its internal backend, frontend, storage/transfer code, FTP interface,
 > runtime data, and packaging workflow. The separate Python SDK source package is not part of the tracked application tree. The build script generates
-> versioned Linux and Windows `LOCAL`/`CLOUD` executables in the repository-root `releases/linux` and `releases/windows` directories. It also copies only the `LOCAL`
-> executable for each selected platform into `api/src/storelimitless/bin/` under the SDK's standard `StoreLimitlessServer_<VERSION>` filename. Those
+> versioned Linux and Windows `LOCAL`/`CLOUD` executables in the repository-root `releases/linux` and `releases/windows` directories. It also copies
+> only the `LOCAL`
+> executable for each selected platform into `Store-Limitless-api` under the SDK's standard `StoreLimitlessServer_<VERSION>` filename. Those
 > binaries are generated artifacts, not application source. The internal service under `backend/server/` is documented because the frontend, uploads,
 > streaming, and FTP integration depend on it.
 
@@ -248,8 +249,8 @@ generated caches, virtual environments, and dependency folders are deliberately 
 
 `data/` is runtime storage in source/development mode. In frozen mode, runtime data is instead placed in the operating system's StoreLimitless
 application-data directory. Treat logs, CSV exports, Telegram session data, and configuration files as potentially sensitive. The `releases/linux` and
-`releases/windows` directories contain generated release variants after a build. The build also creates `api/src/storelimitless/bin/linux/` and
-`api/src/storelimitless/bin/windows/` as needed, with the standard-named `LOCAL` executable copied for each selected platform. Temporary paths such as
+`releases/windows` directories contain generated release variants after a build. The build also creates `Store-Limitless-api` and
+`Store-Limitless-api` as needed, with the standard-named `LOCAL` executable copied for each selected platform. Temporary paths such as
 `build/`, `frontend/node_modules/`, `frontend/dist/`, `__pycache__/`, and `.pyc`/`.pyo` files can be recreated by the build or runtime workflow and
 are
 cleaned after a successful build.
@@ -695,7 +696,7 @@ The browser-facing URL must be reachable from the browser itself. `127.0.0.1` al
 ## Internal HTTP interface
 
 This section documents the HTTP service that is part of the StoreLimitless application. It does **not** describe the separately packaged SDK under
-`api/`.
+`Store-Limitless-api`.
 
 Most `/auth/...` routes require an `Authorization: Bearer <access_token>` header. Public upload-status and file-stream routes use the `/public/...`
 namespace, although the chunk receiver itself also validates the user's bearer token in the current code.
@@ -755,6 +756,33 @@ instance.
 
 ---
 
+## Vercel frontend and stable API proxy
+
+The current deployment separates the static React frontend from the Python API:
+
+| Component             | URL / location                                          | Role                                                                                              |
+|-----------------------|---------------------------------------------------------|---------------------------------------------------------------------------------------------------|
+| Frontend              | `https://storelimitless.vercel.app`                     | Public landing page, authentication UI, and dashboard                                             |
+| Stable API proxy      | `https://storelimitlessbackend.vercel.app`              | Stable browser-facing API origin; forwards requests to the currently registered Cloudflare tunnel |
+| Cloud-mode API tunnel | Generated at runtime                                    | Temporary HTTPS upstream to the Python API on port `8000`                                         |
+| Tunnel registry       | Upstash Redis, configured in the Next.js Vercel project | Stores the active tunnel URL and last registration timestamp                                      |
+
+When the Python application starts in `HOST="CLOUD"`, it creates a Cloudflare Quick Tunnel for `http://127.0.0.1:8000`, then attempts to register
+the generated HTTPS URL with `POST /api/register` on the stable API proxy. The registration endpoint expects a bearer token matching
+`STORELIMITLESS_PROXY_TOKEN`; it accepts only HTTPS `*.trycloudflare.com` URLs and stores the current upstream in Upstash Redis. Registration
+failures are logged and do not necessarily stop the local services, so a running Colab/server does not by itself prove that the stable proxy is
+registered.
+
+The proxy's `/health` endpoint reports whether an upstream is registered and the last update timestamp. It reports registry state, not whether every
+API route is healthy. If browser API requests return `503`, check the health endpoint, confirm the cloud runtime is still running, inspect the
+registration logs, and verify that the Vercel and Python runtime use the same `STORELIMITLESS_PROXY_TOKEN` and valid Upstash Redis environment
+variables. If a request fails with a browser CORS error, inspect the actual response and `OPTIONS` preflight; a proxy-generated `503` is not the same
+as a response from FastAPI with its CORS headers.
+
+The Next.js proxy project lives in `backend/storelimitlessbackend/`. Its `.next/`, `node_modules/`, `.turbo/`, and `coverage/` directories are
+generated artifacts and are removed by the successful root build cleanup when present. Keep `package.json`, `package-lock.json`, `app/`, `proxy.ts`,
+and configuration files; these are required to rebuild and deploy the proxy.
+
 ## Configuration
 
 ### Main configuration locations
@@ -774,12 +802,15 @@ instance.
 `HOST` is declared in `core/config.py` as either `LOCAL` or `CLOUD`.
 
 - **`LOCAL`**: use the detected LAN address for the API and website URLs. The API listens on `0.0.0.0:8000`, Vite or the packaged frontend on
-  `0.0.0.0:5173`, and FTP on port `2121`.
-- **`CLOUD`**: start Cloudflare HTTP tunnels for the service on port `8000` and the website on port `5173`, then pass the resulting API URL to the
-  frontend. The implementation uses the tunnel helper in `core/utils/binaries.py`.
+  `0.0.0.0:5173`, and FTP on port `2121`. Source-mode startup installs frontend dependencies if Vite is missing, then launches the Vite dev server.
+- **`CLOUD`**: start a Cloudflare Quick Tunnel for the local API on port `8000`. The public frontend is hosted separately at
+  `https://storelimitless.vercel.app`; Cloud mode does not start Vite or bundle frontend assets into its executable. The current tunnel URL is
+  registered with the stable Vercel API proxy at `https://storelimitlessbackend.vercel.app`, which stores the active upstream URL in Upstash Redis.
+  The proxy forwards API requests to that registered tunnel.
 
-The current Cloud-mode code does not create a public FTP tunnel. It still starts FTP locally on port `2121`. Redis is intended to remain private on
-loopback.
+The current Cloud-mode code does not create a public FTP tunnel. FTP still listens locally on port `2121`, and Redis is intended to remain private.
+The Vercel proxy depends on its Upstash Redis environment configuration and the `STORELIMITLESS_PROXY_TOKEN` secret being configured consistently
+with the StoreLimitless runtime.
 
 ### Runtime paths
 
@@ -959,7 +990,8 @@ official
 
 ### Build variants and output layout
 
-The script writes the platform variants directly to the repository-root `releases/linux` and `releases/windows` directories. With the default `VERSION=0.1.0`, the
+The script writes the platform variants directly to the repository-root `releases/linux` and `releases/windows` directories. With the default
+`VERSION=0.1.0`, the
 four possible outputs are:
 
 ```text
@@ -987,58 +1019,69 @@ Before each PyInstaller run, it updates this assignment to the variant being bui
 system. A backup of `core/config.py` is restored when the script exits, including on a failed build, so the working source configuration is not left
 set to `CLOUD` by the packaging process.
 
-The frontend is built once and shared by the four variants; each executable embeds that frontend build. The server-side `HOST` value controls the
-runtime hosting mode. `LOCAL` uses the local/LAN address setup, while `CLOUD` uses the Cloudflare HTTP-tunnel startup behavior described in
-[Hosting mode](#hosting-mode). The cloud variant does not automatically add a public FTP tunnel.
+The frontend is built once before packaging, but **it is bundled only into `LOCAL` executables**. The PyInstaller spec reads the
+`INCLUDE_FRONTEND` environment variable:
+
+```bash
+# LOCAL executable: include frontend assets
+INCLUDE_FRONTEND=1 python -m PyInstaller storelimitless-backend.spec
+
+# CLOUD executable: exclude frontend assets
+INCLUDE_FRONTEND=0 python -m PyInstaller storelimitless-backend.spec
+```
+
+`build.sh` sets this variable automatically for every Linux and Windows build. `storelimitless-backend.spec` defaults to including the frontend when
+`INCLUDE_FRONTEND` is unset, preserving the expected behavior for direct/manual builds. This is separate from `HOST`: `HOST` determines startup
+behavior, while `INCLUDE_FRONTEND` determines which static frontend files PyInstaller packages.
+
+`LOCAL` serves the bundled frontend in a frozen executable. `CLOUD` uses the Vercel-hosted website and only tunnels the API. Neither variant creates
+a public FTP tunnel.
 
 ### SDK binary copies
 
-For each operating system selected in the build command, the script copies the `LOCAL` executable into the separate SDK's generated binary directory.
-The SDK copies deliberately use the standard name without the `LOCAL`/`CLOUD` suffix:
+For each selected operating system, the script copies the `LOCAL` executable into the SDK's generated binary directory under
+`Store-Limitless-api/src/storelimitless/bin/`. The standard SDK filename omits the `LOCAL`/`CLOUD` suffix:
 
 ```text
-api/src/storelimitless/bin/
+Store-Limitless-api/src/storelimitless/bin/
 ├── linux/
 │   └── StoreLimitlessServer_0.1.0
 └── windows/
     └── StoreLimitlessServer_0.1.0.exe
 ```
 
-These SDK copies are generated artifacts, not the versioned root-level release files. The script does not copy the `CLOUD` executable into the SDK
-`bin` directory. When updating one platform's SDK binary, it removes stale `StoreLimitlessServer*` files in that platform's `bin` directory before
-copying the current `LOCAL` executable. An OS that was not selected is not rebuilt.
+These SDK copies are generated artifacts, not the versioned root-level release files. The script never copies the `CLOUD` executable into the SDK
+`bin` directory. Before copying, it removes stale `StoreLimitlessServer*` files in the selected platform's `bin` directory. An OS that was not
+selected is not rebuilt.
 
 ### Build cleanup
 
-Only after every selected build succeeds, the script removes regeneratable artifacts:
+Only after every selected build succeeds, `build.sh` removes regeneratable artifacts:
 
-- `build/`, including temporary virtual environments, Wine prefix data, downloaded Windows Python installers, and PyInstaller work directories.
+- `build/`, including temporary virtual environments, the Wine prefix, downloaded Windows Python installers, and PyInstaller work directories.
 - `frontend/node_modules/` and `frontend/dist/`.
-- Project `__pycache__/` directories and `.pyc`/`.pyo` files, while pruning `.git`, `.venv`, `venv`, and `node_modules` directories.
+- `backend/storelimitlessbackend/.next/`, `node_modules/`, `.turbo/`, and `coverage/`, when that Next.js project directory exists.
+- Project `__pycache__/` directories and `.pyc`/`.pyo` files, while pruning `.git`, `.venv`, `venv`, `node_modules`, and `.next` directories.
 - `build.log`, removed last after the successful build output has been printed.
 
-If a build fails, the cleanup phase is skipped so intermediate artifacts and `build.log` remain available for diagnosing the failure. The script
-preserves
-the root `releases/linux` and `releases/windows` executable directories and the generated SDK `api/src/storelimitless/bin/` copies. It does not use the older
-`releases/` or `dist/linux` / `dist/windows` output layout.
+If a build fails, the final cleanup phase is skipped so intermediate artifacts and `build.log` remain available for diagnosing the failure. The script
+preserves release executables and generated SDK binaries. It clears the contents of the release root and SDK binary root at the beginning of a build,
+then recreates the expected platform directories; therefore, existing release outputs are replaced by the results of the selected build run.
 
-Since `frontend/node_modules/` and `frontend/dist/` are removed after a successful build, source-mode startup or the next build reinstalls frontend
-dependencies and regenerates the frontend assets as needed.
+Since the generated frontend assets and dependency directories are removed after a successful build, source-mode startup or the next build reinstalls
+frontend dependencies and regenerates `frontend/dist`. The Next.js dependencies/build output can likewise be recreated from `package-lock.json`.
 
-### Frozen frontend runtime
+### Frontend runtime by build mode
 
-The packaged startup mode differs from development:
-
-- The frontend is served from the bundled `frontend/dist` assets instead of starting Vite.
-- `backend/server/frontend.py` serves the SPA entry point and static assets.
-- `/config.js` emits a runtime script assigning `window.STORELIMITLESS_CONFIG.API_URL`.
-- Runtime data moves to the operating system's StoreLimitless application-data directory.
-- The bundle must include the intended frontend build and required binary/runtime assets.
+- **LOCAL frozen executable:** PyInstaller includes `frontend/dist`; `backend/server/frontend.py` serves the SPA entry point and static assets, and
+  `/config.js` exposes `window.STORELIMITLESS_CONFIG.API_URL` at runtime.
+- **LOCAL source mode:** FastAPI runs alongside the Vite development server on port `5173`. Missing frontend dependencies are installed on startup.
+- **CLOUD executable:** frontend assets are excluded by setting `INCLUDE_FRONTEND=0`. The application points users to the Vercel-hosted website and
+  starts a Cloudflare tunnel only for the API. It must not attempt to serve a missing local `frontend/dist`.
 
 Do not hand-edit generated JavaScript/CSS in `frontend/dist`; make changes under `frontend/src/` and rebuild. Packaging is platform-specific, so build
-and
-smoke-test each target on its intended operating system where possible. A successful PyInstaller build alone does not prove that credentials, writable
-directories, Redis, media tools, tunnels, or provider authentication work at runtime.
+and smoke-test each target on its intended operating system where possible. A successful PyInstaller build alone does not prove that credentials,
+writable directories, Redis, media tools, tunnel registration, or provider authentication work at runtime.
 ---
 
 ## Backups and runtime data
@@ -1230,8 +1273,9 @@ public-token expiry, and FTP seek behavior.
 ## Known boundaries and verification notes
 
 - The separate SDK source package is not part of the tracked application tree documented here. `build.sh` generates versioned `LOCAL` and `CLOUD`
-  executables under the repository-root `releases/linux` and `releases/windows` directories, and copies only the selected platform's `LOCAL` executable to the SDK's
-  generated `api/src/storelimitless/bin/` directory using the standard `StoreLimitlessServer_<VERSION>` name.
+  executables under the repository-root `releases/linux` and `releases/windows` directories, and copies only the selected platform's `LOCAL`
+  executable to the SDK's
+  generated `Store-Limitless-api` directory using the standard `StoreLimitlessServer_<VERSION>` name.
 - URL imports support YouTube processing, Google Drive links, and direct HTTP (S) download URLs. A syntactically valid HTTP (S) URL is not guaranteed
   to
   be a downloadable file; ordinary HTML pages and sources requiring unavailable authentication can fail.

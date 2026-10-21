@@ -57,6 +57,9 @@ class Discord(DataCenter, metaclass=ConfigMeta):
     async def download(flink: str) -> bytes:
         """Retrieve a Discord attachment by its stored message ID."""
 
+        while not Discord.ready:
+            await sleep(0.1)
+
         fetch_future = run_coroutine_threadsafe(Discord.FILE_DUMP.fetch_message(int(flink)), Discord.LOOP)
         message: Message = await wrap_future(fetch_future)
 

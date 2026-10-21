@@ -1,30 +1,36 @@
-
 # -*- mode: python ; coding: utf-8 -*-
 
+import os
 from pathlib import Path
+
 from PyInstaller.utils.hooks import collect_all, copy_metadata
 
 ROOT = Path(SPECPATH).resolve()
 FRONTEND_DIST = ROOT / "frontend" / "dist"
 
-if not FRONTEND_DIST.is_dir():
-    raise FileNotFoundError(
-        f"Frontend build not found: {FRONTEND_DIST}\n"
-        "Build it first with: cd frontend && npm install && npm run build"
-    )
+INCLUDE_FRONTEND = os.environ.get("INCLUDE_FRONTEND", "1") == "1"
 
-frontend_datas = [
-    (
-        str(path),
-        str(
-            Path("frontend")
-            / "dist"
-            / path.relative_to(FRONTEND_DIST).parent
-        ),
-    )
-    for path in FRONTEND_DIST.rglob("*")
-    if path.is_file()
-]
+frontend_datas = []
+
+if INCLUDE_FRONTEND:
+    if not FRONTEND_DIST.is_dir():
+        raise FileNotFoundError(
+            f"Frontend build not found: {FRONTEND_DIST}\n"
+            "Build it first with: cd frontend && npm install && npm run build"
+        )
+
+    frontend_datas = [
+        (
+            str(path),
+            str(
+                Path("frontend")
+                / "dist"
+                / path.relative_to(FRONTEND_DIST).parent
+            ),
+        )
+        for path in FRONTEND_DIST.rglob("*")
+        if path.is_file()
+    ]
 
 # Collect gdown's package files, binaries, hidden imports, and metadata.
 gdown_datas, gdown_binaries, gdown_hiddenimports = collect_all("gdown")

@@ -225,7 +225,7 @@ function VideoPlayer({file, streamUrl, heightClass = "h-[70vh]"}) {
         ref={wrapRef}
         onMouseMove={poke}
         onMouseLeave={() => playing && setShowUi(false)}
-        className={`relative ${heightClass} w-full select-none overflow-hidden rounded-md bg-black ${controlsVisible ? "" : "cursor-none"}`}
+        className={`relative ${heightClass} w-full select-none overflow-hidden bg-black ${controlsVisible ? "" : "cursor-none"}`}
     >
         <video
             ref={videoRef}
@@ -525,7 +525,7 @@ export default function ViewFile() {
             </button>)}
         </header>
 
-        <main className="min-h-0 flex-1 p-4">
+        <main className="min-h-0 flex-1 overflow-hidden p-0">
             {kind !== "video" ? (<div className="flex h-full flex-col items-center justify-center gap-2 text-center text-[#898989]">
                 <span className="material-symbols-outlined text-[40px] text-[#4d4d4d]" aria-hidden="true">visibility_off</span>
                 <p className="text-sm text-[#fafafa]">Preview isn't available for this file type yet.</p>
@@ -535,8 +535,8 @@ export default function ViewFile() {
             </div>) : !source ? (<div className="flex h-full flex-col items-center justify-center gap-3 text-sm text-[#898989]">
                 <span className="material-symbols-outlined animate-spin text-[32px]" aria-hidden="true">progress_activity</span>
                 {status}
-            </div>) : (<div className="mx-auto flex h-full w-full max-w-7xl flex-col gap-2">
-                <div className="min-h-0 flex-1">
+            </div>) : (<div className="flex h-full w-full min-h-0 flex-col">
+                <div className="min-h-0 min-w-0 flex-1">
                     <VideoPlayer file={{name}} streamUrl={source.streamUrl} heightClass="h-full"/>
                 </div>
             </div>)}
