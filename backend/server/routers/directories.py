@@ -80,6 +80,43 @@ async def get_trash(user: User = Depends(get_current_user)) -> tuple[list[Direct
     return await Directory.get_all(user.username, trash=True), await File.get_all(user.username, trash=True)
 
 
+@router.get("/tree")
+async def get_file_tree(user: User = Depends(get_current_user)) -> JSONResponse:
+    """Return the authenticated user's complete file tree and storage total in one request."""
+
+    await File.purge_expired(user.username)
+
+    active_directories: list[Directory] = await Directory.get_all(user.username)
+    trashed_directories: list[Directory] = await Directory.get_all(user.username, trash=True)
+    active_files: list[File] = await File.get_all(user.username)
+    trashed_files: list[File] = await File.get_all(user.username, trash=True)
+
+    all_directories: list[Directory] = [*active_directories, *trashed_directories]
+    all_files: list[File] = [*active_files, *trashed_files]
+    directory_path_by_id: dict[int, str] = {directory.id: str(directory.path) for directory in all_directories if directory.id is not None}
+    directory_records: list[dict[str, object]] = []
+
+    for directory in all_directories:
+        record: dict[str, object] = directory.model_dump(mode="json")
+        record["is_deleted"] = directory.deleted_at is not None
+        directory_records.append(record)
+
+    file_records: list[dict[str, object]] = []
+
+    for file in all_files:
+        record = file.model_dump(mode="json", exclude={"links"})
+        record["directory"] = directory_path_by_id.get(file.directory_id, "")
+        record["is_deleted"] = file.deleted_at is not None
+        file_records.append(record)
+
+    storage_used_bytes: int = sum(max(0, int(file.size or 0)) for file in all_files)
+    return JSONResponse({
+        "directories": directory_records,
+        "files": file_records,
+        "storage_used_bytes": storage_used_bytes,
+    })
+
+
 def _clean_name(name: str, entity: str) -> str:
     """Validate a single file/folder name shared by rename operations."""
 

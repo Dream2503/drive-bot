@@ -4,35 +4,6 @@ import {useNavigate, useSearchParams} from "react-router-dom";
 /** @typedef {{cancelled: boolean}} UploadCancelToken */
 /** @typedef {Error & {fatal?: boolean}} UploadRequestError */
 
-/**
- * @typedef {Object} StoredUploadJob
- * @property {string} jobId
- * @property {string} name
- * @property {"file" | "link"} kind
- * @property {string} directory
- * @property {"Discord" | "Telegram"} dataCenter
- * @property {string} status
- * @property {number} progress
- * @property {number} transfer
- * @property {number} total
- * @property {string} message
- * @property {number} createdAt
- */
-/**
- * Read a saved upload tray value while tolerating malformed or outdated browser storage.
- * @param {string} key
- * @returns {StoredUploadJob[]}
- */
-function readStoredUploadJobs(key) {
-    try {
-        const parsed = JSON.parse(localStorage.getItem(key) || "[]");
-        return Array.isArray(parsed) ? parsed : [];
-    } catch {
-        return [];
-    }
-}
-
-
 /** @type {string | undefined} */
 const API_URL = window.STORELIMITLESS_CONFIG?.API_URL ?? import.meta.env.VITE_API_URL
 
@@ -251,7 +222,6 @@ export default function UploadPage({modal = false, targetDirectory = "", onClose
 
         setStatus("uploading");
 
-        const jobsKey = "storelimitless_upload_jobs";
         const token = localStorage.getItem("token");
         if (!token) {
             navigate("/");
@@ -270,7 +240,11 @@ export default function UploadPage({modal = false, targetDirectory = "", onClose
                 if (uploadMode === "file") {
                     res = await fetch(`${API_URL}/auth/upload`, {
                         method: "POST", headers: {
-                            Authorization: `Bearer ${token}`, "X-File-Name": selectedFile.name, "X-Data-Center": dataCenter, "X-Directory": directory,
+                            Authorization: `Bearer ${token}`,
+                            "X-File-Name": selectedFile.name,
+                            "X-File-Size": String(selectedFile.size),
+                            "X-Data-Center": dataCenter,
+                            "X-Directory": directory,
                         },
                     });
                 } else {
@@ -294,22 +268,6 @@ export default function UploadPage({modal = false, targetDirectory = "", onClose
                 const {job_id: jobId} = await res.json();
                 if (!jobId) throw new Error("The server did not return an upload job ID.");
 
-                const job = {
-                    jobId,
-                    name: uploadMode === "file" ? selectedFile.name : selectedLink,
-                    kind: uploadMode,
-                    directory,
-                    dataCenter,
-                    status: "uploading",
-                    progress: 0,
-                    transfer: 0,
-                    total: uploadMode === "file" ? selectedFile.size : 0,
-                    message: uploadMode === "file" ? "Sending file to server" : "Importing from link",
-                    createdAt: Date.now(),
-                };
-                const existingJobs = readStoredUploadJobs(jobsKey);
-                localStorage.setItem(jobsKey, JSON.stringify([job, ...existingJobs.filter(item => item.jobId !== jobId)]));
-
                 if (!window.__storeLimitlessUploadTransfers) window.__storeLimitlessUploadTransfers = new Map();
                 const cancelToken = {cancelled: false};
                 /** @type {Set<XMLHttpRequest>} */
@@ -320,14 +278,26 @@ export default function UploadPage({modal = false, targetDirectory = "", onClose
                     void uploadFileInChunks(jobId, selectedFile, cancelToken, jobXhrs).then(() => {
                         window.__storeLimitlessUploadTransfers?.delete(jobId);
                     }).catch((error) => {
+                        const wasCancelled = cancelToken.cancelled || /cancelled/i.test(error instanceof Error ? error.message : "");
                         cancelToken.cancelled = true;
                         window.__storeLimitlessUploadTransfers?.delete(jobId);
                         for (const xhr of jobXhrs) xhr.abort();
-                        const jobs = JSON.parse(localStorage.getItem(jobsKey) || "[]");
-                        localStorage.setItem(jobsKey, JSON.stringify(jobs.map(item => item.jobId === jobId ? {
-                            ...item, status: "error", message: error instanceof Error ? error.message : "Upload failed"
-                        } : item)));
                         console.error(`Upload transfer failed (${selectedFile.name}):`, error);
+
+                        // Publish client-side failures to Redis so the same account sees
+                        // the error on every device instead of leaving a stale spinner.
+                        if (!wasCancelled) {
+                            const currentToken = localStorage.getItem("token");
+                            if (currentToken) {
+                                void fetch(`${API_URL}/auth/upload-jobs/${encodeURIComponent(jobId)}/fail`, {
+                                    method: "POST", headers: {
+                                        Authorization: `Bearer ${currentToken}`, "Content-Type": "application/json",
+                                    }, body: JSON.stringify({message: error instanceof Error ? error.message : "Browser file transfer failed"}),
+                                }).catch((reportError) => {
+                                    console.error("Could not publish upload failure to the account:", reportError);
+                                });
+                            }
+                        }
                     });
                 }
             };

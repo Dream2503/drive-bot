@@ -2,96 +2,95 @@ import {useEffect, useState} from "react";
 import {API_URL} from "../constants.js";
 import {getToken} from "../utils.js";
 
-const JOBS_STORAGE_KEY = "storelimitless_upload_jobs";
-
-/** Polls upload jobs, persists progress, and exposes tray actions. */
+/** Polls the authenticated account's Redis-backed jobs so the tray is shared across devices. */
 export default function useUploadJobs(refreshDirectory) {
-    const [uploadJobs, setUploadJobs] = useState(() => {
-        try {
-            const storedJobs = JSON.parse(localStorage.getItem(JOBS_STORAGE_KEY) || "[]");
-            return Array.isArray(storedJobs) ? storedJobs : [];
-        } catch {
-            return [];
-        }
-    });
+    const [uploadJobs, setUploadJobs] = useState([]);
 
-    // Poll active jobs. On completion, remove the job from the tray and refresh
-    // only the destination directory so the full in-memory tree stays intact.
     useEffect(() => {
         let cancelled = false;
         let polling = false;
-        const jobsKey = "storelimitless_upload_jobs";
-        /**
-         * Refresh upload progress and sync only folders that received completed uploads.
-         * @returns {Promise<void>}
-         */
+
+        const authenticatedFetch = (url, options = {}) => {
+            const token = getToken();
+            if (!token) return Promise.resolve(null);
+            return fetch(url, {
+                ...options, headers: {
+                    ...(options.headers || {}), Authorization: `Bearer ${token}`,
+                }, cache: "no-store",
+            });
+        };
+
+        const removeServerJob = async (jobId) => {
+            try {
+                await authenticatedFetch(`${API_URL}/auth/upload-jobs/${encodeURIComponent(jobId)}`, {
+                    method: "DELETE",
+                });
+            } catch (error) {
+                console.error("Could not dismiss shared upload job:", error);
+            }
+        };
+
         const refreshUploadJobs = async () => {
             if (polling || cancelled) return;
             polling = true;
+
             try {
-                let jobs;
-                try {
-                    jobs = JSON.parse(localStorage.getItem(jobsKey) || "[]");
-                    if (!Array.isArray(jobs)) jobs = [];
-                } catch {
-                    jobs = [];
+                const response = await authenticatedFetch(`${API_URL}/auth/upload-jobs`);
+                if (!response) {
+                    if (!cancelled) setUploadJobs([]);
+                    return;
                 }
 
-                const token = getToken();
-                const updatedJobs = await Promise.all(jobs.map(async (job) => {
-                    if (!job?.jobId || job.status === "error" || job.status === "cancelled") return job;
+                if (response.status === 401 || response.status === 403) {
+                    if (!cancelled) setUploadJobs([]);
+                    return;
+                }
+                if (!response.ok) return;
+
+                const payload = await response.json();
+                if (!Array.isArray(payload.jobs)) return;
+
+                const serverJobs = payload.jobs.map((job) => {
+                    const transfer = Number.isFinite(Number(job.transfer)) ? Number(job.transfer) : 0;
+                    const total = Number.isFinite(Number(job.total)) ? Number(job.total) : 0;
+                    const status = ["uploading", "completed", "error", "cancelled"].includes(job.status) ? job.status : "uploading";
+                    const progress = status === "completed" ? 100 : total > 0 ? Math.max(0, Math.min(99, transfer / total * 100)) : 0;
+
+                    return {
+                        jobId: String(job.job_id),
+                        name: String(job.name || "Upload"),
+                        kind: job.kind === "file" ? "file" : "link",
+                        directory: String(job.directory || "/home"),
+                        dataCenter: String(job.data_center || ""),
+                        status,
+                        progress,
+                        transfer,
+                        total,
+                        message: String(job.message || (status === "error" ? "Upload failed" : "Uploading")),
+                        createdAt: Number(job.created_at) || 0,
+                    };
+                });
+
+                // Completed jobs keep the existing behavior: refresh the destination and
+                // remove the terminal job from the shared index so it disappears on all devices.
+                const terminalJobs = serverJobs.filter((job) => job.status === "completed" || job.status === "cancelled");
+                const visibleJobs = serverJobs.filter((job) => job.status !== "completed" && job.status !== "cancelled");
+                if (!cancelled) setUploadJobs(visibleJobs);
+
+                const completedJobs = terminalJobs.filter((job) => job.status === "completed");
+                const completedDirectories = new Set(completedJobs.map((job) => job.directory || "/home"));
+                await Promise.all([...completedDirectories].map(async (directory) => {
                     try {
-                        const response = await fetch(`${API_URL}/public/upload/${job.jobId}/status`, {
-                            headers: token ? {Authorization: `Bearer ${token}`} : {}, cache: "no-store",
-                        });
-                        if (!response.ok) return job;
-                        const data = await response.json();
-                        const progressName = typeof data.name === "string" ? data.name.trim() : "";
-                        const message = String(data.message || "");
-                        const isComplete = data.status === "completed" || /upload\s+complete/i.test(message) || /complete/i.test(message) && Number(data.total) > 0 && Number(data.transfer) >= Number(data.total);
-                        const isError = data.status === "error" || /upload\s+failed/i.test(message);
-                        const transfer = Number.isFinite(Number(data.transfer)) ? Number(data.transfer) : (job.transfer || 0);
-                        const total = Number.isFinite(Number(data.total)) ? Number(data.total) : (job.total || 0);
-                        return {
-                            ...job, // Adopt the backend's current progress name. For link imports,
-                            // this changes the displayed URL to the actual YouTube title
-                            // as soon as yt-dlp resolves it.
-                            name: progressName || job.name,
-                            transfer,
-                            total,
-                            progress: isComplete ? 100 : total > 0 ? Math.min(99, transfer / total * 100) : (job.progress || 0),
-                            status: isComplete ? "completed" : isError ? "error" : "uploading",
-                            message: isError ? (data.error || message || "Upload failed") : (message || job.message || "Uploading"),
-                        };
-                    } catch {
-                        return job;
+                        await refreshDirectory(directory);
+                    } catch (error) {
+                        console.error("Failed to sync a completed upload into the local tree:", error);
                     }
                 }));
 
-                if (cancelled) return;
-                const completedIds = new Set(updatedJobs.filter(job => job?.status === "completed").map(job => job.jobId));
-                const remainingJobs = updatedJobs.filter(job => job?.status !== "completed" && job?.status !== "cancelled");
-
-                // Write the filtered list first, then update React state. This avoids
-                // completed items reappearing from stale localStorage on the next poll.
-                localStorage.setItem(jobsKey, JSON.stringify(remainingJobs));
-                setUploadJobs(remainingJobs);
-                if (completedIds.size > 0) {
-                    // The completed jobs have already been removed from localStorage.
-                    // Remove their global cancellation handles and sync each destination once.
-                    const completedJobs = updatedJobs.filter(job => completedIds.has(job?.jobId));
-                    for (const jobId of completedIds) {
-                        window.__storeLimitlessUploadTransfers?.delete(jobId);
-                    }
-                    const directories = new Set(completedJobs.map(job => job.directory || "/home"));
-                    await Promise.all([...directories].map(async directory => {
-                        try {
-                            await refreshDirectory(directory);
-                        } catch (error) {
-                            console.error("Failed to sync a completed upload into the local tree:", error);
-                        }
-                    }));
-                }
+                await Promise.all(terminalJobs.map((job) => removeServerJob(job.jobId)));
+            } catch (error) {
+                // Keep the last known tray when a temporary network/tunnel issue occurs.
+                console.error("Could not refresh shared upload jobs:", error);
             } finally {
                 polling = false;
             }
@@ -105,24 +104,17 @@ export default function useUploadJobs(refreshDirectory) {
         };
     }, [refreshDirectory]);
 
-    /**
-     * Remove an upload job from persistent state and the dashboard tray.
-     * @param {string} jobId
-     * @returns {void}
-     */
+    /** Dismiss a job for this account, synchronizing the removal across its devices. */
     const dismissUploadJob = (jobId) => {
-        setUploadJobs(current => {
-            const next = current.filter(job => job.jobId !== jobId);
-            localStorage.setItem("storelimitless_upload_jobs", JSON.stringify(next));
-            return next;
-        });
+        setUploadJobs((current) => current.filter((job) => job.jobId !== jobId));
+        const token = getToken();
+        if (!token) return;
+        void fetch(`${API_URL}/auth/upload-jobs/${encodeURIComponent(jobId)}`, {
+            method: "DELETE", headers: {Authorization: `Bearer ${token}`}, cache: "no-store",
+        }).catch((error) => console.error("Could not dismiss upload job:", error));
     };
 
-    /**
-     * Abort a job’s active chunk requests and remove it from the tray.
-     * @param {string} jobId
-     * @returns {void}
-     */
+    /** Cancel the server-side job and abort this browser's active chunk requests when present. */
     const cancelUploadJob = (jobId) => {
         const transfer = window.__storeLimitlessUploadTransfers?.get(jobId);
         if (transfer) {
@@ -130,11 +122,21 @@ export default function useUploadJobs(refreshDirectory) {
             for (const xhr of transfer.xhrs || []) xhr.abort();
             window.__storeLimitlessUploadTransfers.delete(jobId);
         }
-        // Remove it immediately from the tray. The browser transfer is aborted;
-        // no server-side cancellation endpoint is required for chunked file uploads.
-        dismissUploadJob(jobId);
-    };
 
+        setUploadJobs((current) => current.filter((job) => job.jobId !== jobId));
+        const token = getToken();
+        if (!token) return;
+        void fetch(`${API_URL}/auth/upload-jobs/${encodeURIComponent(jobId)}/cancel`, {
+            method: "POST", headers: {Authorization: `Bearer ${token}`}, cache: "no-store",
+        }).then(async (response) => {
+            if (!response.ok) {
+                const data = await response.json().catch(() => ({}));
+                throw new Error(data.detail || `Could not cancel upload (${response.status})`);
+            }
+        }).catch((error) => {
+            console.error("Could not cancel shared upload job:", error);
+        });
+    };
 
     return {uploadJobs, dismissUploadJob, cancelUploadJob};
 }

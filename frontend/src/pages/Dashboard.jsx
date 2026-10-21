@@ -132,6 +132,9 @@ export default function DashboardPage() {
     const selectionSurfaceRef = useRef(null);
     const dragStateRef = useRef(null);
     const suppressClickRef = useRef(false);
+    const touchGestureRef = useRef(null);
+    const lastTouchInteractionRef = useRef(0);
+    const touchSelectionModeRef = useRef(false);
     const selectionAnchorRef = useRef(null);
     const selectionRestoreRef = useRef({checked: false, snapshot: null});
     const currentSelectionViewKey = makeSelectionViewKey(location.pathname, activeTab, searchQuery);
@@ -661,6 +664,8 @@ export default function DashboardPage() {
     const handleItemContextMenu = (event, item) => {
         event.preventDefault();
         event.stopPropagation();
+        // Long-press uses the mobile selection gesture, not the desktop context menu.
+        if (Date.now() - lastTouchInteractionRef.current < 900) return;
         if (!selectedItems.has(item.key)) {
             setSelectedItems(new Set([item.key]));
             selectionAnchorRef.current = item.key;
@@ -687,6 +692,10 @@ export default function DashboardPage() {
      * @returns {void}
      */
     const handleBackgroundContextMenu = (event) => {
+        if (Date.now() - lastTouchInteractionRef.current < 900) {
+            event.preventDefault();
+            return;
+        }
         if (event.target.closest("[data-selection-id], [data-selection-ignore], button, input, textarea, select, a")) return;
         event.preventDefault();
         event.stopPropagation();
@@ -979,6 +988,9 @@ export default function DashboardPage() {
      * @returns {void}
      */
     const beginMoveDrag = (event, item) => {
+        // Browsers can synthesize mouse events after touchend. Do not let those
+        // events start a second drag or prevent the touch-generated click.
+        if (Date.now() - lastTouchInteractionRef.current < 900) return;
         if (event.button !== 0 || isTrash || item.is_deleted || movingItems || confirmAction) return;
         if (event.target.closest("[data-selection-ignore]")) return;
 
@@ -1136,6 +1148,27 @@ export default function DashboardPage() {
             return;
         }
 
+        // On touch devices a normal tap opens an item. Long-press is the
+        // explicit entry point into multi-selection, since mobile has no
+        // reliable double-click or modifier keys.
+        if (Date.now() - lastTouchInteractionRef.current < 900 && !touchSelectionModeRef.current) {
+            openSelectedItem(item);
+            return;
+        }
+
+        // A long press on touch enters selection mode. Subsequent taps add or
+        // remove items instead of replacing the entire selection, matching the
+        // behavior users expect from mobile file managers.
+        if (touchSelectionModeRef.current && !event.shiftKey && !event.ctrlKey && !event.metaKey) {
+            const next = new Set(selectedItems);
+            if (next.has(item.key)) next.delete(item.key);
+            else next.add(item.key);
+            setSelectedItems(next);
+            selectionAnchorRef.current = item.key;
+            if (next.size === 0) touchSelectionModeRef.current = false;
+            return;
+        }
+
         const itemIndex = selectableItems.findIndex((candidate) => candidate.key === item.key);
         const anchorIndex = selectableItems.findIndex((candidate) => candidate.key === selectionAnchorRef.current);
 
@@ -1163,6 +1196,7 @@ export default function DashboardPage() {
     const clearSelection = () => {
         setSelectedItems(new Set());
         selectionAnchorRef.current = null;
+        touchSelectionModeRef.current = false;
     };
 
     /**
@@ -1314,6 +1348,102 @@ export default function DashboardPage() {
         event.preventDefault();
     };
 
+    /**
+     * Start a touch long-press gesture on an item. Holding selects it; moving
+     * after the hold turns the same gesture into a folder move operation.
+     * A movement before the hold threshold is treated as ordinary page scrolling.
+     * @param {import("react").TouchEvent<HTMLElement>} event
+     * @param {SelectableItem} item
+     * @returns {void}
+     */
+    const handleTouchItemStart = (event, item) => {
+        lastTouchInteractionRef.current = Date.now();
+        if (event.touches.length !== 1 || confirmAction || movingItems) return;
+        if (event.target.closest("[data-selection-ignore]")) return;
+        event.stopPropagation();
+
+        const touch = event.touches[0];
+        const gesture = {
+            kind: "item",
+            item,
+            startX: touch.clientX,
+            startY: touch.clientY,
+            longPressed: false,
+            timer: null,
+        };
+        touchGestureRef.current = gesture;
+        gesture.timer = window.setTimeout(() => {
+            if (touchGestureRef.current !== gesture) return;
+            gesture.longPressed = true;
+            touchSelectionModeRef.current = true;
+            suppressClickRef.current = true;
+
+            const selectedKeys = new Set(selectedItems);
+            selectedKeys.add(item.key);
+            setSelectedItems(selectedKeys);
+            selectionAnchorRef.current = item.key;
+
+            if (isTrash || item.is_deleted) return;
+            const selected = selectableItems.filter((candidate) => selectedKeys.has(candidate.key) && !candidate.is_deleted);
+            const itemsToMove = reduceMoveItemsToTopLevel(selected).map(({key, type, id, name, path, directory}) => ({
+                key, type, id, name, path, directory,
+            }));
+            if (!itemsToMove.length) return;
+
+            movePointerRef.current = {
+                startX: gesture.startX,
+                startY: gesture.startY,
+                pointerX: gesture.startX,
+                pointerY: gesture.startY,
+                item,
+                payload: itemsToMove,
+                active: false,
+                destinationPath: null,
+                targetKey: null,
+                // The long press has already added the item to the selection.
+                // Preserve the complete multi-selection when the finger moves.
+                wasSelected: true,
+                touch: true,
+            };
+        }, 430);
+    };
+
+    /**
+     * Begin touch marquee selection only when a long press starts on empty space.
+     * Quick touches and early movement are left to the browser for normal scrolling.
+     * @param {import("react").TouchEvent<HTMLElement>} event
+     * @returns {void}
+     */
+    const handleTouchBackgroundStart = (event) => {
+        lastTouchInteractionRef.current = Date.now();
+        if (event.touches.length !== 1 || confirmAction) return;
+        if (event.target.closest("[data-selection-id], [data-selection-ignore], button, input, textarea, select, a")) return;
+
+        const touch = event.touches[0];
+        const gesture = {
+            kind: "background",
+            startX: touch.clientX,
+            startY: touch.clientY,
+            longPressed: false,
+            timer: null,
+        };
+        touchGestureRef.current = gesture;
+        gesture.timer = window.setTimeout(() => {
+            if (touchGestureRef.current !== gesture) return;
+            gesture.longPressed = true;
+            touchSelectionModeRef.current = true;
+            suppressClickRef.current = true;
+            dragStateRef.current = {
+                startX: gesture.startX,
+                startY: gesture.startY,
+                dragging: false,
+                baseSelection: new Set(selectedItems),
+                preserve: false,
+                touch: true,
+            };
+        }, 430);
+    };
+
     useEffect(() => {
         /**
          * Update move-drag feedback or the marquee selection while the pointer moves.
@@ -1417,7 +1547,10 @@ export default function DashboardPage() {
                     suppressClickRef.current = true;
                     const hovered = document.elementFromPoint(event.clientX, event.clientY);
                     const dropNode = hovered?.closest?.("[data-drop-path][data-drop-key]");
-                    const destinationPath = dropNode?.getAttribute("data-drop-path") || move.destinationPath;
+                    // Resolve the release point itself. Reusing the last valid
+                    // target would unexpectedly move items when the finger/mouse
+                    // leaves a folder and is released over empty space.
+                    const destinationPath = dropNode?.getAttribute("data-drop-path") || null;
                     const callbacks = moveDndCallbacksRef.current;
                     const canDrop = Boolean(destinationPath && callbacks?.canDropItemsIntoDirectory?.(move.payload, destinationPath));
 
@@ -1432,9 +1565,11 @@ export default function DashboardPage() {
                         moveDragRef.current = null;
                         setDraggingKeys(new Set());
                     }
-                    window.requestAnimationFrame(() => {
-                        suppressClickRef.current = false;
-                    });
+                    if (!move.touch) {
+                        window.requestAnimationFrame(() => {
+                            suppressClickRef.current = false;
+                        });
+                    }
                 }
                 return;
             }
@@ -1445,17 +1580,93 @@ export default function DashboardPage() {
             if (drag.dragging) {
                 setMarquee(null);
                 // Suppress the click that the browser emits after a marquee drag.
-                window.requestAnimationFrame(() => {
-                    suppressClickRef.current = false;
-                });
+                if (!drag.touch) {
+                    window.requestAnimationFrame(() => {
+                        suppressClickRef.current = false;
+                    });
+                }
             }
+        };
+
+        const onTouchMove = (event) => {
+            lastTouchInteractionRef.current = Date.now();
+            const gesture = touchGestureRef.current;
+            if (!gesture) return;
+            const touch = event.touches[0];
+            if (!touch) return;
+            const distance = Math.hypot(touch.clientX - gesture.startX, touch.clientY - gesture.startY);
+
+            // Before the long press activates, allow native scrolling. If the
+            // finger has already moved, cancel the pending gesture entirely.
+            if (!gesture.longPressed) {
+                if (distance > 9) {
+                    window.clearTimeout(gesture.timer);
+                    touchGestureRef.current = null;
+                }
+                return;
+            }
+
+            // Once held, take over the touch stream for marquee or move-drag.
+            // The listener is non-passive so preventDefault reliably stops page scroll.
+            event.preventDefault();
+            const surface = selectionSurfaceRef.current;
+            const surfaceRect = surface?.getBoundingClientRect();
+            if (!surfaceRect || touch.clientX < surfaceRect.left || touch.clientX > surfaceRect.right
+                || touch.clientY < surfaceRect.top || touch.clientY > surfaceRect.bottom) {
+                // A touch gesture that escapes the dashboard surface is cancelled,
+                // rather than silently dropping into the last folder it crossed.
+                onTouchCancel();
+                return;
+            }
+            onMouseMove({clientX: touch.clientX, clientY: touch.clientY});
+        };
+
+        const onTouchEnd = (event) => {
+            lastTouchInteractionRef.current = Date.now();
+            const gesture = touchGestureRef.current;
+            if (!gesture) return;
+            window.clearTimeout(gesture.timer);
+            touchGestureRef.current = null;
+            if (!gesture.longPressed) return;
+
+            const touch = event.changedTouches[0];
+            const point = touch ? {clientX: touch.clientX, clientY: touch.clientY} : {clientX: gesture.startX, clientY: gesture.startY};
+            onMouseUp(point);
+            // Allow the synthetic click following touchend to consume the
+            // suppression flag first, then avoid leaving the dashboard stuck.
+            window.setTimeout(() => {
+                suppressClickRef.current = false;
+            }, 350);
+        };
+
+        const onTouchCancel = () => {
+            lastTouchInteractionRef.current = Date.now();
+            const gesture = touchGestureRef.current;
+            if (gesture) window.clearTimeout(gesture.timer);
+            touchGestureRef.current = null;
+            movePointerRef.current = null;
+            dragStateRef.current = null;
+            if (dragPreviewNodeRef.current?.isConnected) animateMoveDragPreviewOut(dragPreviewNodeRef.current);
+            dragPreviewNodeRef.current = null;
+            setMarquee(null);
+            setDropTargetKey(null);
+            setDraggingKeys(new Set());
+            moveDragRef.current = null;
+            suppressClickRef.current = false;
         };
 
         document.addEventListener("mousemove", onMouseMove);
         document.addEventListener("mouseup", onMouseUp);
+        document.addEventListener("touchmove", onTouchMove, {passive: false});
+        document.addEventListener("touchend", onTouchEnd, {passive: true});
+        document.addEventListener("touchcancel", onTouchCancel, {passive: true});
         return () => {
             document.removeEventListener("mousemove", onMouseMove);
             document.removeEventListener("mouseup", onMouseUp);
+            document.removeEventListener("touchmove", onTouchMove);
+            document.removeEventListener("touchend", onTouchEnd);
+            document.removeEventListener("touchcancel", onTouchCancel);
+            if (touchGestureRef.current?.timer) window.clearTimeout(touchGestureRef.current.timer);
         };
     }, []);
 
@@ -1789,6 +2000,8 @@ export default function DashboardPage() {
             isTrash={isTrash}
             selectionSurfaceRef={selectionSurfaceRef}
             handleSelectionMouseDown={handleSelectionMouseDown}
+            handleTouchBackgroundStart={handleTouchBackgroundStart}
+            handleTouchItemStart={handleTouchItemStart}
             handleBackgroundContextMenu={handleBackgroundContextMenu}
             suppressClickRef={suppressClickRef}
             clearSelection={clearSelection}

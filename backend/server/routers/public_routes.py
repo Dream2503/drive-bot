@@ -3,18 +3,20 @@
 from __future__ import annotations
 
 from mimetypes import guess_type
-from typing import cast
+from typing import cast, Any
 from urllib.parse import quote
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse, Response, StreamingResponse
 
-from backend.database.models import File
+from backend.database.models import File, User
 from backend.database.redis_server import Redis
+from backend.server.jwt_handler import get_current_user
 from backend.server.security import verify_public_stream_token
 from core.stream import Stream
 from core.utils.discord_ import Discord
 from core.utils.progress import Progress
+from .upload_state import get_upload_job_metadata
 
 router: APIRouter = APIRouter()
 
@@ -27,8 +29,13 @@ async def ready() -> JSONResponse:
 
 
 @router.get("/upload/{job_id}/status")
-async def upload_status(job_id: str) -> JSONResponse:
-    """Return the current progress and result metadata for an upload job."""
+async def upload_status(job_id: str, user: User = Depends(get_current_user)) -> JSONResponse:
+    """Return progress only to the account that owns the upload job."""
+
+    metadata: dict[str, Any] | None = await get_upload_job_metadata(job_id)
+
+    if metadata is None or metadata.get("username") != user.username:
+        raise HTTPException(status_code=404, detail="Upload job not found")
 
     try:
         progress: Progress = cast(Progress, await Redis.get(job_id, "Progress"))
@@ -39,6 +46,7 @@ async def upload_status(job_id: str) -> JSONResponse:
     message_lower: str = progress.message.lower()
     completed: bool = "complete" in message_lower
     failed: bool = message_lower.startswith("upload failed")
+    cancelled: bool = bool(metadata.get("cancelled")) or message_lower.startswith("upload cancelled")
     file_id: int | None = None
 
     if completed and "id=" in progress.message:
@@ -46,14 +54,15 @@ async def upload_status(job_id: str) -> JSONResponse:
             file_id = int(progress.message.split("id=")[-1].split()[0])
 
         except (ValueError, IndexError):
-            file_id: int | None = None
+            file_id = None
 
+    name: str | None | Any = progress.name if progress.name not in {"update_name_from_backend", "link", ""} else metadata.get("name")
     return JSONResponse({
-        "status": "completed" if completed else "error" if failed else "uploading",
+        "status": "cancelled" if cancelled else "completed" if completed else "error" if failed else "uploading",
         "message": " ".join(progress.message.split()[:2]) if completed else progress.message,
-        "name": progress.name if progress.name != "update_name_from_backend" else None,
+        "name": name,
         "transfer": progress.transfer,
-        "total": progress.total,
+        "total": max(progress.total, int(metadata.get("total") or 0)),
         "file_id": file_id,
     })
 

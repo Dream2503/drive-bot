@@ -131,7 +131,8 @@ FTP client ── FTP port ──► FTP virtual filesystem ──► same model
   reads.
 - **`backend/ftp/`** exposes the same metadata and transfer functionality through a virtual FTP filesystem instead of a real host directory.
 - **Discord and Telegram** hold file bytes. PostgreSQL stores the metadata needed to find, order, and reconstruct those bytes.
-- **Redis** is used for cached models and short-lived coordination/state, including upload progress and active upload-session information.
+- **Redis** is used for cached models, upload progress/session state, and the account-scoped upload-job registry. The registry indexes jobs by the
+  authenticated username so the tray can be reconstructed on another device connected to the same backend and Redis instance.
 
 ---
 
@@ -358,7 +359,8 @@ transfer layer.
 
 1. The frontend requests an upload job using `POST /auth/upload`, passing the selected data center, directory, and file name in headers.
 2. The backend validates the requested provider, file name, and target directory.
-3. A job ID is created. The pending job metadata and its temporary file path are stored in Redis with a time-to-live.
+3. A job ID is created. The backend stores the job's owner username, display name, destination directory, provider, type, and progress metadata in
+   Redis, and adds the job ID to a Redis set indexed by username. Pending file/session data also uses a time-to-live.
 4. The frontend divides each local file into **1 MiB chunks**, sends up to **8 chunks concurrently**, and retries transient chunk failures up to the
    configured attempt limit.
 5. The frontend sends byte chunks to `PUT /public/upload/{job_id}/chunk`, with `offset` and `total` query parameters.
@@ -367,10 +369,12 @@ transfer layer.
 7. A producer task waits for incoming bytes while the upload worker passes the growing temporary file through the core upload pipeline. The transfer
    can therefore begin before the complete browser file has finished arriving.
 8. The transfer layer splits the file into provider-sized parts, uploads those parts, collects their remote links, and persists final file metadata.
-9. The frontend polls `GET /public/upload/{job_id}/status` for progress and the resulting file ID.
+9. The frontend polls `GET /public/upload/{job_id}/status` for progress and the resulting file ID. This status endpoint requires the authenticated
+   user's bearer token and verifies that the job belongs to that username.
 
-The active/pending upload metadata has an approximately one-hour Redis TTL in the current implementation. The chunk receiver also detects
-interrupted/missing temporary files and reports a restart-required failure rather than silently treating the incomplete file as complete.
+The pending upload/session data has an approximately one-hour Redis TTL in the current implementation. Job metadata and the per-user job index are
+maintained separately so that the dashboard tray can discover jobs from another browser/device. The chunk receiver also detects interrupted/missing
+temporary files and reports a restart-required failure rather than silently treating the incomplete file as complete.
 
 Temporary browser upload files are stored beneath `TRANSFER_PATH` in a per-user/job layout. In source mode this is under `data/transfer/`, the runtime
 scratch space cleaned up when the application shuts down.
@@ -541,8 +545,9 @@ recorded file size.
 
 ### PostgreSQL and Redis roles
 
-PostgreSQL is the durable source of account, directory, and file metadata. Redis is used for frequently accessed model data and short-lived
-operational state such as upload sessions and progress. Do not treat Redis cache/state as a substitute for database backups.
+PostgreSQL is the durable source of account, directory, and file metadata. Redis stores frequently accessed model data and operational upload state,
+including progress, chunk sessions, per-job ownership metadata, and the username-indexed upload-job registry used by the cross-device tray. Do not
+treat Redis cache/state as a substitute for database backups; if the Redis deployment is ephemeral, tray metadata can be lost on reset.
 
 ---
 
@@ -572,13 +577,13 @@ dashboard UI and data lifecycle logic are organized under `frontend/src/pages/da
 - `src/App.jsx` declares the landing, authentication, dashboard, upload, and file-view routes. The root route is the public landing page, not the
   login form.
 - `src/main.jsx` mounts React into the HTML root element.
-- `src/index.css` contains global styling, the slim green-accent scrollbar theme for page and nested scroll regions, and reduced-motion
-  accommodations.
+- `src/index.css` contains global styling, the slim green-accent scrollbar theme for page and nested scroll regions, reduced-motion
+  accommodations, mobile touch-selection rules, and the dashboard scroller's top-edge overscroll behavior for pull-to-refresh.
 - `src/pages/Landing.jsx` renders the public-facing product page, including the responsive navigation, product-preview illustration, feature section,
   “how it works” steps, and sign-up/login calls to action. The product preview is illustrative rather than live account data.
 - `src/pages/Auth.jsx` handles both login and signup modes and stores the bearer token in `localStorage` under `token`.
-- `src/pages/Dashboard.jsx` coordinates dashboard state and interactions: folder navigation, selection, search, context menus, drag/marquee selection,
-  drag-and-drop moves, bulk actions, trash/restore, dialogs, and file actions.
+- `src/pages/Dashboard.jsx` coordinates dashboard state and interactions: folder navigation, selection, search, context menus, mouse-based
+  drag/marquee selection, touch long-press gestures, drag-and-drop moves, bulk actions, trash/restore, dialogs, and file actions.
 
 #### Dashboard components and helpers
 
@@ -608,42 +613,65 @@ All dashboard-specific modules are under `src/pages/dashboard/`:
 - `hooks/useDashboardData.js` loads the account's file/folder tree, storage metadata, and trash; refreshes a targeted directory after mutations; and
   calculates recursive folder sizes.
 - `hooks/useGlobalFileSearch.js` manages search results across the loaded file tree.
-- `hooks/useUploadJobs.js` restores active jobs from browser storage, polls server-side status, updates transfer progress, handles
-  cancellation/dismissal, and syncs completed uploads into the relevant directory.
+- `hooks/useUploadJobs.js` loads the authenticated account's shared upload-job list from the backend, polls it, updates progress, handles synchronized
+  cancellation/dismissal, and refreshes affected directories after completed uploads.
 
 The separation keeps `Dashboard.jsx` focused on coordinating interactions. When adding dashboard behavior, put reusable UI in `components/`, data
 lifecycle logic in the appropriate hook, and shared helpers/constants in `constants.js` or `utils.js`.
 
 ### Directory-tree cache and refresh behavior
 
-`useDashboardData.js` performs a complete initial scan of the user's active directory tree. It requests directories in batches, queues newly
-discovered child folders, collects files from each directory, then loads trash and account storage metadata. The tree is held in a module-level
-in-memory cache scoped to the current account token.
+`useDashboardData.js` loads the full account tree through one authenticated `GET /auth/tree` request instead of repeatedly walking the tree with one
+`GET /auth/directory` call per folder and separate requests for Trash and storage metadata. The endpoint returns active and trashed directories,
+active
+and trashed file metadata, and the total storage usage in one response. To keep the payload smaller, the full-tree response omits the remote provider
+`links` for each file; those links are not needed to display or select files in the dashboard. The tree is held in a module-level in-memory cache
+scoped
+to the current account token.
 
-- **Folder navigation:** changing the `/home/...` route switches the visible directory slice from the cached tree instead of issuing another directory
-  request for every navigation step.
-- **Explicit Refresh:** the dashboard's Refresh control calls the full tree loader, so it re-reads directory and file data from the server rather than
-  trusting the existing cache.
+- **Initial dashboard load:** when there is no matching in-memory cache for the signed-in account, the hook fetches `/auth/tree` once for the complete
+  file/folder tree and storage total. The endpoint scopes its data to the authenticated username.
+- **Folder navigation:** changing the `/home/...` route switches the visible directory slice from the cached tree instead of issuing another full-tree
+  request.
+- **Explicit Refresh:** the dashboard's Refresh control fetches `/auth/tree` again, replacing the cached tree with current server data.
 - **Browser reload:** the cache exists only in JavaScript memory, not in `localStorage`; a hard reload such as F5 recreates the module state and
-  triggers a fresh tree load.
-- **Local changes and uploads:** operations that affect a single folder can refresh that directory and update the in-memory tree without rescanning
-  every folder. Completed uploads are synchronized to their target directories by the upload-job hook.
+  triggers
+  a fresh full-tree request.
+- **Local changes and uploads:** operations that affect a single folder can still use `GET /auth/directory?directory=...` to refresh just that
+  directory
+  rather than reloading the entire account tree. Completed uploads are synchronized to their target directories by the upload-job hook.
 - **Recursive folder size:** the hook sums file sizes in a folder and all descendants, using the cached file/folder records. Missing or invalid size
   values contribute zero. The value is exposed as `total_size_bytes` for the details dialog.
 
+The single-tree endpoint reduces request count during initial/full loading, but does not eliminate other application requests such as upload-job
+polling.
 The cache is a performance optimization, not durable storage. PostgreSQL remains the source of truth for metadata. If a change bypasses the normal
 refresh path, use the dashboard Refresh control to reconcile the client tree with server data.
 
 ### Upload progress and job behavior
 
-The dashboard upload tray persists jobs in browser `localStorage` under `storelimitless_upload_jobs`. `useUploadJobs.js` polls active jobs about every
-1.2 seconds, updates byte counts and percentages, and removes completed/cancelled jobs from the saved tray state. When one or more jobs complete, it
-refreshes each affected destination directory so the uploaded files appear without a manual full-tree refresh. Failed jobs remain visible until
-dismissed.
+The upload tray is account-synchronized rather than being backed by a browser-local job list. `useUploadJobs.js` fetches `GET /auth/upload-jobs` about
+every 1.2 seconds. The backend stores job metadata/progress in Redis and indexes job IDs under the authenticated username, so signing into the same
+account from another browser or device loads the same tray. The browser's `localStorage` still holds the authentication token, but it is not the
+source of truth for upload jobs.
 
-Local file uploads can be cancelled from the tray; cancellation aborts the tracked browser chunk requests and removes the job from the tray.
-Link-import jobs are tracked separately and can be dismissed when no longer active. Treat the browser storage key and backend upload-status response
-contract as a single interface when changing this flow.
+The account-scoped API supports these shared actions:
+
+- **Cancel:** `POST /auth/upload-jobs/{job_id}/cancel` marks the job cancelled and attempts to cancel the tracked server-side task. The originating
+  browser also aborts its own chunk requests when it receives the local cancel action; a cancellation requested from another device is published
+  through the shared job state.
+- **Dismiss:** `DELETE /auth/upload-jobs/{job_id}` removes a terminal job from the shared account tray. Cancelling or dismissing a job on one device
+  updates the tray on other devices as they poll.
+- **Report browser transfer failure:** `POST /auth/upload-jobs/{job_id}/fail` stores an error for the account-wide job when a local file transfer
+  fails, so other devices see the failure rather than a permanently active upload.
+
+Completed and cancelled jobs are automatically removed from the shared index during tray polling after completed destination directories are
+refreshed. Failed jobs remain visible until dismissed. All these routes verify job ownership against the authenticated username.
+
+**Deployment requirement:** every device must use the same API backend and the same Redis data store. A per-process `localhost` Redis instance does
+not synchronize separate deployments. Redis is operational state rather than the durable file metadata database; if Redis is ephemeral or reset, the
+shared job tray can be lost. In addition, background task handles are process-local, so a Redis job record alone cannot resume an interrupted transfer
+after the backend process/runtime has stopped.
 
 ### Upload page keyboard shortcuts and multiple links
 
@@ -661,8 +689,32 @@ On the standalone upload page:
 ### Selection and move behavior
 
 Dashboard selection is tracked separately for each view (folder route, active/trash tab, and search query) so selections can be restored when
-navigating back through the app. The workspace supports multi-selection, a pointer-drag selection rectangle, context-menu actions, and drag-and-drop
-move gestures.
+navigating back through the app. On desktop, the workspace supports modifier-key multi-selection, a mouse-drag selection rectangle, context-menu
+actions, and drag-and-drop move gestures.
+
+On touch screens, the workspace uses explicit gestures because desktop drag and modifier-key behavior does not translate reliably to a phone:
+
+- **Tap an item:** opens the file or folder in the normal browsing flow.
+- **Long-press an item:** after approximately 430 ms, selects the item and enters touch multi-selection mode. While this mode is active, tapping other
+  items adds them to the selection; tapping an already-selected item removes it. Clearing the selection exits the mode.
+- **Long-press and drag an item:** after the long press selects the item, moving the finger starts a move preview. Drop the selected items on a valid
+  folder or breadcrumb target to move them. Invalid destinations, including moving a folder into itself or a descendant, are rejected.
+- **Long-press empty workspace and drag:** starts a selection rectangle for selecting multiple visible items.
+- **Pull to refresh from the background:** when the dashboard's main scroll area is already at its top edge, pulling down on empty
+  workspace/background
+  allows the browser's native pull-to-refresh gesture. This is not limited to the header. The `.dashboard-main-scroll` class sets vertical overscroll
+  to
+  `auto`, overriding the general `overscroll-behavior: contain` rule used for other nested scroll areas.
+- **Scroll normally:** finger movement greater than about 9 px before the long-press activates cancels the pending item/background gesture, leaving
+  the
+  browser's native scrolling behavior in control. When the dashboard is not at the top, pulling up continues normal content scrolling. A touch gesture
+  is
+  cancelled if it leaves the dashboard workspace or the browser emits `touchcancel`.
+
+The touch behavior uses the workspace's touch events and global document listeners rather than relying on native HTML5 drag-and-drop. Pull-to-refresh
+itself
+is browser/OS-managed and may vary by browser, installed-app mode, and platform; test it in the actual iOS/Android browsers you intend to support. The
+visible **Refresh** button is separate: it reloads the dashboard's file/folder data without requiring a full browser page reload.
 
 The move dialog fetches immediate children as the user browses and caches each visited directory for the lifetime of that dialog. A destination must
 pass the dashboard's move validation: moving a directory into itself or one of its descendants is rejected, as is a move with no effective destination
@@ -672,8 +724,11 @@ dialog. Partial failures are reported instead of being treated as a complete suc
 ### Global visual behavior
 
 `src/index.css` applies a narrow scrollbar style to the page and nested scrollable elements. The thumb is dark green at rest and brightens on
-hover/active state, with transparent tracks and scrollbar corners. It also limits scroll chaining for common overflow utility classes and respects
-reduced-motion preferences. Component-specific styling remains in Tailwind utility classes.
+hover/active state, with transparent tracks and scrollbar corners. It limits scroll chaining for common overflow utility classes, except that the
+`.dashboard-main-scroll` element explicitly uses `overscroll-behavior-y: auto` so a top-edge pull on the dashboard background can reach the browser's
+native
+pull-to-refresh behavior. The dashboard main scroller keeps horizontal overscroll contained. Global styles also respect reduced-motion preferences.
+Component-specific styling remains in Tailwind utility classes.
 
 ### API URL resolution
 
@@ -706,50 +761,55 @@ supplied frontend and server modules.
 
 ### Accounts
 
-| Method and path                              | Purpose                                                                      |
-|----------------------------------------------|------------------------------------------------------------------------------|
-| `POST /auth/register`                        | Validate details, hash the password, create the account, and create `/home`. |
-| `POST /auth/login?username=...&password=...` | Verify credentials and return the bearer token, profile, and home directory. |
-| `GET /auth/metadata`                         | Return account metadata including the calculated storage usage.              |
+| Method and path                              | Purpose                                                                                                                                                                                    |
+|----------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `POST /auth/register`                        | Validate details, hash the password, create the account, and create `/home`.                                                                                                               |
+| `POST /auth/login?username=...&password=...` | Verify credentials and return the bearer token, profile, and home directory.                                                                                                               |
+| `GET /auth/metadata`                         | Return account metadata including the calculated storage usage.                                                                                                                            |
+| `GET /auth/tree`                             | Return the authenticated user's active/trashed directories and file metadata, plus total storage usage, in one response. Remote file-part `links` are omitted from this full-tree payload. |
 
 Access tokens use HS256 and have a 24-hour lifetime in the current code. The login endpoint currently accepts credentials in query parameters;
 see [Security notes](#security-notes).
 
 ### Directory and file management
 
-| Method and path                                   | Purpose                                           |
-|---------------------------------------------------|---------------------------------------------------|
-| `POST /auth/create-folder?directory=...&name=...` | Create a directory under the requested parent.    |
-| `GET /auth/directory?directory=...`               | Return folder and file entries for a directory.   |
-| `GET /auth/search`                                | Search the user's file/directory metadata.        |
-| `GET /auth/trash`                                 | Return trashed files and directories.             |
-| `PATCH /auth/file/{fid}/rename?name=...`          | Rename a file.                                    |
-| `PATCH /auth/directory/{did}/rename?name=...`     | Rename a directory and rewrite descendant paths.  |
-| `PATCH /auth/file/{fid}/move?directory=...`       | Move a file to another directory.                 |
-| `PATCH /auth/directory/{did}/move?directory=...`  | Move a directory and its descendants.             |
-| `PATCH /auth/move`                                | Bulk move the specified file/folder IDs.          |
-| `DELETE /auth/file/{fid}`                         | Move a file to trash.                             |
-| `DELETE /auth/directory/{did}`                    | Move a directory to trash.                        |
-| `POST /auth/trash/file/{fid}/restore`             | Restore a trashed file.                           |
-| `POST /auth/trash/directory/{did}/restore`        | Restore a trashed directory.                      |
-| `DELETE /auth/trash/file/{fid}`                   | Permanently delete a file record from trash.      |
-| `DELETE /auth/trash/directory/{did}`              | Permanently delete a directory from trash.        |
-| `POST /auth/file/{fid}/public-link`               | Create a signed stream/download token for a file. |
+| Method and path                                   | Purpose                                                                                                            |
+|---------------------------------------------------|--------------------------------------------------------------------------------------------------------------------|
+| `POST /auth/create-folder?directory=...&name=...` | Create a directory under the requested parent.                                                                     |
+| `GET /auth/directory?directory=...`               | Return the immediate folder and file entries for a directory; retained for targeted refreshes after local changes. |
+| `GET /auth/search`                                | Search the user's file/directory metadata.                                                                         |
+| `GET /auth/trash`                                 | Return trashed files and directories.                                                                              |
+| `PATCH /auth/file/{fid}/rename?name=...`          | Rename a file.                                                                                                     |
+| `PATCH /auth/directory/{did}/rename?name=...`     | Rename a directory and rewrite descendant paths.                                                                   |
+| `PATCH /auth/file/{fid}/move?directory=...`       | Move a file to another directory.                                                                                  |
+| `PATCH /auth/directory/{did}/move?directory=...`  | Move a directory and its descendants.                                                                              |
+| `PATCH /auth/move`                                | Bulk move the specified file/folder IDs.                                                                           |
+| `DELETE /auth/file/{fid}`                         | Move a file to trash.                                                                                              |
+| `DELETE /auth/directory/{did}`                    | Move a directory to trash.                                                                                         |
+| `POST /auth/trash/file/{fid}/restore`             | Restore a trashed file.                                                                                            |
+| `POST /auth/trash/directory/{did}/restore`        | Restore a trashed directory.                                                                                       |
+| `DELETE /auth/trash/file/{fid}`                   | Permanently delete a file record from trash.                                                                       |
+| `DELETE /auth/trash/directory/{did}`              | Permanently delete a directory from trash.                                                                         |
+| `POST /auth/file/{fid}/public-link`               | Create a signed stream/download token for a file.                                                                  |
 
 The `/home` root is protected from being moved/renamed/deleted by the directory-management code. File and directory names are validated before path
 changes.
 
 ### Upload and public-file routes
 
-| Method and path                                                 | Purpose                                                                                         |
-|-----------------------------------------------------------------|-------------------------------------------------------------------------------------------------|
-| `POST /auth/upload`                                             | Create a browser-upload job. Headers include `X-Data-Center`, `X-Directory`, and `X-File-Name`. |
-| `PUT /public/upload/{job_id}/chunk?offset=...&total=...`        | Send bytes for a declared file range. The current route requires the user's bearer token.       |
-| `POST /auth/upload-link?link=...&data_center=...&directory=...` | Import a supported remote link in a background task.                                            |
-| `GET /public/upload/{job_id}/status`                            | Read the current upload status and progress.                                                    |
-| `GET /public/ready`                                             | Report whether the Discord storage client is ready.                                             |
-| `GET /public/stream/{token}`                                    | Stream a file and honor the HTTP `Range` header.                                                |
-| `GET /public/download/{token}`                                  | Stream a file as an attachment.                                                                 |
+| Method and path                                                 | Purpose                                                                                                                   |
+|-----------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------|
+| `POST /auth/upload`                                             | Create a browser-upload job. Headers include `X-Data-Center`, `X-Directory`, `X-File-Name`, and optionally `X-File-Size`. |
+| `PUT /public/upload/{job_id}/chunk?offset=...&total=...`        | Send bytes for a declared file range. Requires the owning user's bearer token.                                            |
+| `POST /auth/upload-link?link=...&data_center=...&directory=...` | Create and run a supported remote-link import job in the background.                                                      |
+| `GET /auth/upload-jobs`                                         | List the authenticated account's Redis-backed upload jobs across devices.                                                 |
+| `POST /auth/upload-jobs/{job_id}/cancel`                        | Cancel an owned job and publish shared cancelled status.                                                                  |
+| `POST /auth/upload-jobs/{job_id}/fail`                          | Record a browser-side file-transfer failure on an owned file-upload job.                                                  |
+| `DELETE /auth/upload-jobs/{job_id}`                             | Dismiss an owned terminal job from the shared account tray.                                                               |
+| `GET /public/upload/{job_id}/status`                            | Read progress/status for an owned job; requires the user's bearer token.                                                  |
+| `GET /public/ready`                                             | Report whether the Discord storage client is ready.                                                                       |
+| `GET /public/stream/{token}`                                    | Stream a file and honor the HTTP `Range` header.                                                                          |
+| `GET /public/download/{token}`                                  | Stream a file as an attachment.                                                                                           |
 
 These tables describe the routes relevant to the supplied source; they are not intended to replace generated OpenAPI documentation from a running
 instance.
@@ -1159,7 +1219,7 @@ This project should be treated as a self-hosted application that requires securi
 
 ### Dashboard folder contents appear stale
 
-- Use the dashboard's **Refresh** control to reload the complete directory tree from the server.
+- Use the dashboard's **Refresh** control to reload the complete directory tree through `GET /auth/tree`.
 - A hard browser reload (F5) also clears the module-level in-memory tree cache and triggers an initial reload.
 - If a completed upload is missing, check its tray/status and server logs; successful jobs normally refresh their destination directory automatically.
 
@@ -1218,12 +1278,15 @@ This project should be treated as a self-hosted application that requires securi
 - **New folder/file operation:** the corresponding router in `backend/server/routers/directories.py`, plus model methods as required.
 - **New account behavior:** `backend/server/routers/accounts.py`, `backend/server/jwt_handler.py`, `backend/server/security.py`, and
   `backend/database/models/user.py`.
-- **Browser upload behavior:** `frontend/src/pages/dashboard/components/UploadModal.jsx`, `frontend/src/pages/dashboard/hooks/useUploadJobs.js`,
-  `backend/server/routers/uploads.py`, `backend/server/routers/upload_state.py`, and `core/utils/progress.py`.
+- **Browser upload behavior and cross-device tray synchronization:** `frontend/src/pages/dashboard/components/UploadModal.jsx`,
+  `frontend/src/pages/dashboard/hooks/useUploadJobs.js`, `backend/server/routers/uploads.py`, `backend/server/routers/upload_state.py`,
+  `backend/server/routers/public_routes.py`, and `core/utils/progress.py`. Keep the username-to-job Redis index and ownership checks aligned with the
+  API contract.
 - **New storage provider:** implement the provider interface in a module under `core/utils/`, register it in the `DataCenter` provider factory, add
   its name/configuration, and test upload and download paths.
-- **Dashboard directory data, refresh, and recursive sizes:** `frontend/src/pages/dashboard/hooks/useDashboardData.js`, with corresponding metadata
-  contracts in the directory and account routes.
+- **Dashboard directory data, refresh, and recursive sizes:** `frontend/src/pages/dashboard/hooks/useDashboardData.js` and the authenticated
+  `GET /auth/tree` endpoint in `backend/server/routers/directories.py`. Keep the full-tree response fields (`directories`, `files`, and
+  `storage_used_bytes`) aligned with the hook. Preserve `GET /auth/directory` for targeted updates after local mutations.
 - **Chunk layout or streaming behavior:** `core/data_center.py`, `core/transfer.py`, `core/utils/progress.py`, and `core/stream.py`. Keep upload chunk
   sizing and stream part calculations consistent.
 - **FTP semantics:** `backend/ftp/filesystem/filesystem.py` and its upload/download adapters.
@@ -1239,7 +1302,8 @@ This project should be treated as a self-hosted application that requires securi
 - The `/home` directory is the logical root and must not become an ordinary movable/deletable folder.
 - `File.links` order must match the order of chunks used by the transfer/stream logic.
 - `file.size`, `DataCenter.MAX_SIZE`, and the number of remote links must stay consistent.
-- Upload job status and active session state use different Redis keys; don't remove one without understanding the producer/consumer lifecycle.
+- Upload job metadata, the username-indexed job set, progress state, and active chunk-session state use different Redis keys; keep them consistent and
+  ownership-scoped. Do not assume Redis job records alone can resume process-local background tasks after a runtime restart.
 - Folder move/rename operations must update descendant paths.
 - Public stream tokens and bearer tokens have distinct purposes: bearer tokens authorize account actions; public tokens authorize access to a specific
   file stream/download.
@@ -1259,11 +1323,27 @@ At minimum, test the affected workflow through the same path a user uses:
 7. Test FTP list/download/upload with a client, including passive mode where remote access is required.
 8. Restart the server and repeat a read to confirm that storage reconstruction does not depend on the disposable cache.
 9. Verify `/` opens the public landing page, `/login` and `/signup` open the corresponding auth modes, and nested `/home/...` routes still work.
-10. Navigate across several nested folders, check a folder's recursive total size, use Refresh, and confirm a hard reload fetches fresh tree data.
+10. Navigate across several nested folders and confirm navigation uses the in-memory tree. Verify an uncached dashboard load, explicit Refresh,
+    and hard reload each fetch the complete account tree through one `GET /auth/tree` request. Confirm the response includes active/trashed
+    directories
+    and files plus `storage_used_bytes`, is scoped to the authenticated account, and omits provider `links` from the full-tree payload. Also verify
+    that
+    local mutations can still refresh only the affected directory through `GET /auth/directory`.
 11. Test move destination selection and deselection, including attempts to move a folder into itself or a descendant.
-12. Exercise upload progress, cancellation, failed-job dismissal, and automatic directory synchronization after completion.
-13. Run the frontend lint/build scripts that are actually declared in `frontend/package.json`.
-14. Test the packaged executable separately from development mode.
+12. On a touch device, verify that a quick tap opens an item, a long-press enters selection mode, subsequent taps add/remove selected items,
+    long-pressing
+    empty workspace starts marquee selection, and long-press-and-drag moves items to valid folders/breadcrumbs. Confirm that ordinary finger movement
+    still
+    scrolls the workspace and that cancelled/out-of-bounds gestures do not trigger a move.
+13. On a mobile browser, pull down on the dashboard background while the main scroller is at the very top and confirm the browser's native
+    pull-to-refresh
+    can trigger from the background as well as the header. Repeat after scrolling down and confirm upward finger movement scrolls content normally.
+    Also
+    verify that the dashboard's explicit Refresh button still reloads file/folder data.
+14. Exercise upload progress, cancellation, failure reporting, dismissal, and automatic directory synchronization after completion. Open the same
+    account on a second browser/device and verify that jobs and terminal actions are synchronized through the shared API and Redis instance.
+15. Run the frontend lint/build scripts that are actually declared in `frontend/package.json`.
+16. Test the packaged executable separately from development mode.
 
 Automated tests should be added for range parsing, chunk-count validation, upload-range merging, folder path rewriting, ownership/authorization,
 public-token expiry, and FTP seek behavior.
@@ -1281,10 +1361,14 @@ public-token expiry, and FTP seek behavior.
   be a downloadable file; ordinary HTML pages and sources requiring unavailable authentication can fail.
 - The configured storage backends in the current source are Discord and Telegram; this is not a generic plug-and-play cloud-provider system yet.
 - The FTP server is a virtual filesystem adapter, not a full local filesystem shell. Symbolic links and chmod are unsupported.
-- Cloud mode in the current startup code opens HTTP tunnels for the API and website only. It does not provide public FTP tunneling or passive-port
-  configuration.
+- Cloud mode tunnels the API and uses the separately hosted Vercel frontend; it does not start a public FTP tunnel or configure FTP passive-port
+  ranges. Cross-device upload-tray synchronization also requires all clients to share the same API backend and Redis data store.
 - The database backup helper exports data; a matching tested restore/migration process is not established by the supplied code.
-- The README describes the supplied source and repository tree, including the current landing/authentication routes and dashboard cache, refresh,
-  details, and move-dialog behavior. It is not a claim that every deployment mode or workflow has been integration-tested.
+- The README describes the supplied source and repository tree, including the single-request full-tree endpoint (`GET /auth/tree`), targeted directory
+  refreshes, current landing/authentication routes, dashboard cache/refresh behavior, move dialog, and mobile touch gestures. Gesture descriptions
+  document
+  the current implementation; they do not imply physical-device testing or guarantee identical behavior across all mobile browsers. Not every
+  deployment
+  mode or workflow has been integration-tested.
 
 For licensing terms, see the repository's `LICENSE` file.

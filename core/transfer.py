@@ -10,7 +10,7 @@ from urllib.parse import ParseResult, urlparse
 
 from backend.database.models import File, User
 from core.data_center import DataCenter
-from core.utils import write_log
+from core.utils import sanitize_sensitive_urls, write_log
 from core.utils.progress import Progress, upload_growing_file
 
 
@@ -65,15 +65,18 @@ async def link_upload(file: File, link: str) -> AsyncGenerator[Progress, None]:
         raise ValueError(f"Unsupported data center: {file.data_center}")
 
     progress: Progress = Progress("link", "Uploading File", 0)
-    write_log("INFO", data_center, "DOWNLOAD", user.username, f"Got link: {link}")
+    safe_link: str = sanitize_sensitive_urls(link)
+    parsed: ParseResult = urlparse(link)
+    source_host: str = parsed.hostname or "unknown host"
+    write_log("INFO", data_center, "DOWNLOAD", user.username, f"Got link from host: {source_host} ({safe_link})")
 
     try:
-        write_log("INFO", data_center, "DOWNLOAD", user.username, f"Starting download from `{link}`")
+        write_log("INFO", data_center, "DOWNLOAD", user.username, f"Starting download from `{safe_link}`")
         parsed: ParseResult = urlparse(link)
         host: str = (parsed.hostname or "").lower().removeprefix("www.")
 
         if parsed.scheme not in {"http", "https"} or not parsed.hostname:
-            raise ValueError(f"Expected an HTTP(S) download URL: {link}")
+            raise ValueError("Expected a valid HTTP(S) download URL")
 
         if host == "youtu.be" or host == "youtube.com" or host.endswith(".youtube.com"):
             downloader: Callable[[File, str], AsyncGenerator[Progress, None]] = download_processed_link
@@ -90,5 +93,6 @@ async def link_upload(file: File, link: str) -> AsyncGenerator[Progress, None]:
         yield progress
 
     except Exception as error:
-        write_log("ERROR", data_center, "DOWNLOAD", user.username, f"Unhandled exception: {error}\n{format_exc()}")
+        details: str = sanitize_sensitive_urls(f"{error}\n{format_exc()}")
+        write_log("ERROR", data_center, "DOWNLOAD", user.username, f"Link upload failed: {details}")
         raise

@@ -14,14 +14,14 @@ from urllib.parse import parse_qs, unquote, urlparse
 from uuid import uuid4
 
 import gdown
-import requests
+from requests import Response, get
 from yt_dlp import YoutubeDL
 
 import core.transfer
 from backend.database.models import File
 from core.config import TRANSFER_PATH
 from core.data_center import DataCenter
-from core.utils import write_log
+from core.utils import sanitize_sensitive_urls, write_log
 from core.utils.binaries import get_ffmpeg_path
 from core.utils.env import GOOGLE_API_KEY
 from core.utils.progress import Progress, upload_growing_file
@@ -38,16 +38,15 @@ async def download_unprocessed_link(file: File, link: str) -> AsyncGenerator[Pro
     parsed = urlparse(link)
 
     if parsed.scheme not in {"http", "https"} or not parsed.hostname:
-        raise ValueError(f"Expected an HTTP(S) download URL: {link}")
+        raise ValueError("Expected a valid HTTP(S) download URL")
 
     is_google_drive: bool = parsed.hostname.lower().removeprefix("www.") == "drive.google.com"
     temp_dir: Path = TRANSFER_PATH / file.username / "link-download" / uuid4().hex
     temp_dir.mkdir(parents=True, exist_ok=True)
     download_task: Task[Any] | None = None
-    response: requests.Response | None = None
+    response: Response | None = None
     output: Path = temp_dir / "pending-download"
     response_type: str | None = None
-    total_size: int = 0
 
     def safe_filename(name: str) -> str:
         name = name.replace("\\", "/").rsplit("/", 1)[-1].strip()
@@ -66,8 +65,8 @@ async def download_unprocessed_link(file: File, link: str) -> AsyncGenerator[Pro
             if not file_id:
                 raise ValueError("Could not determine the Google Drive file ID from the URL")
 
-            metadata_response: requests.Response = await to_thread(
-                requests.get,
+            metadata_response: Response = await to_thread(
+                get,
                 f"https://www.googleapis.com/drive/v3/files/{file_id}",
                 params={"fields": "name,size", "key": GOOGLE_API_KEY},
                 timeout=30,
@@ -91,7 +90,7 @@ async def download_unprocessed_link(file: File, link: str) -> AsyncGenerator[Pro
             output.touch()
 
             def download_google_drive_file() -> None:
-                downloaded: str | None = gdown.download(link, output=str(output), quiet=True)
+                downloaded: str | None = cast(str | None, gdown.download(link, output=str(output), quiet=True))
 
                 if downloaded is None or not output.is_file():
                     raise OSError("Google Drive download failed")
@@ -100,14 +99,26 @@ async def download_unprocessed_link(file: File, link: str) -> AsyncGenerator[Pro
 
         else:
             response = await to_thread(
-                requests.get,
+                get,
                 link,
                 stream=True,
                 allow_redirects=True,
                 headers={"User-Agent": "Mozilla/5.0", "Accept-Encoding": "identity"},
                 timeout=(30, 60),
             )
-            response.raise_for_status()
+            if not response.ok:
+                remote_host: str = urlparse(response.url).hostname or parsed.hostname or "remote host"
+                status: int = response.status_code
+                reason: str = response.reason or "Request rejected"
+
+                if status == 403:
+                    raise OSError(
+                        f"Remote download host {remote_host} returned HTTP 403 Forbidden. "
+                        "The host may require a valid download session or may reject requests from this server's network."
+                    )
+
+                raise OSError(f"Remote download host {remote_host} returned HTTP {status} {reason}.")
+
             disposition: Message = Message()
             disposition["content-disposition"] = response.headers.get("Content-Disposition", "")
             header_name: str | None = disposition.get_filename()
@@ -126,7 +137,7 @@ async def download_unprocessed_link(file: File, link: str) -> AsyncGenerator[Pro
 
             output = temp_dir / file.name
             output.touch()
-            response_to_stream: requests.Response = response
+            response_to_stream: Response | None = response
 
             def stream_response() -> None:
                 try:
@@ -150,7 +161,8 @@ async def download_unprocessed_link(file: File, link: str) -> AsyncGenerator[Pro
         file.modified_at = datetime.now(timezone.utc)
 
     except Exception as error:
-        write_log("ERROR", data_center, "UPLOAD", file.username, f"Unhandled exception: {error}\n{format_exc()}")
+        details: str = sanitize_sensitive_urls(f"{error}\n{format_exc()}")
+        write_log("ERROR", data_center, "UPLOAD", file.username, f"Remote download failed: {details}")
         raise
 
     finally:
@@ -235,8 +247,8 @@ async def download_processed_link(file: File, link: str) -> AsyncGenerator[Progr
         info: dict = data.get("info_dict") or {}
         resolved_name = get_download_name(data)
 
-        if resolved_name and resolved_name != file.name:
-            update_progress_name(resolved_name)
+        if resolved_name is not None and resolved_name != file.name:
+            update_progress_name(cast(str, resolved_name))
 
         filename: str = data.get("filename", "")
 
