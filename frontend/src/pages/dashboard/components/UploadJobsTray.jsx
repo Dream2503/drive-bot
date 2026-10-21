@@ -135,6 +135,29 @@ export default function UploadJobsTray({uploadJobs, cancelUploadJob, dismissUplo
     const selectionDialogRef = useRef(null);
     const startTorrentButtonRef = useRef(null);
     const selectionAdvanceTimerRef = useRef(null);
+    // Remember which queued batches have already prompted automatically. This prevents
+    // the 1-second polling refresh from reopening a dialog the user intentionally closed.
+    const promptedTorrentBatchesRef = useRef(new Set());
+
+    function openTorrentSelection(job) {
+        if (!job || !Array.isArray(job.torrentFiles) || job.torrentFiles.length === 0) return;
+        setSelectionTask(job);
+        setTorrentSelectionIndex(0);
+        setSelectionOpen(true);
+        setSelectedTorrentFiles(Object.fromEntries(job.torrentFiles.map((torrent, torrentIndex) => [getTorrentKey(torrent, torrentIndex), (Array.isArray(torrent.files) ? torrent.files : []).map((file) => Number(file.index)),])));
+        setTorrentError("");
+    }
+
+    // Once torrent metadata has been resolved, prompt for file selection automatically.
+    // Previously the dialog was only opened by the tray button, so the normal upload path
+    // could appear to skip selection entirely.
+    useEffect(() => {
+        if (selectionTask || selectionOpen) return;
+        const queuedTorrentJob = uploadJobs.find((job) => job.status === "queued" && Array.isArray(job.torrentFiles) && job.torrentFiles.length > 0 && !promptedTorrentBatchesRef.current.has(job.jobId));
+        if (!queuedTorrentJob) return;
+        promptedTorrentBatchesRef.current.add(queuedTorrentJob.jobId);
+        openTorrentSelection(queuedTorrentJob);
+    }, [uploadJobs, selectionTask, selectionOpen]);
 
     useEffect(() => {
         if (!selectionTask || !selectionOpen) return;
@@ -307,13 +330,9 @@ export default function UploadJobsTray({uploadJobs, cancelUploadJob, dismissUplo
                                 {job.torrentFiles?.length > 0 && job.status === "queued" && (<button
                                     type="button"
                                     onClick={() => {
-                                        setSelectionTask(job);
-                                        setTorrentSelectionIndex(0);
-                                        setSelectionOpen(true);
-                                        // Select every file by default; keyboard focus remains independent
-                                        // from checkbox selection, so arrow navigation never changes the set.
-                                        setSelectedTorrentFiles(Object.fromEntries(job.torrentFiles.map((torrent, torrentIndex) => [getTorrentKey(torrent, torrentIndex), torrent.files.map((file) => Number(file.index)),])));
-                                        setTorrentError("");
+                                        // Keep a manual way to reopen the picker after cancelling it.
+                                        promptedTorrentBatchesRef.current.add(job.jobId);
+                                        openTorrentSelection(job);
                                     }}
                                     className="mt-2 rounded-md border border-[#2e8058] bg-[#173c29] px-2.5 py-1.5 text-[11px] font-medium text-[#9be8bd] transition-colors hover:bg-[#205538]">
                                     Select files and start
