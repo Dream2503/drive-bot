@@ -77,19 +77,6 @@ export default function DashboardWorkspace(props) {
                     />
                 </div>
             </div>
-            <button
-                type="button"
-                onClick={fetchFiles}
-                disabled={loadingFiles}
-                title="Reload all files and folders from the server"
-                aria-label="Refresh files and folders"
-                className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md border border-[#363636] bg-[#242424] px-2.5 text-xs text-[#b4b4b4] transition-colors hover:border-[#4d4d4d] hover:bg-[#2a2a2a] hover:text-[#fafafa] disabled:cursor-not-allowed disabled:opacity-50 sm:px-3"
-            >
-                <span className={`material-symbols-outlined text-[17px] ${loadingFiles ? "animate-spin" : ""}`} aria-hidden="true">
-                    {loadingFiles ? "progress_activity" : "refresh"}
-                </span>
-                <span className="hidden sm:inline">Refresh</span>
-            </button>
         </header>
 
         {/* Main View Area */}

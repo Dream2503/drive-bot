@@ -31,6 +31,7 @@ def read_chunk(path: Path, offset: int, size: int) -> bytes:
         buffer.seek(offset)
         return buffer.read(size)
 
+
 def sanitize_sensitive_urls(value: str) -> str:
     """Redact credentials, query parameters, and fragments from URLs in log/error text."""
 

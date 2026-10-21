@@ -1,10 +1,11 @@
-import {useEffect, useState} from "react";
+import {useEffect, useRef, useState} from "react";
 import {API_URL} from "../constants.js";
 import {getToken} from "../utils.js";
 
-/** Polls the authenticated account's Redis-backed jobs so the tray is shared across devices. */
+/** Polls account-scoped batch tasks and retains terminal results until the user dismisses them. */
 export default function useUploadJobs(refreshDirectory) {
     const [uploadJobs, setUploadJobs] = useState([]);
+    const refreshedTerminalIds = useRef(new Set());
 
     useEffect(() => {
         let cancelled = false;
@@ -14,129 +15,144 @@ export default function useUploadJobs(refreshDirectory) {
             const token = getToken();
             if (!token) return Promise.resolve(null);
             return fetch(url, {
-                ...options, headers: {
-                    ...(options.headers || {}), Authorization: `Bearer ${token}`,
-                }, cache: "no-store",
+                ...options, headers: {...(options.headers || {}), Authorization: `Bearer ${token}`}, cache: "no-store",
             });
         };
 
-        const removeServerJob = async (jobId) => {
-            try {
-                await authenticatedFetch(`${API_URL}/auth/upload-jobs/${encodeURIComponent(jobId)}`, {
-                    method: "DELETE",
-                });
-            } catch (error) {
-                console.error("Could not dismiss shared upload job:", error);
-            }
-        };
-
-        const refreshUploadJobs = async () => {
+        const refreshUploadBatches = async () => {
             if (polling || cancelled) return;
             polling = true;
-
             try {
-                const response = await authenticatedFetch(`${API_URL}/auth/upload-jobs`);
+                const response = await authenticatedFetch(`${API_URL}/auth/upload-batches`);
                 if (!response) {
                     if (!cancelled) setUploadJobs([]);
                     return;
                 }
-
                 if (response.status === 401 || response.status === 403) {
                     if (!cancelled) setUploadJobs([]);
                     return;
                 }
                 if (!response.ok) return;
-
                 const payload = await response.json();
-                if (!Array.isArray(payload.jobs)) return;
+                if (!Array.isArray(payload.batches)) return;
 
-                const serverJobs = payload.jobs.map((job) => {
-                    const transfer = Number.isFinite(Number(job.transfer)) ? Number(job.transfer) : 0;
-                    const total = Number.isFinite(Number(job.total)) ? Number(job.total) : 0;
-                    const status = ["uploading", "completed", "error", "cancelled"].includes(job.status) ? job.status : "uploading";
-                    const progress = status === "completed" ? 100 : total > 0 ? Math.max(0, Math.min(99, transfer / total * 100)) : 0;
-
+                const batches = payload.batches.map((batch) => {
+                    const status = ["queued", "uploading", "completed", "error", "cancelled"].includes(batch.status) ? batch.status : "queued";
+                    const totalItems = Math.max(0, Number(batch.total_items) || 0);
                     return {
-                        jobId: String(job.job_id),
-                        name: String(job.name || "Upload"),
-                        kind: job.kind === "file" ? "file" : "link",
-                        directory: String(job.directory || "/home"),
-                        dataCenter: String(job.data_center || ""),
+                        jobId: String(batch.batch_id),
+                        name: String(batch.name || "Upload task"),
+                        kind: String(batch.kind || "file"),
+                        directory: String(batch.directory || "/home"),
+                        dataCenter: String(batch.data_center || ""),
+                        items: Array.isArray(batch.items) ? batch.items : [],
+                        totalItems,
+                        completedItems: Math.max(0, Number(batch.completed_items) || 0),
+                        currentIndex: Math.max(0, Number(batch.current_index) || 0),
+                        currentName: String(batch.current_name || ""),
+                        currentJobId: String(batch.current_job_id || ""),
                         status,
-                        progress,
-                        transfer,
-                        total,
-                        message: String(job.message || (status === "error" ? "Upload failed" : "Uploading")),
-                        createdAt: Number(job.created_at) || 0,
+                        progress: status === "completed" ? 100 : Math.max(0, Math.min(99, Number(batch.progress) || 0)),
+                        transfer: Math.max(0, Number(batch.transfer) || 0),
+                        total: Math.max(0, Number(batch.total) || 0),
+                        message: String(batch.message || status),
+                        createdAt: Number(batch.created_at) || 0,
                     };
                 });
-
-                // Completed jobs keep the existing behavior: refresh the destination and
-                // remove the terminal job from the shared index so it disappears on all devices.
-                const terminalJobs = serverJobs.filter((job) => job.status === "completed" || job.status === "cancelled");
-                const visibleJobs = serverJobs.filter((job) => job.status !== "completed" && job.status !== "cancelled");
-                if (!cancelled) setUploadJobs(visibleJobs);
-
-                const completedJobs = terminalJobs.filter((job) => job.status === "completed");
-                const completedDirectories = new Set(completedJobs.map((job) => job.directory || "/home"));
-                await Promise.all([...completedDirectories].map(async (directory) => {
-                    try {
-                        await refreshDirectory(directory);
-                    } catch (error) {
-                        console.error("Failed to sync a completed upload into the local tree:", error);
+                // Cancellation and Clear all can be initiated from another signed-in device.
+                // Mirror those server-side changes into this tab's active chunk requests.
+                const batchStatusById = new Map(batches.map((batch) => [batch.jobId, batch.status]));
+                for (const [batchId, transfer] of window.__storeLimitlessUploadTransfers?.entries?.() || []) {
+                    const serverStatus = batchStatusById.get(batchId);
+                    if (serverStatus === undefined || serverStatus === "cancelled") {
+                        transfer.cancelToken.cancelled = true;
+                        for (const xhr of transfer.xhrs || []) xhr.abort();
                     }
-                }));
+                }
 
-                await Promise.all(terminalJobs.map((job) => removeServerJob(job.jobId)));
+                if (!cancelled) setUploadJobs(batches);
+
+                // Refresh only after the whole batch reaches a terminal state. Keep its tray
+                // record visible; completion history is user-dismissed, not auto-pruned.
+                for (const batch of batches) {
+                    if (!["completed", "error", "cancelled"].includes(batch.status) || refreshedTerminalIds.current.has(batch.jobId)) continue;
+                    refreshedTerminalIds.current.add(batch.jobId);
+                    try {
+                        await refreshDirectory(batch.directory || "/home");
+                    } catch (error) {
+                        console.error("Failed to refresh the directory after an upload task finished:", error);
+                    }
+                }
             } catch (error) {
-                // Keep the last known tray when a temporary network/tunnel issue occurs.
-                console.error("Could not refresh shared upload jobs:", error);
+                console.error("Could not refresh upload tasks:", error);
             } finally {
                 polling = false;
             }
         };
 
-        void refreshUploadJobs();
-        const intervalId = window.setInterval(refreshUploadJobs, 1200);
+        void refreshUploadBatches();
+        const intervalId = window.setInterval(refreshUploadBatches, 1000);
         return () => {
             cancelled = true;
             window.clearInterval(intervalId);
         };
     }, [refreshDirectory]);
 
-    /** Dismiss a job for this account, synchronizing the removal across its devices. */
+    /** Remove one terminal task from the shared tray. */
     const dismissUploadJob = (jobId) => {
         setUploadJobs((current) => current.filter((job) => job.jobId !== jobId));
         const token = getToken();
         if (!token) return;
-        void fetch(`${API_URL}/auth/upload-jobs/${encodeURIComponent(jobId)}`, {
+        void fetch(`${API_URL}/auth/upload-batches/${encodeURIComponent(jobId)}`, {
             method: "DELETE", headers: {Authorization: `Bearer ${token}`}, cache: "no-store",
-        }).catch((error) => console.error("Could not dismiss upload job:", error));
+        }).then(async (response) => {
+            if (!response.ok) {
+                const data = await response.json().catch(() => ({}));
+                throw new Error(data.detail || `Could not remove task (${response.status})`);
+            }
+        }).catch((error) => console.error("Could not remove upload task:", error));
     };
 
-    /** Cancel the server-side job and abort this browser's active chunk requests when present. */
+    /** Stop the current transfer and prevent later items in the batch from starting. */
     const cancelUploadJob = (jobId) => {
         const transfer = window.__storeLimitlessUploadTransfers?.get(jobId);
         if (transfer) {
             transfer.cancelToken.cancelled = true;
             for (const xhr of transfer.xhrs || []) xhr.abort();
-            window.__storeLimitlessUploadTransfers.delete(jobId);
         }
-
-        setUploadJobs((current) => current.filter((job) => job.jobId !== jobId));
+        setUploadJobs((current) => current.map((job) => job.jobId === jobId ? {
+            ...job, status: "cancelled", message: "Cancelling upload task",
+        } : job));
         const token = getToken();
         if (!token) return;
-        void fetch(`${API_URL}/auth/upload-jobs/${encodeURIComponent(jobId)}/cancel`, {
+        void fetch(`${API_URL}/auth/upload-batches/${encodeURIComponent(jobId)}/cancel`, {
             method: "POST", headers: {Authorization: `Bearer ${token}`}, cache: "no-store",
         }).then(async (response) => {
             if (!response.ok) {
                 const data = await response.json().catch(() => ({}));
-                throw new Error(data.detail || `Could not cancel upload (${response.status})`);
+                throw new Error(data.detail || `Could not cancel task (${response.status})`);
             }
-        }).catch((error) => {
-            console.error("Could not cancel shared upload job:", error);
-        });
+        }).catch((error) => console.error("Could not cancel upload task:", error));
     };
 
-    return {uploadJobs, dismissUploadJob, cancelUploadJob};
+    /** Clear all task history, cancelling active batch uploads first. */
+    const clearAllUploadJobs = () => {
+        for (const transfer of window.__storeLimitlessUploadTransfers?.values?.() || []) {
+            transfer.cancelToken.cancelled = true;
+            for (const xhr of transfer.xhrs || []) xhr.abort();
+        }
+        setUploadJobs([]);
+        const token = getToken();
+        if (!token) return;
+        void fetch(`${API_URL}/auth/upload-batches`, {
+            method: "DELETE", headers: {Authorization: `Bearer ${token}`}, cache: "no-store",
+        }).then(async (response) => {
+            if (!response.ok) {
+                const data = await response.json().catch(() => ({}));
+                throw new Error(data.detail || `Could not clear upload tray (${response.status})`);
+            }
+        }).catch((error) => console.error("Could not clear upload tray:", error));
+    };
+
+    return {uploadJobs, dismissUploadJob, cancelUploadJob, clearAllUploadJobs};
 }

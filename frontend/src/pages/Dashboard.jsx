@@ -2,6 +2,7 @@ import {useEffect, useMemo, useRef, useState} from "react";
 import {useLocation, useNavigate} from "react-router-dom";
 import MoveModal from "./dashboard/components/MoveModal.jsx";
 import UploadPage from "./dashboard/components/UploadModal.jsx";
+import {getFilesFromDrop} from "./dashboard/uploadFiles.js";
 import Sidebar from "./dashboard/components/Sidebar.jsx";
 import CreateFolderModal from "./dashboard/components/CreateFolderModal.jsx";
 import RenameItemModal from "./dashboard/components/RenameItemModal.jsx";
@@ -99,9 +100,12 @@ export default function DashboardPage() {
         loadedFolder, pageError, setPageError, fetchFiles, refreshDirectory,
     } = useDashboardData(currentFolder, navigate);
     const {searchResults, searchLoading, searchError} = useGlobalFileSearch(searchQuery, activeTab, files);
-    const {uploadJobs, dismissUploadJob, cancelUploadJob} = useUploadJobs(refreshDirectory);
+    const {uploadJobs, dismissUploadJob, cancelUploadJob, clearAllUploadJobs} = useUploadJobs(refreshDirectory);
     const [showFolderModal, setShowFolderModal] = useState(false);
     const [showUploadModal, setShowUploadModal] = useState(false);
+    const [externalDragOver, setExternalDragOver] = useState(false);
+    /** @type {[File[], import("react").Dispatch<import("react").SetStateAction<File[]>>]} */
+    const [pendingUploadFiles, setPendingUploadFiles] = useState([]);
     /** @type {[SelectableItem[] | null, import("react").Dispatch<import("react").SetStateAction<SelectableItem[] | null>>]} */
     const [moveDialogItems, setMoveDialogItems] = useState(null);
     const [deletingId, setDeletingId] = useState(null);
@@ -286,41 +290,35 @@ export default function DashboardPage() {
         }
 
         const confirmMsg = permanent ? `Permanently delete "${filename}"? This action cannot be undone.` : `Move "${filename}" to Trash?`;
-
         if (!window.confirm(confirmMsg)) return;
 
-        setDeletingId(fileId);
+        const previousFiles = files;
+        const modifiedAt = new Date().toISOString();
+        setDeletingId(null);
+        setFiles((current) => permanent
+            ? current.filter((file) => String(file.id) !== String(fileId))
+            : current.map((file) => String(file.id) === String(fileId) ? {...file, is_deleted: true, modified_at: modifiedAt} : file));
 
-        try {
-            const endpoint = permanent ? `${API_URL}/auth/trash/file/${fileId}` : `${API_URL}/auth/file/${fileId}`;
-
-            const response = await fetch(endpoint, {
-                method: "DELETE", headers: {Authorization: `Bearer ${token}`},
-            });
-
-            if (!response.ok) {
-                let message = "Failed to delete file.";
-                try {
-                    const data = await response.json();
-                    message = data.detail || message;
-                } catch {
+        // Fire the database mutation after the local view has already updated.
+        void (async () => {
+            try {
+                const endpoint = permanent ? `${API_URL}/auth/trash/file/${fileId}` : `${API_URL}/auth/file/${fileId}`;
+                const response = await fetch(endpoint, {method: "DELETE", headers: {Authorization: `Bearer ${token}`}});
+                if (!response.ok) {
+                    let message = "Failed to delete file.";
+                    try {
+                        const data = await response.json();
+                        message = data.detail || message;
+                    } catch {
+                    }
+                    throw new Error(message);
                 }
-                throw new Error(message);
+            } catch (error) {
+                console.error("Delete failed:", error);
+                await fetchFiles();
+                setPageError(`${filename}: ${error.message || "Delete failed"}. The view has been refreshed.`);
             }
-
-            if (permanent) {
-                setFiles((current) => current.filter((file) => String(file.id) !== String(fileId)));
-            } else {
-                setFiles((current) => current.map((file) => String(file.id) === String(fileId)
-                    ? {...file, is_deleted: true, modified_at: new Date().toISOString()}
-                    : file));
-            }
-        } catch (error) {
-            console.error("Delete failed:", error);
-            alert(error.message || "Failed to delete file.");
-        } finally {
-            setDeletingId(null);
-        }
+        })();
     };
 
     /**
@@ -440,41 +438,38 @@ export default function DashboardPage() {
 
         const folderName = folderPath.split("/").pop();
         const confirmMsg = permanent ? `Permanently delete folder "${folderName}"?` : `Move folder "${folderName}" to Trash?`;
-
         if (!window.confirm(confirmMsg)) return;
 
-        setDeletingId(`folder-${folderId}`);
-
-        try {
-            const endpoint = permanent ? `${API_URL}/auth/trash/directory/${folderId}` : `${API_URL}/auth/directory/${folderId}`;
-
-            const response = await fetch(endpoint, {
-                method: "DELETE", headers: {Authorization: `Bearer ${token}`},
-            });
-
-            if (!response.ok) {
-                let data = {};
-                try {
-                    data = await response.json();
-                } catch {
-                }
-                throw new Error(data.detail || "Failed to delete folder.");
-            }
-
-            if (permanent) {
-                setFolders((current) => current.filter((folder) => !isPathWithinFolder(folder.path, folderPath)));
-                setFiles((current) => current.filter((file) => !isPathWithinFolder(file.directory, folderPath)));
-            } else {
-                setFolders((current) => current.map((folder) => String(folder.id) === String(folderId)
-                    ? {...folder, is_deleted: true, modified_at: new Date().toISOString()}
-                    : folder));
-            }
-        } catch (error) {
-            console.error("Folder deletion failed:", error);
-            alert(error.message || "Failed to delete folder.");
-        } finally {
-            setDeletingId(null);
+        const modifiedAt = new Date().toISOString();
+        setDeletingId(null);
+        if (permanent) {
+            setFolders((current) => current.filter((folder) => !isPathWithinFolder(folder.path, folderPath)));
+            setFiles((current) => current.filter((file) => !isPathWithinFolder(file.directory, folderPath)));
+        } else {
+            setFolders((current) => current.map((folder) => isPathWithinFolder(folder.path, folderPath)
+                ? {...folder, is_deleted: true, modified_at: modifiedAt} : folder));
+            setFiles((current) => current.map((file) => isPathWithinFolder(file.directory, folderPath)
+                ? {...file, is_deleted: true, modified_at: modifiedAt} : file));
         }
+
+        void (async () => {
+            try {
+                const endpoint = permanent ? `${API_URL}/auth/trash/directory/${folderId}` : `${API_URL}/auth/directory/${folderId}`;
+                const response = await fetch(endpoint, {method: "DELETE", headers: {Authorization: `Bearer ${token}`}});
+                if (!response.ok) {
+                    let data = {};
+                    try {
+                        data = await response.json();
+                    } catch {
+                    }
+                    throw new Error(data.detail || "Failed to delete folder.");
+                }
+            } catch (error) {
+                console.error("Folder deletion failed:", error);
+                await fetchFiles();
+                setPageError(`${folderName}: ${error.message || "Folder deletion failed"}. The view has been refreshed.`);
+            }
+        })();
     };
 
 
@@ -513,13 +508,7 @@ export default function DashboardPage() {
     const executeBulkAction = async () => {
         if (!confirmAction || bulkActionLoading) return;
 
-        setBulkActionLoading(true);
-        setBulkActionError("");
-        setPageError("");
-
         const items = confirmAction.items;
-        // If a folder and any of its descendants are both selected, handle only
-        // the folder. Its backend operation already includes its descendants.
         const topLevelItems = items.filter((item) => !items.some((parent) => {
             if (parent.type !== "folder" || parent.key === item.key) return false;
             if (item.type === "folder") return item.path.startsWith(`${parent.path.replace(/\/$/, "")}/`);
@@ -527,73 +516,69 @@ export default function DashboardPage() {
             const parentPath = parent.path.replace(/\/$/, "");
             return directory === parentPath || directory.startsWith(`${parentPath}/`);
         }));
-
-        let succeeded = 0;
-        const failures = [];
-        const cacheMutations = [];
         const inTrash = activeTab === "trash";
+        const mode = confirmAction.mode;
+        const modifiedAt = new Date().toISOString();
 
-        try {
-            for (const item of topLevelItems) {
+        // Apply the expected state immediately so the confirmation dialog does
+        // not hold the user hostage while PostgreSQL handles each mutation.
+        for (const item of topLevelItems) {
+            const permanent = mode === "permanent";
+            if (item.type === "file") {
+                setFiles((current) => permanent
+                    ? current.filter((file) => String(file.id) !== String(item.id))
+                    : current.map((file) => String(file.id) === String(item.id) ? {...file, is_deleted: true, modified_at: modifiedAt} : file));
+            } else if (permanent) {
+                setFolders((current) => current.filter((folder) => !isPathWithinFolder(folder.path, item.path)));
+                setFiles((current) => current.filter((file) => !isPathWithinFolder(file.directory, item.path)));
+            } else {
+                setFolders((current) => current.map((folder) => isPathWithinFolder(folder.path, item.path)
+                    ? {...folder, is_deleted: true, modified_at: modifiedAt} : folder));
+                setFiles((current) => current.map((file) => isPathWithinFolder(file.directory, item.path)
+                    ? {...file, is_deleted: true, modified_at: modifiedAt} : file));
+            }
+        }
+
+        setConfirmAction(null);
+        setSelectedItems(new Set());
+        selectionAnchorRef.current = null;
+        setBulkActionLoading(false);
+        setBulkActionError("");
+
+        // Independent item mutations can run concurrently. The two-step
+        // Shift+Delete operation remains ordered for each individual item.
+        void (async () => {
+            const outcomes = await Promise.all(topLevelItems.map(async (item) => {
                 const kind = item.type === "folder" ? "directory" : "file";
                 const ordinaryEndpoint = `/auth/${kind}/${item.id}`;
                 const permanentEndpoint = `/auth/trash/${kind}/${item.id}`;
-
                 try {
-                    if (confirmAction.mode === "trash") {
+                    if (mode === "trash") {
                         await requestSelectionDelete(ordinaryEndpoint);
-                        cacheMutations.push({item, mode: "trash"});
                     } else if (inTrash) {
                         await requestSelectionDelete(permanentEndpoint);
-                        cacheMutations.push({item, mode: "permanent"});
                     } else {
-                        // Shift+Delete first moves the item to Trash, then permanently deletes it.
                         await requestSelectionDelete(ordinaryEndpoint);
-                        try {
-                            await requestSelectionDelete(permanentEndpoint);
-                            cacheMutations.push({item, mode: "permanent"});
-                        } catch (error) {
-                            // The first request succeeded, so reflect its Trash state even if
-                            // the permanent-delete request failed.
-                            cacheMutations.push({item, mode: "trash"});
-                            throw error;
-                        }
+                        await requestSelectionDelete(permanentEndpoint);
                     }
-                    succeeded += 1;
+                    return {ok: true, item};
                 } catch (error) {
-                    failures.push(`${item.name}: ${error.message || "Operation failed"}`);
+                    return {ok: false, item, message: error.message || "Operation failed"};
                 }
-            }
+            }));
 
-            for (const {item, mode} of cacheMutations) {
-                if (item.type === "file") {
-                    setFiles((current) => mode === "permanent"
-                        ? current.filter((file) => String(file.id) !== String(item.id))
-                        : current.map((file) => String(file.id) === String(item.id)
-                            ? {...file, is_deleted: true, modified_at: new Date().toISOString()}
-                            : file));
-                } else if (mode === "permanent") {
-                    setFolders((current) => current.filter((folder) => !isPathWithinFolder(folder.path, item.path)));
-                    setFiles((current) => current.filter((file) => !isPathWithinFolder(file.directory, item.path)));
-                } else {
-                    setFolders((current) => current.map((folder) => String(folder.id) === String(item.id)
-                        ? {...folder, is_deleted: true, modified_at: new Date().toISOString()}
-                        : folder));
-                }
-            }
-
-            setConfirmAction(null);
-            setSelectedItems(new Set());
-            selectionAnchorRef.current = null;
-
+            const failures = outcomes.filter((result) => !result.ok);
             if (failures.length) {
-                const firstFailures = failures.slice(0, 3).join("; ");
+                const firstFailures = failures.slice(0, 3).map(({item, message}) => `${item.name}: ${message}`).join("; ");
                 const more = failures.length > 3 ? `; and ${failures.length - 3} more` : "";
-                setPageError(`${succeeded} item(s) processed. ${failures.length} failed: ${firstFailures}${more}`);
+                await fetchFiles();
+                setPageError(`${topLevelItems.length - failures.length} item(s) processed. ${failures.length} failed: ${firstFailures}${more}. The view has been refreshed.`);
             }
-        } finally {
-            setBulkActionLoading(false);
-        }
+        })().catch((error) => {
+            console.error("Background bulk action failed:", error);
+            setPageError(error.message || "The background operation failed.");
+            void fetchFiles();
+        });
     };
 
     /**
@@ -684,6 +669,71 @@ export default function DashboardPage() {
         event.stopPropagation();
         const rect = event.currentTarget.getBoundingClientRect();
         showContextMenuAt(rect.right - 192, rect.bottom + 4, {kind: "item", item});
+    };
+
+    /**
+     * Check whether the native drag contains files from outside the dashboard.
+     * @param {import("react").DragEvent<HTMLElement>} event
+     * @returns {boolean}
+     */
+    const hasExternalFiles = (event) => Array.from(event.dataTransfer?.types || []).includes("Files");
+
+    /**
+     * Show the dashboard-wide drop target while external files are dragged over it.
+     * @param {import("react").DragEvent<HTMLDivElement>} event
+     * @returns {void}
+     */
+    const handleExternalDragEnter = (event) => {
+        if (!hasExternalFiles(event) || showUploadModal) return;
+        event.preventDefault();
+        setExternalDragOver(true);
+    };
+
+    /**
+     * Allow external files to be dropped and advertise copy behavior to the browser.
+     * @param {import("react").DragEvent<HTMLDivElement>} event
+     * @returns {void}
+     */
+    const handleExternalDragOver = (event) => {
+        if (!hasExternalFiles(event)) return;
+        event.preventDefault();
+        event.dataTransfer.dropEffect = "copy";
+        if (!showUploadModal) setExternalDragOver(true);
+    };
+
+    /**
+     * Hide the drop target only when the drag leaves the dashboard entirely.
+     * @param {import("react").DragEvent<HTMLDivElement>} event
+     * @returns {void}
+     */
+    const handleExternalDragLeave = (event) => {
+        const relatedTarget = event.relatedTarget;
+        if (relatedTarget instanceof Node && event.currentTarget.contains(relatedTarget)) return;
+        setExternalDragOver(false);
+    };
+
+    /**
+     * Open the existing upload modal with the dropped files preselected.
+     * @param {import("react").DragEvent<HTMLDivElement>} event
+     * @returns {void}
+     */
+    const handleExternalDrop = async (event) => {
+        if (!hasExternalFiles(event)) return;
+        event.preventDefault();
+        setExternalDragOver(false);
+
+        // The upload modal already accepts drops within its own file picker.
+        if (showUploadModal) return;
+
+        try {
+            const droppedFiles = await getFilesFromDrop(event.dataTransfer);
+            if (!droppedFiles.length) return;
+
+            setPendingUploadFiles(droppedFiles);
+            setShowUploadModal(true);
+        } catch (error) {
+            console.error("Could not read dropped files or folders:", error);
+        }
     };
 
     /**
@@ -1039,97 +1089,78 @@ export default function DashboardPage() {
         const topLevelItems = reduceMoveItemsToTopLevel(items);
         if (!topLevelItems.length) return {ok: false, partial: false, message: "There are no items available to move."};
 
-        let moveResult = {ok: false, partial: false, message: "The move could not be completed."};
-        setMovingItems(true);
+        const sourceItems = new Map(topLevelItems.map((item) => [`${item.type}:${String(item.id)}`, item]));
+        // Optimistic local movement gives the user the result immediately.
+        for (const item of topLevelItems) {
+            if (item.type === "file") {
+                setFiles((current) => current.map((file) => String(file.id) === String(item.id)
+                    ? {...file, directory: targetPath === "/home" ? "" : targetPath} : file));
+            } else if (item.type === "folder" && item.path) {
+                const nextPath = `${targetPath.replace(/\/$/, "")}/${item.name}`;
+                setFolders((current) => current.map((folder) => ({...folder, path: replacePathPrefix(folder.path, item.path, nextPath)})));
+                setFiles((current) => current.map((file) => ({...file, directory: replacePathPrefix(file.directory || "", item.path, nextPath)})));
+            }
+        }
+        clearSelection();
+        setSearchQuery("");
+        setMovingItems(false);
         setPageError("");
 
-        try {
-            // Send the complete mixed file/folder selection in one request. The
-            // backend returns per-item results so name conflicts do not hide which
-            // items succeeded or failed.
-            const response = await fetch(`${API_URL}/auth/move`, {
-                method: "PATCH", headers: {
-                    Authorization: `Bearer ${token}`, "Content-Type": "application/json",
-                }, body: JSON.stringify({
-                    directory: targetPath, items: topLevelItems.map(({type, id}) => ({type, id})),
-                }),
-            });
-
-            let data = {};
+        // The request continues in the background. If the backend rejects or only
+        // partially completes the move, refresh from the source of truth.
+        void (async () => {
             try {
-                data = await response.json();
-            } catch {
-                // Keep the generic error below if the response is not JSON.
-            }
-            if (!response.ok) throw new Error(data.detail || data.message || "Failed to move selected items.");
-
-            const movedCount = Array.isArray(data.moved) ? data.moved.length : 0;
-            const unchangedCount = Array.isArray(data.unchanged) ? data.unchanged.length : 0;
-            const failedItems = Array.isArray(data.failed) ? data.failed : [];
-            if (failedItems.length) {
-                const itemsByIdentity = new Map(topLevelItems.map((item) => [`${item.type}:${item.id}`, item]));
-                const failures = failedItems.map((failure) => {
-                    const item = itemsByIdentity.get(`${failure.type}:${failure.id}`);
-                    return `${item?.name || `${failure.type} ${failure.id}`}: ${failure.error || "Move failed"}`;
+                const response = await fetch(`${API_URL}/auth/move`, {
+                    method: "PATCH", headers: {Authorization: `Bearer ${token}`, "Content-Type": "application/json"},
+                    body: JSON.stringify({directory: targetPath, items: topLevelItems.map(({type, id}) => ({type, id}))}),
                 });
-                const firstFailures = failures.slice(0, 3).join("; ");
-                const more = failures.length > 3 ? `; and ${failures.length - 3} more` : "";
-                const message = `${movedCount} item(s) moved${unchangedCount ? `, ${unchangedCount} already in the destination` : ""}. ${failures.length} failed: ${firstFailures}${more}`;
-                setPageError(message);
-                moveResult = {
-                    ok: false,
-                    partial: movedCount + unchangedCount > 0,
-                    failed: failedItems,
-                    message,
-                };
-            } else {
-                moveResult = {
-                    ok: true,
-                    partial: false,
-                    message: `${movedCount} item(s) moved${unchangedCount ? `; ${unchangedCount} already in the destination` : ""}.`,
-                };
-            }
-
-            const sourceItems = new Map(topLevelItems.map((item) => [`${item.type}:${String(item.id)}`, item]));
-            for (const movedItem of Array.isArray(data.moved) ? data.moved : []) {
-                const source = sourceItems.get(`${movedItem.type}:${String(movedItem.id)}`);
-                if (!source) continue;
-                if (movedItem.type === "file") {
-                    const destination = movedItem.directory || targetPath;
-                    setFiles((current) => current.map((file) => String(file.id) === String(movedItem.id)
-                        ? {...file, directory: destination === "/home" ? "" : destination, directory_id: movedItem.directory_id ?? file.directory_id}
-                        : file));
-                } else if (movedItem.type === "folder" && source.path) {
-                    const nextPath = movedItem.path || `${targetPath.replace(/\/$/, "")}/${source.name}`;
-                    setFolders((current) => current.map((folder) => ({
-                        ...folder,
-                        path: replacePathPrefix(folder.path, source.path, nextPath),
-                    })));
-                    setFiles((current) => current.map((file) => ({
-                        ...file,
-                        directory: replacePathPrefix(file.directory || "", source.path, nextPath),
-                    })));
+                let data = {};
+                try {
+                    data = await response.json();
+                } catch {
                 }
-            }
+                if (!response.ok) throw new Error(data.detail || data.message || "Failed to move selected items.");
 
-            clearSelection();
-            setSearchQuery("");
-        } catch (error) {
-            const message = error.message || "Failed to move selected items.";
-            setPageError(message);
-            moveResult = {ok: false, partial: false, message};
-        } finally {
-            setMovingItems(false);
-            // Clear only drag state that is actually declared and used by the dashboard.
-            // A stale, undeclared reference here throws after the server move
-            // succeeds, causing the modal to display a false failure.
-            moveDragRef.current = null;
-            movePointerRef.current = null;
-            dragStateRef.current = null;
-            setDraggingKeys(new Set());
-            setDropTargetKey(null);
-        }
-        return moveResult;
+                const failed = Array.isArray(data.failed) ? data.failed : [];
+                const moved = Array.isArray(data.moved) ? data.moved : [];
+                const unchanged = Array.isArray(data.unchanged) ? data.unchanged : [];
+                if (failed.length) {
+                    const details = failed.slice(0, 3).map((entry) => {
+                        const item = sourceItems.get(`${entry.type}:${String(entry.id)}`);
+                        return `${item?.name || `${entry.type} ${entry.id}`}: ${entry.error || "Move failed"}`;
+                    }).join("; ");
+                    await fetchFiles();
+                    setPageError(`${moved.length + unchanged.length} item(s) moved. ${failed.length} failed: ${details}. The view has been refreshed.`);
+                    return;
+                }
+                // Backend canonical paths/IDs may differ from the optimistic values.
+                for (const movedItem of moved) {
+                    const source = sourceItems.get(`${movedItem.type}:${String(movedItem.id)}`);
+                    if (!source) continue;
+                    if (movedItem.type === "file") {
+                        const destination = movedItem.directory || targetPath;
+                        setFiles((current) => current.map((file) => String(file.id) === String(movedItem.id)
+                            ? {
+                                ...file,
+                                directory: destination === "/home" ? "" : destination,
+                                directory_id: movedItem.directory_id ?? file.directory_id
+                            } : file));
+                    } else if (movedItem.type === "folder" && source.path) {
+                        const nextPath = movedItem.path || `${targetPath.replace(/\/$/, "")}/${source.name}`;
+                        setFolders((current) => current.map((folder) => ({
+                            ...folder,
+                            path: replacePathPrefix(folder.path, `${targetPath.replace(/\/$/, "")}/${source.name}`, nextPath)
+                        })));
+                    }
+                }
+            } catch (error) {
+                console.error("Background move failed:", error);
+                await fetchFiles();
+                setPageError(`${error.message || "Move failed"}. The view has been refreshed.`);
+            }
+        })();
+
+        return {ok: true, partial: false, message: `Moving ${topLevelItems.length} item(s) in the background.`};
     };
 
     // The document-level pointer handlers are installed once, so give them the
@@ -1957,7 +1988,32 @@ export default function DashboardPage() {
     return (<div
         className="flex h-screen overflow-hidden bg-[#1c1c1c] text-[#fafafa]"
         style={{fontFamily: "Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif"}}
+        onDragEnter={handleExternalDragEnter}
+        onDragOver={handleExternalDragOver}
+        onDragLeave={handleExternalDragLeave}
+        onDrop={handleExternalDrop}
     >
+        {externalDragOver && !showUploadModal && (<div
+            className="pointer-events-none fixed inset-0 z-[220] flex items-center justify-center bg-[#0f0f0f]/75 p-5 backdrop-blur-sm sm:p-8"
+            aria-live="polite"
+            aria-label="Drop files to add them to the upload queue"
+        >
+            <div
+                className="flex min-h-[min(68vh,560px)] w-full max-w-3xl flex-col items-center justify-center rounded-2xl border-2 border-dashed border-[#3ecf8e] bg-[#171717]/95 px-6 py-12 text-center shadow-[0_24px_80px_rgba(0,0,0,0.45)]">
+                <div
+                    className="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl border border-[#3ecf8e]/30 bg-[#3ecf8e]/10 text-[#3ecf8e]">
+                    <span className="material-symbols-outlined text-[34px]" aria-hidden="true">cloud_upload</span>
+                </div>
+                <h2 className="text-xl font-semibold tracking-tight text-[#fafafa] sm:text-2xl">Drop files or folders to upload</h2>
+                <p className="mt-2 max-w-md text-sm leading-6 text-[#a1a1a1]">
+                    Release to review your files and folders. Nested folders will be recreated in the destination, ready when you are.
+                </p>
+                <span className="mt-6 rounded-full border border-[#3ecf8e]/25 bg-[#3ecf8e]/10 px-3 py-1.5 text-xs font-medium text-[#3ecf8e]">
+                    Files will not upload until you confirm
+                </span>
+            </div>
+        </div>)}
+
         {/* Desktop sidebar */}
         <div className="fixed left-0 top-0 hidden h-screen md:flex">
             <Sidebar
@@ -2040,6 +2096,7 @@ export default function DashboardPage() {
             uploadJobs={uploadJobs}
             cancelUploadJob={cancelUploadJob}
             dismissUploadJob={dismissUploadJob}
+            clearAllUploadJobs={clearAllUploadJobs}
         />
 
         <BulkActionConfirmModal
@@ -2073,7 +2130,11 @@ export default function DashboardPage() {
         {showUploadModal && (<UploadPage
             modal
             targetDirectory={currentFolder || "/home"}
-            onClose={() => setShowUploadModal(false)}
+            initialFiles={pendingUploadFiles}
+            onClose={() => {
+                setShowUploadModal(false);
+                setPendingUploadFiles([]);
+            }}
         />)}
 
         {moveDialogItems && (<MoveModal

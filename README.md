@@ -64,7 +64,18 @@ The application provides these user-facing capabilities:
 - Refresh the complete file/folder tree explicitly from the dashboard; a full browser reload also clears the JavaScript memory cache and triggers a
   fresh load.
 - Calculate recursive folder sizes and show total size in the item-details dialog.
-- Upload multiple local files from the browser.
+- Upload multiple local files from the browser, including folders with nested directories. Dropped/selected folder paths are recreated under the
+  chosen destination.
+- Submit multiple local files, complete folder trees, or multiple remote links as one upload task. Every item appears in the tray as queued
+  immediately, then runs sequentially; chunks within the current browser file may transfer concurrently.
+- After the server registers the task, the upload dialog closes automatically. The task and its per-item statuses remain in the dashboard tray after
+  completion, failure, or cancellation until the user removes that task.
+- Cancel an active batch from the tray to abort active browser chunk requests, stop the current backend worker where possible, skip queued items, and
+  clean up the uncommitted browser-upload temporary state. The backend locks database finalization against cancellation so an interrupted browser file
+  is not saved as a partial database record.
+- Remove one terminal task with its row's **X** control or use **Clear all** to cancel active tasks and clear the tray history.
+- Apply optimistic UI updates for single and bulk deletes and item moves, then reconcile with the backend in the background. If a mutation fails, the
+  tree is refreshed and an error is shown.
 - Import one or many remote links by pasting one HTTP (S) URL per line.
 - Download direct HTTP (S) file URLs, import Google Drive files, and process YouTube URLs.
 - Track each upload/import job through dashboard progress and status updates.
@@ -74,6 +85,8 @@ The application provides these user-facing capabilities:
 - Inspect file/folder details such as location, path, type, size, storage provider, timestamps, status, and record ID when those values are available.
 - Move files/folders to trash, restore them, or permanently delete trash items.
 - Create signed links for streaming or downloading a file.
+- Preview supported video formats in the existing custom player, audio in the browser's audio player, PDFs in the built-in PDF viewer, Markdown with a
+  safe rendered subset, and common source/config/text extensions as plain text.
 - Stream media and other files over HTTP, including single byte-range requests for seeking.
 - Connect through FTP using the same account and virtual directory tree.
 - Cache recently used remote file parts locally to reduce repeat downloads.
@@ -192,7 +205,8 @@ generated caches, virtual environments, and dependency folders are deliberately 
 │       ├── __init__.py
 │       ├── binaries.py               # Redis, FFmpeg, and Cloudflare helpers
 │       ├── discord_.py               # Discord storage provider
-│       ├── download_.py              # Direct URL, Google Drive, and YouTube downloaders
+│       ├── download_.py              # Public remote-link download dispatcher
+│       ├── download_utils.py         # Direct HTTP, Google Drive, YouTube, and libtorrent helpers
 │       ├── env.py                    # Credentials/configuration constants
 │       ├── progress.py               # Progress tracking and part uploader
 │       └── telegram_.py              # Telegram storage provider
@@ -357,10 +371,13 @@ The browser upload implementation is split between `frontend/src/pages/dashboard
 helpers, and the core
 transfer layer.
 
-1. The frontend requests an upload job using `POST /auth/upload`, passing the selected data center, directory, and file name in headers.
-2. The backend validates the requested provider, file name, and target directory.
-3. A job ID is created. The backend stores the job's owner username, display name, destination directory, provider, type, and progress metadata in
-   Redis, and adds the job ID to a Redis set indexed by username. Pending file/session data also uses a time-to-live.
+1. The frontend first registers the complete selection as a single batch through `POST /auth/upload-batches`. The batch stores every selected relative
+   path/link and its initial `queued` status in Redis before any transfer starts.
+2. The frontend processes the batch sequentially. For each local file it requests a child job using `POST /auth/upload`, passing the batch ID in
+   `X-Upload-Batch-Id` along with the selected data center, destination directory, file name, and size.
+3. The backend validates the requested provider, file name, target directory, batch ownership, and batch status. A child job ID is created. The
+   backend stores the child's owner, display name, destination directory, provider, type, batch ID, and progress metadata in Redis, adds the job to
+   the per-user index, and associates it with the parent batch. Pending file/session data also uses a time-to-live.
 4. The frontend divides each local file into **1 MiB chunks**, sends up to **8 chunks concurrently**, and retries transient chunk failures up to the
    configured attempt limit.
 5. The frontend sends byte chunks to `PUT /public/upload/{job_id}/chunk`, with `offset` and `total` query parameters.
@@ -368,9 +385,12 @@ transfer layer.
    and tracks the contiguous byte count from offset zero.
 7. A producer task waits for incoming bytes while the upload worker passes the growing temporary file through the core upload pipeline. The transfer
    can therefore begin before the complete browser file has finished arriving.
-8. The transfer layer splits the file into provider-sized parts, uploads those parts, collects their remote links, and persists final file metadata.
-9. The frontend polls `GET /public/upload/{job_id}/status` for progress and the resulting file ID. This status endpoint requires the authenticated
-   user's bearer token and verifies that the job belongs to that username.
+8. The transfer layer splits the file into provider-sized parts, uploads those parts, and collects their remote links. Browser-file metadata is saved
+   only after the complete transfer succeeds and the worker acquires the same finalization lock used by cancellation.
+9. The frontend polls `GET /auth/upload-jobs/{job_id}/status` until the child job reaches a terminal state. Only then does the queue mark that batch
+   item completed and start the next file.
+10. The batch status is updated with per-item state and aggregate progress. The frontend polls `GET /auth/upload-batches` to keep the
+    account-synchronized tray current, and refreshes the affected directory after the whole batch reaches a terminal state.
 
 The pending upload/session data has an approximately one-hour Redis TTL in the current implementation. Job metadata and the per-user job index are
 maintained separately so that the dashboard tray can discover jobs from another browser/device. The chunk receiver also detects interrupted/missing
@@ -381,10 +401,9 @@ scratch space cleaned up when the application shuts down.
 
 ### Import one or many remote links
 
-`POST /auth/upload-link` starts a background import job for a single URL. The upload page supports multiple links by accepting **one HTTP (S) URL per
-line**. It trims empty lines, validates every non-empty line before submitting jobs, and creates a separate import job for each URL. The dashboard
-tracks
-each job separately, so progress and failures are associated with the relevant link.
+`POST /auth/upload-link` starts a background import job for one URL. The upload page accepts **one HTTP (S) URL or supported magnet URI per line** and
+validates the complete selection before creating a single batch with `POST /auth/upload-batches`. Each link is then imported sequentially as a child
+job. The one tray task shows every link up front and records its own status, while child jobs provide backend progress.
 
 The server chooses the downloader from the URL host:
 
@@ -394,21 +413,47 @@ The server chooses the downloader from the URL host:
 - **Google Drive links** (`drive.google.com`) use the Google Drive downloader. The current implementation requests file name/size metadata through the
   Google Drive API, so the configured Google API key and access to the file are required.
 - **YouTube links** (`youtube.com`, subdomains of `youtube.com`, and `youtu.be`) use `yt-dlp` and FFmpeg to download/process media.
+- **Magnet links** (`magnet:?xt=urn:btih:...` or `magnet:?xt=urn:btmh:...`) use the `libtorrent` engine. The downloader reports peer discovery,
+  metadata retrieval, downloading, and the completed/seeding transition through the shared `Progress` object.
 
 For multiple imports, enter one URL per line, for example:
 
 ```text
 https://downloads.example.org/archive.zip
 https://downloads.example.org/video.mp4
+magnet:?xt=urn:btih:TORRENT_INFO_HASH&dn=example
 ```
 
-Each line creates its own import job. Blank lines are ignored, but every non-empty URL must use HTTP or HTTPS.
+Blank lines are ignored. The batch contains one item per non-empty line. HTTP (S) links must be valid URLs, and magnet links must include a supported
+`xt` info-hash topic.
 
-Downloaded content is written to a temporary file and sent through the same storage-provider upload pipeline used for other files. Direct links to
-ordinary HTML pages, authenticated downloads that the server cannot access, expired links, and unsupported provider-specific pages may fail even if
-the
-URL itself is syntactically valid. YouTube processing requires `yt-dlp`; FFmpeg is discovered or installed by the binary helper on supported
-platforms.
+### Torrent download and upload flow
+
+Torrent imports are implemented in `core/utils/download_utils.py`; `core/utils/download_.py` retains the public downloader interface used by
+`link_upload()`. The shared download utility contains the torrent engine integration, progress/name updates, safe path handling, temporary file
+staging,
+and the helpers used for direct HTTP (S), Google Drive, and YouTube downloads.
+
+1. The torrent engine joins the swarm and reports `Searching for peers` or `Downloading torrent metadata` while magnet metadata is unavailable.
+2. Once metadata arrives, the progress object reports downloaded bytes, total bytes, connected peers, and seed count. The resolved torrent filename is
+   propagated into the active progress/job state so the tray can replace the submitted magnet-link label with the actual torrent/file name.
+3. The torrent is downloaded completely to a temporary directory under `TRANSFER_PATH`. Torrent files are not uploaded while pieces are still
+   arriving.
+4. After completion, the torrent session is stopped and the downloader validates each torrent-relative path before accessing the local files.
+5. The torrent's root folder and nested directories are recreated beneath the selected StoreLimitless destination. Existing trashed directories with
+   matching paths are restored when needed.
+6. Files are uploaded sequentially through `core.transfer.file_upload()`. The first uploaded file uses the import's initial database record; remaining
+   files receive their own records.
+7. The temporary torrent directory is removed after success or failure.
+
+The torrent module excludes libtorrent padding files, rejects unsafe paths, and checks that resolved files stay inside the temporary download
+directory. A magnet may remain in peer search when no peers are reachable, and a torrent cannot complete when its required pieces are unavailable. The
+server needs outbound network access for trackers/DHT and peer connections; router/NAT restrictions can limit peer discovery.
+
+Downloaded HTTP (S)/YouTube content is written to a temporary file and sent through the storage-provider upload pipeline. Direct links to ordinary
+HTML pages, authenticated downloads the server cannot access, expired links, and unsupported provider-specific pages may fail even when the URL is
+syntactically valid. YouTube processing requires `yt-dlp`; FFmpeg is discovered or installed by the binary helper on supported platforms. Magnet
+imports require the Python `libtorrent` module to be installed in the runtime environment.
 
 ### How `file_upload()` works
 
@@ -426,6 +471,34 @@ serializes progress so the HTTP status route can return updates to the frontend 
 `backend/server/routers/upload_state.py` contains the concurrency and session-state logic for browser chunk uploads. It tracks background tasks
 strongly, coordinates range updates with a Redis lock, waits for contiguous input bytes, and cleans up session keys and temporary files when the job
 ends.
+
+### Optimistic mutations and background work
+
+The dashboard applies local state changes before waiting for the database response for common delete and move actions:
+
+- Single-file delete immediately removes the file from the visible list (permanent delete) or marks it as trashed.
+- Folder delete immediately hides/removes the folder and its descendants from the current in-memory tree.
+- Bulk delete applies the same optimistic changes and sends independent item operations concurrently. A two-step Shift+Delete sequence remains ordered
+  for each individual item.
+- File/folder moves update cached paths immediately and submit the move request in the background.
+- If a background mutation fails, the dashboard fetches the authoritative tree and displays an error rather than leaving optimistic state permanently
+  in place.
+- The complete selection is registered as one Redis-backed batch before the modal closes automatically. All of its files/links are visible in the tray
+  as queued items before transfers start.
+- Batch tasks remain visible after they complete, fail, or are cancelled. Use the row's **X** to remove one terminal task, or **Clear all** to cancel
+  active tasks and clear all tray history.
+- Cancelling a batch aborts local chunk `XMLHttpRequest`s, prevents subsequent queue items from starting, asks the backend to cancel its active child
+  worker, and cleans temporary chunk/session state. The browser-file worker and cancellation route share a Redis finalization lock: if cancellation
+  wins, the file metadata is not committed; if the worker already entered the protected final database-save section, the endpoint reports that the
+  file is already finishing rather than pretending a completed database write can be undone.
+
+The browser upload queue remains sequential across files and links to avoid overlapping storage-provider jobs. Within one file, chunk uploads can
+still run concurrently (up to the configured chunk-lane limit). Nested folder uploads create missing directories before the file queue starts, then
+send each file to its relative destination. If a multi-file batch is cancelled after earlier files have completed, those already completed files
+remain saved; cancellation prevents the active incomplete browser file from being registered and skips the remaining queued items.
+
+Optimistic UI means the interface reacts immediately; it does not make PostgreSQL operations themselves faster. A failed request is reconciled against
+backend state, and the error remains visible after the refresh.
 
 ---
 
@@ -600,21 +673,34 @@ All dashboard-specific modules are under `src/pages/dashboard/`:
 - `components/MoveModal.jsx` browses destination folders, lets the user choose or deselect a destination, and validates moves before submission.
   Selecting a different directory changes the destination; selecting the current choice again toggles it off and returns the destination to the folder
   currently being browsed.
-- `components/UploadModal.jsx` handles local-file uploads and HTTP (S) link imports. It is used as both the standalone `/upload` page and a dashboard
-  dialog.
-- `components/UploadJobsTray.jsx` displays active and failed upload/import jobs, transfer progress, byte counts, and job actions.
-- `components/ViewFile.jsx` obtains a public stream URL and provides the media player, including seeking, playback rate, volume, fullscreen, and
-  picture-in-picture controls.
+- `components/UploadModal.jsx` handles local-file uploads, nested folder uploads, and HTTP (S)/magnet link imports. It registers one batch containing
+  the entire selection, closes the modal automatically, then processes items sequentially.
+- `components/UploadJobsTray.jsx` displays persistent upload/import batches with aggregate progress, cancellation, per-task dismissal, and Clear all.
+  A single-file batch uses the compact single-file row layout; folder and multi-file batches retain the nested per-item checklist. Completed task
+  history stays visible until dismissed.
+- `components/ViewFile.jsx` routes to the correct preview by file extension and preserves the custom video player, including seeking, playback rate,
+  volume, fullscreen, and picture-in-picture controls.
+- `components/FileContentPreview.jsx` fetches text content through an authenticated signed stream and renders source/config files as plain text,
+  Markdown with a small safe subset, PDFs through the browser's PDF viewer, and audio through the native audio player. Common extensions include
+  `.txt`, `.log`, `.json`, `.yaml`, `.html`, `.css`, `.js`, `.jsx`, `.ts`, `.tsx`, `.py`, `.c`, `.h`, `.cpp`, `.hpp`, `.rs`, `.go`, `.java`, `.sql`,
+  `.sh`, and `.md`.
+
+Text/source previews intentionally use escaped plain text rather than a syntax-highlighting library, so uploaded content is not interpreted as
+executable HTML. The viewer's dark background/pane owns vertical and horizontal scrolling, including long lines, rather than trapping scrolling in the
+text element. Text preview is limited to 5 MB to avoid freezing the browser tab. Markdown supports common headings, paragraphs, inline emphasis/code,
+fenced code blocks, lists, blockquotes, horizontal rules, and HTTP (S) links; it is not a full CommonMark implementation.
+
 - `constants.js` centralizes the API URL, navigation entries, and shared keys/styles.
-- `utils.js` contains shared path, token, file-kind, route, and selection helpers.
+- `utils.js` contains shared path, token, file-kind, route, and selection helpers. `getFileKind()` maps common code, configuration, text, Markdown,
+  PDF, audio, and video extensions to their viewer types.
 
 #### Dashboard hooks
 
 - `hooks/useDashboardData.js` loads the account's file/folder tree, storage metadata, and trash; refreshes a targeted directory after mutations; and
   calculates recursive folder sizes.
 - `hooks/useGlobalFileSearch.js` manages search results across the loaded file tree.
-- `hooks/useUploadJobs.js` loads the authenticated account's shared upload-job list from the backend, polls it, updates progress, handles synchronized
-  cancellation/dismissal, and refreshes affected directories after completed uploads.
+- `hooks/useUploadJobs.js` polls the account-shared batch endpoint, maps child progress into a batch row, sends cancellation and dismissal actions,
+  and refreshes affected directories when a batch finishes.
 
 The separation keeps `Dashboard.jsx` focused on coordinating interactions. When adding dashboard behavior, put reusable UI in `components/`, data
 lifecycle logic in the appropriate hook, and shared helpers/constants in `constants.js` or `utils.js`.
@@ -650,23 +736,28 @@ refresh path, use the dashboard Refresh control to reconcile the client tree wit
 
 ### Upload progress and job behavior
 
-The upload tray is account-synchronized rather than being backed by a browser-local job list. `useUploadJobs.js` fetches `GET /auth/upload-jobs` about
-every 1.2 seconds. The backend stores job metadata/progress in Redis and indexes job IDs under the authenticated username, so signing into the same
-account from another browser or device loads the same tray. The browser's `localStorage` still holds the authentication token, but it is not the
-source of truth for upload jobs.
+The upload tray is account-synchronized rather than being backed by a browser-local job list. `useUploadJobs.js` polls `GET /auth/upload-batches`
+about once per second. Redis stores each batch, every queued item, per-item state, and its child-job IDs under the authenticated username, so the same
+account sees the same task tray across browsers/devices using the same backend and Redis instance. The browser's `localStorage` holds the
+authentication
+token, but it is not the source of truth for upload tasks.
 
-The account-scoped API supports these shared actions:
+The batch API supports these shared actions:
 
-- **Cancel:** `POST /auth/upload-jobs/{job_id}/cancel` marks the job cancelled and attempts to cancel the tracked server-side task. The originating
-  browser also aborts its own chunk requests when it receives the local cancel action; a cancellation requested from another device is published
-  through the shared job state.
-- **Dismiss:** `DELETE /auth/upload-jobs/{job_id}` removes a terminal job from the shared account tray. Cancelling or dismissing a job on one device
-  updates the tray on other devices as they poll.
-- **Report browser transfer failure:** `POST /auth/upload-jobs/{job_id}/fail` stores an error for the account-wide job when a local file transfer
-  fails, so other devices see the failure rather than a permanently active upload.
+- **Create/list/update:** `POST /auth/upload-batches`, `GET /auth/upload-batches`, and `PATCH /auth/upload-batches/{batch_id}` register the whole
+  selection, list batch history, and publish current item/progress updates.
+- **Cancel:** `POST /auth/upload-batches/{batch_id}/cancel` marks the batch cancelled, attempts to stop the active child worker, and marks queued
+  items as cancelled. The initiating browser also aborts active chunk `XMLHttpRequest`s immediately. A Redis finalization lock prevents an incomplete
+  browser file from being saved in the database after cancellation wins the race.
+- **Dismiss one task:** `DELETE /auth/upload-batches/{batch_id}` removes a batch's history and child-job records. Active batches must be cancelled
+  first.
+- **Clear all:** `DELETE /auth/upload-batches` cancels active batch children and removes all batch history for the account.
+- **Report browser transfer failure:** `POST /auth/upload-jobs/{job_id}/fail` publishes local chunk-transfer failures to the child job's shared
+  status.
 
-Completed and cancelled jobs are automatically removed from the shared index during tray polling after completed destination directories are
-refreshed. Failed jobs remain visible until dismissed. All these routes verify job ownership against the authenticated username.
+Terminal batches are intentionally **not** automatically pruned. Successful, failed, and cancelled tasks remain in the tray until the user removes one
+with its row-level **X** or selects **Clear all**. The tray refreshes the destination directory after a batch becomes terminal. All routes verify
+ownership against the authenticated username.
 
 **Deployment requirement:** every device must use the same API backend and the same Redis data store. A per-process `localhost` Redis instance does
 not synchronize separate deployments. Redis is operational state rather than the durable file metadata database; if Redis is ephemeral or reset, the
@@ -797,19 +888,25 @@ changes.
 
 ### Upload and public-file routes
 
-| Method and path                                                 | Purpose                                                                                                                   |
-|-----------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------|
-| `POST /auth/upload`                                             | Create a browser-upload job. Headers include `X-Data-Center`, `X-Directory`, `X-File-Name`, and optionally `X-File-Size`. |
-| `PUT /public/upload/{job_id}/chunk?offset=...&total=...`        | Send bytes for a declared file range. Requires the owning user's bearer token.                                            |
-| `POST /auth/upload-link?link=...&data_center=...&directory=...` | Create and run a supported remote-link import job in the background.                                                      |
-| `GET /auth/upload-jobs`                                         | List the authenticated account's Redis-backed upload jobs across devices.                                                 |
-| `POST /auth/upload-jobs/{job_id}/cancel`                        | Cancel an owned job and publish shared cancelled status.                                                                  |
-| `POST /auth/upload-jobs/{job_id}/fail`                          | Record a browser-side file-transfer failure on an owned file-upload job.                                                  |
-| `DELETE /auth/upload-jobs/{job_id}`                             | Dismiss an owned terminal job from the shared account tray.                                                               |
-| `GET /public/upload/{job_id}/status`                            | Read progress/status for an owned job; requires the user's bearer token.                                                  |
-| `GET /public/ready`                                             | Report whether the Discord storage client is ready.                                                                       |
-| `GET /public/stream/{token}`                                    | Stream a file and honor the HTTP `Range` header.                                                                          |
-| `GET /public/download/{token}`                                  | Stream a file as an attachment.                                                                                           |
+| Method and path                                                              | Purpose                                                                                                                                            |
+|------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------|
+| `POST /auth/upload-batches`                                                  | Register one account-shared task with the full list of queued files/links.                                                                         |
+| `GET /auth/upload-batches`                                                   | List batch tasks and every per-item status for the authenticated account.                                                                          |
+| `PATCH /auth/upload-batches/{batch_id}`                                      | Update a batch's state, current child job, progress counters, or item status.                                                                      |
+| `POST /auth/upload-batches/{batch_id}/cancel`                                | Cancel the active child and stop subsequent queued items.                                                                                          |
+| `DELETE /auth/upload-batches/{batch_id}`                                     | Remove one terminal batch and its child job records.                                                                                               |
+| `DELETE /auth/upload-batches`                                                | Cancel active batches and clear all account tray history.                                                                                          |
+| `POST /auth/upload`                                                          | Create a browser-upload child job. Headers include `X-Data-Center`, `X-Directory`, `X-File-Name`, optional `X-File-Size`, and `X-Upload-Batch-Id`. |
+| `PUT /public/upload/{job_id}/chunk?offset=...&total=...`                     | Send bytes for a declared file range. Requires the owning user's bearer token.                                                                     |
+| `POST /auth/upload-link?link=...&data_center=...&directory=...&batch_id=...` | Create a child job to import a remote link within its parent batch.                                                                                |
+| `GET /auth/upload-jobs`                                                      | List child jobs for authenticated-account diagnostics/legacy consumers.                                                                            |
+| `POST /auth/upload-jobs/{job_id}/cancel`                                     | Cancel an owned child job and publish shared cancelled status.                                                                                     |
+| `POST /auth/upload-jobs/{job_id}/fail`                                       | Record a browser-side file-transfer failure on an owned child job.                                                                                 |
+| `DELETE /auth/upload-jobs/{job_id}`                                          | Dismiss a legacy standalone terminal child job.                                                                                                    |
+| `GET /auth/upload-jobs/{job_id}/status`                                      | Read status for a child job; requires the user's bearer token.                                                                                     |
+| `GET /public/ready`                                                          | Report whether the Discord storage client is ready.                                                                                                |
+| `GET /public/stream/{token}`                                                 | Stream a file and honor the HTTP `Range` header.                                                                                                   |
+| `GET /public/download/{token}`                                               | Stream a file as an attachment.                                                                                                                    |
 
 These tables describe the routes relevant to the supplied source; they are not intended to replace generated OpenAPI documentation from a running
 instance.
@@ -912,7 +1009,9 @@ silently running with an invalid value.
 - Discord bot credentials and access to the configured storage/dump channel.
 - Telegram API credentials and a configured destination for stored documents.
 - FFmpeg for YouTube media downloads. The binary helper attempts installation on supported systems if it is missing.
-- Network access to the configured database, Discord, Telegram, Google Drive, YouTube, and any configured tunnel provider.
+- The Python `libtorrent` module for magnet-link imports. Install a `python-libtorrent` build compatible with the operating system and Python version
+  used to run StoreLimitless.
+- Network access to the configured database, Discord, Telegram, Google Drive, YouTube, torrent trackers/DHT/peers, and any configured tunnel provider.
 
 ### Create a Python environment
 
@@ -924,6 +1023,9 @@ source .venv/bin/activate
 python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 ```
+
+`requirements.txt` includes `libtorrent`, which is used for magnet-link imports. Choose a compatible wheel/build for
+the Python version and operating system used by StoreLimitless; the available builds differ across platforms.
 
 On Windows PowerShell:
 
@@ -1319,31 +1421,33 @@ At minimum, test the affected workflow through the same path a user uses:
 3. Create a nested directory and upload a small file.
 4. Check the file metadata and download the file back.
 5. Upload a larger file and seek within streamed media to exercise multiple stored parts and range handling.
-6. Try rename/move/trash/restore using the web UI and verify that the virtual FTP view sees the same state.
-7. Test FTP list/download/upload with a client, including passive mode where remote access is required.
-8. Restart the server and repeat a read to confirm that storage reconstruction does not depend on the disposable cache.
-9. Verify `/` opens the public landing page, `/login` and `/signup` open the corresponding auth modes, and nested `/home/...` routes still work.
-10. Navigate across several nested folders and confirm navigation uses the in-memory tree. Verify an uncached dashboard load, explicit Refresh,
+6. Submit a test magnet link with reachable peers. Verify peer-search progress, download progress, sequential uploads, and the final file records.
+7. Test a multi-file torrent and confirm its root folder and nested paths are recreated under the selected destination.
+8. Try rename/move/trash/restore using the web UI and verify that the virtual FTP view sees the same state.
+9. Test FTP list/download/upload with a client, including passive mode where remote access is required.
+10. Restart the server and repeat a read to confirm that storage reconstruction does not depend on the disposable cache.
+11. Verify `/` opens the public landing page, `/login` and `/signup` open the corresponding auth modes, and nested `/home/...` routes still work.
+12. Navigate across several nested folders and confirm navigation uses the in-memory tree. Verify an uncached dashboard load, explicit Refresh,
     and hard reload each fetch the complete account tree through one `GET /auth/tree` request. Confirm the response includes active/trashed
     directories
     and files plus `storage_used_bytes`, is scoped to the authenticated account, and omits provider `links` from the full-tree payload. Also verify
     that
     local mutations can still refresh only the affected directory through `GET /auth/directory`.
-11. Test move destination selection and deselection, including attempts to move a folder into itself or a descendant.
-12. On a touch device, verify that a quick tap opens an item, a long-press enters selection mode, subsequent taps add/remove selected items,
+13. Test move destination selection and deselection, including attempts to move a folder into itself or a descendant.
+14. On a touch device, verify that a quick tap opens an item, a long-press enters selection mode, subsequent taps add/remove selected items,
     long-pressing
     empty workspace starts marquee selection, and long-press-and-drag moves items to valid folders/breadcrumbs. Confirm that ordinary finger movement
     still
     scrolls the workspace and that cancelled/out-of-bounds gestures do not trigger a move.
-13. On a mobile browser, pull down on the dashboard background while the main scroller is at the very top and confirm the browser's native
+15. On a mobile browser, pull down on the dashboard background while the main scroller is at the very top and confirm the browser's native
     pull-to-refresh
     can trigger from the background as well as the header. Repeat after scrolling down and confirm upward finger movement scrolls content normally.
     Also
     verify that the dashboard's explicit Refresh button still reloads file/folder data.
-14. Exercise upload progress, cancellation, failure reporting, dismissal, and automatic directory synchronization after completion. Open the same
+16. Exercise upload progress, cancellation, failure reporting, dismissal, and automatic directory synchronization after completion. Open the same
     account on a second browser/device and verify that jobs and terminal actions are synchronized through the shared API and Redis instance.
-15. Run the frontend lint/build scripts that are actually declared in `frontend/package.json`.
-16. Test the packaged executable separately from development mode.
+17. Run the frontend lint/build scripts that are actually declared in `frontend/package.json`.
+18. Test the packaged executable separately from development mode.
 
 Automated tests should be added for range parsing, chunk-count validation, upload-range merging, folder path rewriting, ownership/authorization,
 public-token expiry, and FTP seek behavior.

@@ -1,5 +1,6 @@
 import {useCallback, useEffect, useRef, useState} from "react";
 import {useNavigate, useParams, useSearchParams} from "react-router-dom";
+import FileContentPreview, {MediaPreview} from "./FileContentPreview.jsx";
 
 /**
  * @typedef {{name: string}} PreviewFile
@@ -509,7 +510,8 @@ export default function ViewFile() {
         <header className="flex h-14 shrink-0 items-center gap-3 border-b border-[#2e2e2e] px-5">
             <div
                 className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-[#3ecf8e]/20 bg-[#3ecf8e]/10 text-[#3ecf8e]">
-                <span className="material-symbols-outlined text-[19px]" aria-hidden="true">movie</span>
+                <span className="material-symbols-outlined text-[19px]"
+                      aria-hidden="true">{kind === "pdf" ? "picture_as_pdf" : kind === "text" ? "code" : kind === "markdown" ? "article" : kind === "audio" ? "audio_file" : "movie"}</span>
             </div>
             <h1 className="min-w-0 truncate text-sm font-medium">{name}</h1>
             {source?.streamUrl && kind === "video" && (<button
@@ -526,20 +528,23 @@ export default function ViewFile() {
         </header>
 
         <main className="min-h-0 flex-1 overflow-hidden p-0">
-            {kind !== "video" ? (<div className="flex h-full flex-col items-center justify-center gap-2 text-center text-[#898989]">
-                <span className="material-symbols-outlined text-[40px] text-[#4d4d4d]" aria-hidden="true">visibility_off</span>
-                <p className="text-sm text-[#fafafa]">Preview isn't available for this file type yet.</p>
-            </div>) : error ? (<div className="flex h-full flex-col items-center justify-center gap-2 text-center">
-                <span className="material-symbols-outlined text-[40px] text-[#ff6369]" aria-hidden="true">error</span>
-                <p className="text-sm text-[#ff6369]">{error}</p>
-            </div>) : !source ? (<div className="flex h-full flex-col items-center justify-center gap-3 text-sm text-[#898989]">
-                <span className="material-symbols-outlined animate-spin text-[32px]" aria-hidden="true">progress_activity</span>
-                {status}
-            </div>) : (<div className="flex h-full w-full min-h-0 flex-col">
-                <div className="min-h-0 min-w-0 flex-1">
-                    <VideoPlayer file={{name}} streamUrl={source.streamUrl} heightClass="h-full"/>
-                </div>
-            </div>)}
+            {kind === "text" || kind === "markdown" ? <FileContentPreview fileId={fileId} kind={kind} navigate={navigate}/> : kind === "pdf" ?
+                <MediaPreview fileId={fileId} navigate={navigate} type="pdf"/> : kind === "audio" ?
+                    <MediaPreview fileId={fileId} navigate={navigate} type="audio"/> : kind !== "video" ? (
+                        <div className="flex h-full flex-col items-center justify-center gap-2 text-center text-[#898989]">
+                            <span className="material-symbols-outlined text-[40px] text-[#4d4d4d]" aria-hidden="true">visibility_off</span>
+                            <p className="text-sm text-[#fafafa]">Preview isn't available for this file type yet.</p>
+                        </div>) : error ? (<div className="flex h-full flex-col items-center justify-center gap-2 text-center">
+                        <span className="material-symbols-outlined text-[40px] text-[#ff6369]" aria-hidden="true">error</span>
+                        <p className="text-sm text-[#ff6369]">{error}</p>
+                    </div>) : !source ? (<div className="flex h-full flex-col items-center justify-center gap-3 text-sm text-[#898989]">
+                        <span className="material-symbols-outlined animate-spin text-[32px]" aria-hidden="true">progress_activity</span>
+                        {status}
+                    </div>) : (<div className="flex h-full w-full min-h-0 flex-col">
+                        <div className="min-h-0 min-w-0 flex-1">
+                            <VideoPlayer file={{name}} streamUrl={source.streamUrl} heightClass="h-full"/>
+                        </div>
+                    </div>)}
         </main>
     </div>);
 }

@@ -448,6 +448,30 @@ async def permanently_delete(fid: int, user: User = Depends(get_current_user)) -
     return JSONResponse({"message": "Permanently deleted"})
 
 
+async def _permanently_delete_directory_tree(user: User, directory: Directory) -> None:
+    """Permanently delete all files and subdirectories regardless of their individual trash state."""
+
+    if directory.id is None:
+        raise ValueError("Directory has no ID")
+
+    files: list[File] = [
+        *await File.get_all(user.username, directory_id=directory.id),
+        *await File.get_all(user.username, directory_id=directory.id, trash=True),
+    ]
+
+    for file in files:
+        await file.delete()
+
+    active_children: list[Directory] = await Directory.get_all(user.username, directory=directory.path)
+    trashed_children: list[Directory] = await Directory.get_all(user.username, directory=directory.path, trash=True)
+    children_by_id: dict[int, Directory] = {child.id: child for child in (*active_children, *trashed_children) if child.id is not None}
+
+    for child in children_by_id.values():
+        await _permanently_delete_directory_tree(user, child)
+
+    await directory.delete()
+
+
 @router.delete("/trash/directory/{did}")
 async def permanently_delete_directory(did: int, user: User = Depends(get_current_user)) -> JSONResponse:
     """Delete a trashed directory and recursively delete its contents."""
@@ -457,13 +481,7 @@ async def permanently_delete_directory(did: int, user: User = Depends(get_curren
     if directory is None or directory.username != user.username:
         raise HTTPException(status_code=404, detail="Directory not found")
 
-    for file in await File.get_all(user.username, directory_id=directory.id, trash=True):
-        await file.delete()
-
-    for child in await Directory.get_all(user.username, directory=directory.path, trash=True):
-        await permanently_delete_directory(cast(int, child.id), user)
-
-    await directory.delete()
+    await _permanently_delete_directory_tree(user, directory)
     return JSONResponse({"message": "Permanently deleted"})
 
 
