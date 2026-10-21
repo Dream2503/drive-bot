@@ -45,7 +45,7 @@ async def upload_status(job_id: str, user: User = Depends(get_current_user)) -> 
         raise HTTPException(status_code=404, detail="Upload job not found")
 
     message_lower: str = progress.message.lower()
-    completed: bool = "complete" in message_lower
+    completed: bool = message_lower.startswith("upload complete")
     failed: bool = message_lower.startswith("upload failed")
     cancelled: bool = bool(metadata.get("cancelled")) or message_lower.startswith("upload cancelled")
     file_id: int | None = None
@@ -64,6 +64,7 @@ async def upload_status(job_id: str, user: User = Depends(get_current_user)) -> 
         "name": name,
         "transfer": progress.transfer,
         "total": max(progress.total, int(metadata.get("total") or 0)),
+        "torrent_items": list(getattr(progress, "torrent_items", []) or []),
         "file_id": file_id,
     })
 

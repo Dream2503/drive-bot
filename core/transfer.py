@@ -5,7 +5,7 @@ from __future__ import annotations
 from asyncio import Task
 from pathlib import Path
 from traceback import format_exc
-from typing import AsyncGenerator, Callable
+from typing import AsyncGenerator
 from urllib.parse import ParseResult, parse_qs, urlparse
 
 from backend.database.models import File, User
@@ -50,8 +50,10 @@ async def file_upload(
         raise
 
 
-async def link_upload(file: File, link: str) -> AsyncGenerator[Progress, None]:
-    """Import a direct URL, YouTube link, or torrent magnet into the configured provider."""
+async def link_upload(file: File, link: str, selected_torrent_files: set[int] | None = None) -> AsyncGenerator[Progress, None]:
+    """Import a direct URL, YouTube link, or selected torrent files into the provider."""
+
+    from core.utils.download_utils import download_torrent
 
     user: User | None = await User.get(file.username)
 
@@ -82,7 +84,11 @@ async def link_upload(file: File, link: str) -> AsyncGenerator[Progress, None]:
             if not link.lower().startswith("magnet:?") or not has_info_hash:
                 raise ValueError("Expected a valid torrent magnet URI with an xt info-hash topic")
 
-            downloader: Callable[[File, str], AsyncGenerator[Progress, None]] = download_processed_link
+            async for progress_value in download_torrent(file, link, selected_torrent_files):
+                yield progress_value
+
+            write_log("INFO", data_center, "DOWNLOAD", user.username, f"Torrent download and upload complete ({sanitize_sensitive_urls(link)})")
+            return
 
         else:
             if parsed.scheme not in {"http", "https"} or not parsed.hostname:
@@ -96,16 +102,6 @@ async def link_upload(file: File, link: str) -> AsyncGenerator[Progress, None]:
 
         async for progress_value in downloader(file, link):
             yield progress_value
-
-        if is_torrent:
-            write_log(
-                "INFO",
-                data_center,
-                "DOWNLOAD",
-                user.username,
-                f"Torrent download and upload complete ({sanitize_sensitive_urls(link)})",
-            )
-            return
 
         await file.save()
         write_log("INFO", data_center, "DOWNLOAD", user.username, f"Download and upload complete `{file.name}`")

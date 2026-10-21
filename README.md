@@ -1,8 +1,10 @@
 # StoreLimitless
 
-StoreLimitless is a self-hosted personal cloud-storage application. It combines a React web interface, a Python service layer, PostgreSQL metadata,
-Redis-backed coordination, and Discord/Telegram as remote storage providers. It supports multi-file uploads, importing one or many HTTP (S) links,
-folder management, trash/restore, HTTP streaming with byte-range requests, and an FTP-compatible virtual filesystem.
+StoreLimitless is a self-hosted personal cloud-storage application. It combines a React/Vite web interface, a Python/FastAPI service layer, PostgreSQL
+metadata, Redis-backed coordination, and Discord/Telegram as remote storage providers. It supports multi-file and nested-folder uploads, batch and
+remote-link imports, torrent file selection, resumable browser downloads, seekable HTTP streaming, file previews, folder/trash management, and an
+FTP-compatible virtual filesystem. A separate Next.js service under `backend/storelimitlessbackend/` supplies the stable Vercel API proxy used by
+`CLOUD` mode.
 
 The web UI is branded **DriveBot** in places, while the overall application and server are called **StoreLimitless**.
 
@@ -77,8 +79,15 @@ The application provides these user-facing capabilities:
 - Apply optimistic UI updates for single and bulk deletes and item moves, then reconcile with the backend in the background. If a mutation fails, the
   tree is refreshed and an error is shown.
 - Import one or many remote links by pasting one HTTP (S) URL per line.
-- Download direct HTTP (S) file URLs, import Google Drive files, and process YouTube URLs.
-- Track each upload/import job through dashboard progress and status updates.
+- Download direct HTTP (S) file URLs, import Google Drive files, process YouTube URLs, and select individual files from magnet torrents.
+- Show YouTube processing stages in the upload tray: downloading video, downloading audio, merging audio/video, and uploading to the selected storage
+  provider.
+- Track upload batches and individual torrent-file states in a persistent, Redis-backed dashboard tray, including queued, downloading, uploading,
+  completed, failed, skipped, and cancelled states where applicable.
+- Download stored files through a pause/resume tray in browsers that support the File System Access API. Byte-range requests and an IndexedDB job
+  record allow supported downloads to resume after a page reload.
+- View media in a custom video player with seeking, volume, speed control, fullscreen, picture-in-picture (when supported), and keyboard shortcuts;
+  preview PDFs, audio, Markdown, and common text/source formats.
 - Use keyboard shortcuts on the upload page to return to the dashboard or trigger the upload/import action.
 - Rename and move files and folders, including bulk move operations. The move dialog supports browsing destinations and toggling an already-selected
   destination off.
@@ -134,6 +143,11 @@ The application provides these user-facing capabilities:
 FTP client ── FTP port ──► FTP virtual filesystem ──► same models/transfer flow
 ```
 
+The optional deployment proxy is a separate service rather than part of the Python process: `backend/storelimitlessbackend/` is a Next.js app that
+stores the active Cloudflare Quick Tunnel URL and its update timestamp in Upstash Redis. In `CLOUD` mode, the Python process registers its temporary
+HTTPS API tunnel with this service; the stable proxy forwards browser requests to that current upstream. The proxy does not provide file storage and
+does not expose the FTP listener.
+
 ### Responsibility boundaries
 
 - **`frontend/`** renders the user interface and makes HTTP requests. The browser does not communicate directly with Discord or Telegram.
@@ -181,19 +195,27 @@ generated caches, virtual environments, and dependency folders are deliberately 
 │   │       ├── filesystem.py         # Virtual filesystem operations
 │   │       ├── upload.py             # Staged FTP upload adapter
 │   │       └── utils.py              # FTP path/model helpers
-│   └── server/
-│       ├── app.py                    # FastAPI application and CORS
-│       ├── frontend.py               # Packaged SPA and runtime config
-│       ├── jwt_handler.py            # Bearer-token creation/validation
-│       ├── security.py               # Password hashes and signed public tokens
-│       ├── utils.py                  # Input validation helpers
-│       └── routers/
-│           ├── __init__.py            # Router composition
-│           ├── accounts.py           # Registration, login, metadata
-│           ├── directories.py        # Directory/file operations, search, trash
-│           ├── public_routes.py      # Readiness, upload status, stream/download
-│           ├── uploads.py            # Browser uploads and URL-import jobs
-│           └── upload_state.py       # Redis upload-session and chunk coordination
+│   ├── server/
+│   │   ├── app.py                    # FastAPI application and CORS
+│   │   ├── frontend.py               # Packaged SPA and runtime config
+│   │   ├── jwt_handler.py            # Bearer-token creation/validation
+│   │   ├── security.py               # Password hashes and signed public tokens
+│   │   ├── utils.py                  # Input validation helpers
+│   │   └── routers/
+│   │       ├── __init__.py            # Router composition
+│   │       ├── accounts.py           # Registration, login, metadata
+│   │       ├── directories.py        # Directory/file operations, search, trash
+│   │       ├── public_routes.py      # Readiness, upload status, stream/download
+│   │       ├── uploads.py            # Browser uploads and URL-import jobs
+│   │       └── upload_state.py       # Redis upload-session and chunk coordination
+│   └── storelimitlessbackend/         # Next.js stable API proxy for CLOUD deployments
+│       ├── app/
+│       │   ├── api/register/route.ts  # Authenticated tunnel registration
+│       │   ├── health/route.ts       # Proxy registry health
+│       │   └── page.tsx              # Proxy project's minimal root page
+│       ├── proxy.ts                  # Routes API traffic to registered tunnel
+│       ├── package.json
+│       └── next.config.ts
 ├── core/
 │   ├── config.py                     # Hosting mode, paths, logging, runtime settings
 │   ├── data_center.py                # Provider factory and bounded local cache
@@ -239,9 +261,15 @@ generated caches, virtual environments, and dependency folders are deliberately 
 │   │           │   ├── ItemDetailsModal.jsx
 │   │           │   ├── BulkActionConfirmModal.jsx
 │   │           │   ├── UploadJobsTray.jsx
+│   │           │   ├── DownloadJobsTray.jsx
+│   │           │   ├── BackgroundOperationsTray.jsx # Component exists; not currently wired into Dashboard.jsx
 │   │           │   ├── MoveModal.jsx
 │   │           │   ├── UploadModal.jsx
+│   │           │   ├── FileContentPreview.jsx
 │   │           │   └── ViewFile.jsx
+│   │           ├── uploadFiles.js            # Directory/drop path extraction
+│   │           ├── utils/
+│   │           │   └── resumableDownloads.js # IndexedDB persistence for download tasks
 │   │           └── hooks/
 │   │               ├── useDashboardData.js
 │   │               ├── useGlobalFileSearch.js
@@ -253,8 +281,9 @@ generated caches, virtual environments, and dependency folders are deliberately 
 │   ├── postcss.config.js
 │   ├── tailwind.config.js
 │   └── vite.config.js
-├── linux/                            # Generated Linux LOCAL/CLOUD executables
-├── windows/                          # Generated Windows LOCAL/CLOUD executables
+├── releases/
+│   ├── linux/                        # Generated Linux LOCAL/CLOUD executables
+│   └── windows/                      # Generated Windows LOCAL/CLOUD executables
 ├── build.sh                          # Builds selected OS targets in LOCAL and CLOUD modes
 ├── requirements.txt                  # Python runtime dependencies
 ├── storelimitless-backend.spec       # PyInstaller specification
@@ -264,8 +293,9 @@ generated caches, virtual environments, and dependency folders are deliberately 
 
 `data/` is runtime storage in source/development mode. In frozen mode, runtime data is instead placed in the operating system's StoreLimitless
 application-data directory. Treat logs, CSV exports, Telegram session data, and configuration files as potentially sensitive. The `releases/linux` and
-`releases/windows` directories contain generated release variants after a build. The build also creates `Store-Limitless-api` and
-`Store-Limitless-api` as needed, with the standard-named `LOCAL` executable copied for each selected platform. Temporary paths such as
+`releases/windows` directories contain generated release variants after a build. The build can also create the separately maintained SDK's
+`Store-Limitless-api` binary directory, with the standard-named `LOCAL` executable copied
+for each selected platform. Temporary paths such as
 `build/`, `frontend/node_modules/`, `frontend/dist/`, `__pycache__/`, and `.pyc`/`.pyo` files can be recreated by the build or runtime workflow and
 are
 cleaned after a successful build.
@@ -305,8 +335,11 @@ authenticated user's `Directory` and `File` records.
 `core.data_center.DataCenter` maps a provider name to its implementation. The configured providers in this source are `Discord` and `Telegram`. A
 file's `data_center` field chooses which implementation is used for upload and download.
 
-The current source defines a maximum part size of **10 MiB** (`10 * 1024 * 1024`). The `links` array should contain one link for each stored part. The
-streaming code verifies the part count against the recorded file size.
+The current source defines a maximum part size of **10 MiB** (`10 * 1024 * 1024`) for the configured providers. Each provider also exposes its own
+`MAX_PARALLEL_UPLOADS` limit, which bounds simultaneous part uploads independently: the current classes set Discord to **2** and Telegram to **8**.
+The `links` array should contain one link for each stored part. The streaming code verifies the part count against the recorded file size. If you
+intend a different concurrency policy, change the provider class value in `core/utils/discord_.py` or `core/utils/telegram_.py` and update this
+reference accordingly.
 
 ### 4. Cache and transfer files are disposable
 
@@ -378,8 +411,8 @@ transfer layer.
 3. The backend validates the requested provider, file name, target directory, batch ownership, and batch status. A child job ID is created. The
    backend stores the child's owner, display name, destination directory, provider, type, batch ID, and progress metadata in Redis, adds the job to
    the per-user index, and associates it with the parent batch. Pending file/session data also uses a time-to-live.
-4. The frontend divides each local file into **1 MiB chunks**, sends up to **4 chunks concurrently**, and retries transient chunk failures up to the
-   configured attempt limit.
+4. The frontend divides each local file into **1 MiB chunks**, sends up to **8 chunks concurrently**, and allows up to **3 total attempts** for each
+   chunk before failing the item.
 5. The frontend sends byte chunks to `PUT /public/upload/{job_id}/chunk`, with `offset` and `total` query parameters.
 6. The backend writes each chunk at its declared byte offset and records received ranges in Redis. The range helper merges overlapping/adjacent ranges
    and tracks the contiguous byte count from offset zero.
@@ -401,7 +434,13 @@ scratch space cleaned up when the application shuts down.
 
 ### Import one or many remote links
 
-`POST /auth/upload-link` starts a background import job for one URL. The upload page accepts **one HTTP (S) URL or supported magnet URI per line** and
+`POST /auth/upload-link` starts a background import job for one URL. `GET /auth/torrent-preview` resolves magnet metadata and returns its file list
+without downloading payload data. Torrent metadata inspection is tracked as a persistent upload-tray task and runs after the upload dialog closes, so
+the user can continue using the website while inspection proceeds. When metadata is ready, the tray exposes **Select files and start**. The selection
+dialog shows files from inside the current torrent root (without repeating the root directory name); when multiple magnet links are queued, the modal
+advances one torrent at a time. Selected file records appear individually in the tray; libtorrent can download selected files concurrently, while
+storage uploads remain sequential. Completed files stay visible in the task until the user clears or dismisses it. The upload page accepts **one
+HTTP (S) URL or supported magnet URI per line** and
 validates the complete selection before creating a single batch with `POST /auth/upload-batches`. Each link is then imported sequentially as a child
 job. The one tray task shows every link up front and records its own status, while child jobs provide backend progress.
 
@@ -412,7 +451,11 @@ The server chooses the downloader from the URL host:
   response filename metadata when available and rejects likely HTML pages that do not look like file downloads.
 - **Google Drive links** (`drive.google.com`) use the Google Drive downloader. The current implementation requests file name/size metadata through the
   Google Drive API, so the configured Google API key and access to the file are required.
-- **YouTube links** (`youtube.com`, subdomains of `youtube.com`, and `youtu.be`) use `yt-dlp` and FFmpeg to download/process media.
+- **YouTube links** (`youtube.com`, subdomains of `youtube.com`, and `youtu.be`) use `yt-dlp` and FFmpeg to download/process media. The downloader
+  resolves a stable media filename from yt-dlp's metadata/output path, updates the task name when available, and publishes distinct progress phases
+  for
+  video download, audio download, audio/video merging, and storage upload. Stage percentages are available when yt-dlp or the uploader reports byte
+  totals; merging does not necessarily have a meaningful percentage.
 - **Magnet links** (`magnet:?xt=urn:btih:...` or `magnet:?xt=urn:btmh:...`) use the `libtorrent` engine. The downloader reports peer discovery,
   metadata retrieval, downloading, and the completed/seeding transition through the shared `Progress` object.
 
@@ -434,17 +477,22 @@ Torrent imports are implemented in `core/utils/download_utils.py`; `core/utils/d
 staging,
 and the helpers used for direct HTTP (S), Google Drive, and YouTube downloads.
 
-1. The torrent engine joins the swarm and reports `Searching for peers` or `Downloading torrent metadata` while magnet metadata is unavailable.
-2. Once metadata arrives, the progress object reports downloaded bytes, total bytes, connected peers, and seed count. The resolved torrent filename is
-   propagated into the active progress/job state so the tray can replace the submitted magnet-link label with the actual torrent/file name.
-3. The torrent is downloaded completely to a temporary directory under `TRANSFER_PATH`. Torrent files are not uploaded while pieces are still
-   arriving.
-4. After completion, the torrent session is stopped and the downloader validates each torrent-relative path before accessing the local files.
-5. The torrent's root folder and nested directories are recreated beneath the selected StoreLimitless destination. Existing trashed directories with
+1. Before importing a magnet, the frontend calls `GET /auth/torrent-preview`. The backend resolves metadata and returns the file paths and sizes
+   without intentionally downloading payload data.
+2. The frontend opens a selection modal for each magnet link in queue order. Every file is selected by default; users can deselect unwanted files. For
+   multiple magnets, the modal advances one torrent at a time.
+3. The selected original file indexes are passed to `POST /auth/upload-link`. Libtorrent assigns normal priority to selected files and priority zero
+   to unselected files, focusing payload transfer on the requested files.
+4. Progress reports the selected payload's byte total, connected peers, and seed count. The resolved torrent name is propagated into the active job
+   state.
+5. Selected files are downloaded completely to a temporary directory under `TRANSFER_PATH` before being uploaded sequentially. Unselected files are
+   not added to the StoreLimitless directory.
+6. After completion, the torrent session is stopped and the downloader validates each selected torrent-relative path before accessing local files.
+7. The torrent's root folder and nested directories are recreated beneath the selected StoreLimitless destination. Existing trashed directories with
    matching paths are restored when needed.
-6. Files are uploaded sequentially through `core.transfer.file_upload()`. The first uploaded file uses the import's initial database record; remaining
+8. Files are uploaded sequentially through `core.transfer.file_upload()`. The first uploaded file uses the import's initial database record; remaining
    files receive their own records.
-7. The temporary torrent directory is removed after success or failure.
+9. The temporary torrent directory is removed after success or failure.
 
 The torrent module excludes libtorrent padding files, rejects unsafe paths, and checks that resolved files stay inside the temporary download
 directory. A magnet may remain in peer search when no peers are reachable, and a torrent cannot complete when its required pieces are unavailable. The
@@ -454,6 +502,23 @@ Downloaded HTTP (S)/YouTube content is written to a temporary file and sent thro
 HTML pages, authenticated downloads the server cannot access, expired links, and unsupported provider-specific pages may fail even when the URL is
 syntactically valid. YouTube processing requires `yt-dlp`; FFmpeg is discovered or installed by the binary helper on supported platforms. Magnet
 imports require the Python `libtorrent` module to be installed in the runtime environment.
+
+#### Torrent selection dialog keyboard behavior
+
+The persistent upload tray opens the torrent picker after a metadata-preview task is ready. Every file is checked by default; checked files are the
+ones that will be imported. The keyboard focus highlight is deliberately separate from the checkbox selection so navigating does not change the upload
+set by itself.
+
+| Key       | Action                                                                                        |
+|-----------|-----------------------------------------------------------------------------------------------|
+| `↑` / `↓` | Move focus between file rows; the handler stops the event from reaching dashboard navigation. |
+| `Space`   | Toggle the checkbox for the focused file.                                                     |
+| `Enter`   | Start processing the checked files.                                                           |
+| `Esc`     | Cancel/close the selection dialog before processing begins.                                   |
+
+After the selected set is persisted to the upload batch, the dialog closes and downloading/uploading proceeds in the background. Selected file names
+are displayed as basenames rather than full torrent root paths; progress is tracked separately per selected file. Libtorrent can download selected
+files as part of a torrent session, while the StoreLimitless file records are uploaded sequentially to avoid overlapping provider-level jobs.
 
 ### How `file_upload()` works
 
@@ -522,8 +587,11 @@ The stream generator:
 4. Validates the downloaded part length.
 5. Yields only the requested region, in output blocks of at most 1 MiB.
 
-This arrangement lets the browser video player seek without downloading the entire file from the start, provided the client sends byte-range requests
-and the remote part metadata is valid.
+This arrangement lets the browser video player or an external player seek without downloading the entire file from the start, provided the client
+sends byte-range requests and the remote part metadata is valid. The stream generator prefetches the next provider part in the background while it
+serves the current one, yields output buffers of at most 1 MiB, and cancels any outstanding prefetch task when the response closes. Provider part
+reads
+use bounded retries; the Discord adapter reads CDN attachments without a fixed total-response timeout and retries incomplete/failed responses.
 
 ### Public stream versus public download
 
@@ -531,9 +599,31 @@ The code has separate endpoints for inline streaming and download-as-attachment.
 action, then uses it to request the corresponding public stream or download endpoint. The public token is signed using HMAC and binds the token to a
 file ID and username.
 
-In the current implementation, the public token payload does not include an expiration timestamp. Treat links as bearer capabilities: anyone who
-obtains a valid link may be able to use it until the signing secret changes or the referenced file ceases to resolve. Add expiry/revocation behavior
-before relying on links for sensitive files.
+The download endpoint also supports `HEAD`, byte ranges, `ETag`, and `If-Range` validators, which are used by the resumable-download manager to
+verify the source and resume safely. In the current implementation, the public token payload does not include an expiration timestamp. Treat links as
+bearer capabilities: anyone who obtains a valid link may be able to use it until the signing secret changes or the referenced file ceases to resolve.
+Add expiry/revocation behavior before relying on links for sensitive files.
+
+### Browser download manager and resumable downloads
+
+The dashboard has a separate **Downloads** tray for local downloads (distinct from the Redis-backed upload tray). In browsers supporting the File
+System Access API, choosing a file download opens the browser's save-file picker and writes verified byte ranges directly to that file rather than
+buffering a multi-gigabyte download entirely in JavaScript memory.
+
+- The frontend requests a signed download token, then checks the file with `HEAD` for total size and an `ETag`.
+- The download is split into **8 MiB byte-range requests**. Each range must return `206 Partial Content`, the exact expected `Content-Range`, and the
+  expected number of bytes before the frontend writes it to disk. Transient range failures are retried up to five attempts.
+- `If-Range` and the recorded `ETag` guard against continuing a partial file when the stored representation has changed.
+- Download task metadata and the browser file handle are stored in IndexedDB. A page reload restores in-progress jobs as **paused**, and the user can
+  resume them from the tray if browser permission for the chosen file is still available. Completed tasks can be cleared from the tray.
+- The UI exposes progress, pause, resume, remove-task, and clear-completed actions. If the File System Access API is unavailable, the app falls back
+  to
+  a normal browser download; resumable tray controls are not available on that fallback path.
+
+The File System Access APIs are browser- and security-context-dependent. They are generally available on HTTPS origins and localhost, but not on an
+ordinary HTTP LAN URL such as `http://192.168.x.x:5173`. In that case, folder selection can fall back to the legacy directory-input path, and Chromium
+may show its native “Upload N files to this site?” confirmation. A web page cannot reliably suppress browser-owned security confirmations from
+JavaScript. To use the modern folder picker and disk-backed resumable downloads on a LAN, serve the web app in a secure context (for example, HTTPS).
 
 ---
 
@@ -676,8 +766,19 @@ All dashboard-specific modules are under `src/pages/dashboard/`:
 - `components/UploadModal.jsx` handles local-file uploads, nested folder uploads, and HTTP (S)/magnet link imports. It registers one batch containing
   the entire selection, closes the modal automatically, then processes items sequentially.
 - `components/UploadJobsTray.jsx` displays persistent upload/import batches with aggregate progress, cancellation, per-task dismissal, and Clear all.
-  A single-file batch uses the compact single-file row layout; folder and multi-file batches retain the nested per-item checklist. Completed task
-  history stays visible until dismissed.
+  A single-file batch uses the compact single-file row layout; folder and multi-file batches retain the nested per-item status list. Torrent items
+  show
+  distinct queued/downloading/downloaded/uploading/completed/failed/cancelled states and per-file progress. YouTube task headings use the resolved
+  media
+  filename when available instead of the source URL; the status line shows the processing stage and percentage without repeating that filename.
+  YouTube
+  links can surface video/audio download, merge, and storage-upload phases. Completed task history stays visible until dismissed. The
+  torrent-selection
+  modal uses checked boxes to determine the upload set; arrow-key focus movement is not itself selection.
+- `components/DownloadJobsTray.jsx` displays browser-local resumable download tasks, with pause/resume, progress, removal, and clearing completed
+  jobs.
+- `utils/resumableDownloads.js` stores resumable download metadata and browser file handles in IndexedDB.
+- `uploadFiles.js` extracts files and relative paths from file drops, including supported dropped directory trees.
 - `components/ViewFile.jsx` routes to the correct preview by file extension and preserves the custom video player, including seeking, playback rate,
   volume, fullscreen, and picture-in-picture controls.
 - `components/FileContentPreview.jsx` fetches text content through an authenticated signed stream and renders source/config files as plain text,
@@ -689,6 +790,26 @@ Text/source previews intentionally use escaped plain text rather than a syntax-h
 executable HTML. The viewer's dark background/pane owns vertical and horizontal scrolling, including long lines, rather than trapping scrolling in the
 text element. Text preview is limited to 5 MB to avoid freezing the browser tab. Markdown supports common headings, paragraphs, inline emphasis/code,
 fenced code blocks, lists, blockquotes, horizontal rules, and HTTP (S) links; it is not a full CommonMark implementation.
+
+#### Video player controls and keyboard shortcuts
+
+The custom video player exposes timeline seeking, volume, playback speed, fullscreen, picture-in-picture (when supported by the browser), and a
+copy-stream-link action. Its keyboard shortcuts are active while the video viewer is open and the event target is not a text-editing control:
+
+| Key            | Action                                                                                |
+|----------------|---------------------------------------------------------------------------------------|
+| `Space` or `K` | Play/pause                                                                            |
+| `←` / `→`      | Seek backward/forward 5 seconds; hold `Shift` to seek 10 seconds                      |
+| `J` / `L`      | Seek backward/forward 10 seconds                                                      |
+| `↑` / `↓`      | Raise/lower volume by 5%                                                              |
+| `M`            | Toggle mute                                                                           |
+| `F`            | Toggle fullscreen                                                                     |
+| `Esc`          | Close the playback-speed menu when open; otherwise return to the previous page/folder |
+| `Backspace`    | Return to the previous page/folder unless focus is in a text-editing control          |
+
+Playback speeds are available from **0.25× through 2×** (including 0.75×, 1.25×, 1.5×, and 1.75×). Picture-in-picture and fullscreen behavior depends
+on browser support and permissions. The stream-link action copies the signed playback URL; treat that URL as a bearer link, because the current
+signed-token format has no expiry timestamp.
 
 - `constants.js` centralizes the API URL, navigation entries, and shared keys/styles.
 - `utils.js` contains shared path, token, file-kind, route, and selection helpers. `getFileKind()` maps common code, configuration, text, Markdown,
@@ -772,6 +893,9 @@ On the standalone upload page:
 - **Backspace** returns to the dashboard when focus is not in an editable field; normal text editing is preserved.
 - **Enter** triggers the upload/import action when it is enabled, except inside the multi-link text area, where Enter inserts a new line. Key repeat
   is ignored when triggering the action.
+- **Folder picker:** the Choose folder control uses `window.showDirectoryPicker()` when the browser supports it, recursively gathers files and records
+  relative paths, then recreates those nested paths at upload time. Browsers/security contexts that do not expose that API use a hidden
+  `webkitdirectory` input as a fallback; browser-owned multi-file confirmation prompts may therefore still appear on ordinary HTTP LAN origins.
 - In **Link** mode, paste or type one HTTP (S) URL per line. Blank lines are ignored. The page validates all non-empty URLs before creating separate
   import jobs, then returns to the dashboard so their progress can be followed in the tray.
 - In **File** mode, users can select multiple local files or drop files into the upload area. Transfers use the chunked upload workflow documented
@@ -811,6 +935,26 @@ The move dialog fetches immediate children as the user browses and caches each v
 pass the dashboard's move validation: moving a directory into itself or one of its descendants is rejected, as is a move with no effective destination
 change. A selected directory's action toggles between **Choose** and **Deselect**; **Use this folder** selects the folder currently open in the
 dialog. Partial failures are reported instead of being treated as a complete success.
+
+#### Dashboard keyboard shortcuts
+
+These shortcuts are handled by the dashboard when a text-editing control or an owning modal does not have keyboard input:
+
+| Key / combination     | Action                                                                                                                    |
+|-----------------------|---------------------------------------------------------------------------------------------------------------------------|
+| `↑` / `↓` / `←` / `→` | Move the active dashboard selection spatially through visible items; in the dashboard this also selects the focused item. |
+| `Enter`               | Open the single selected file or folder.                                                                                  |
+| `Ctrl+A` / `Cmd+A`    | Select all selectable items in the current view.                                                                          |
+| `Delete`              | Open the Move to Trash confirmation for selected items.                                                                   |
+| `Shift+Delete`        | Open the permanent-delete confirmation for selected items outside Trash.                                                  |
+| `F2`                  | Rename the single selected item when not in Trash.                                                                        |
+| `Alt+Enter`           | Open details for the single selected item.                                                                                |
+| `Backspace`           | Navigate to the parent folder (or dashboard root) when not editing text.                                                  |
+| `Esc`                 | Close/cancel the active confirmation where applicable; otherwise clear dashboard selection.                               |
+
+The torrent picker is intentionally an exception: its `↑` / `↓` keys move only the dialog's focus highlight, `Space` toggles the checked state,
+`Enter` begins the selected import, and `Esc` closes the picker. The dialog stops those key events from also moving dashboard selection. Destructive
+confirmation dialogs initially focus the destructive action; arrow keys can switch focus to Cancel before the user activates it.
 
 ### Global visual behavior
 
@@ -888,25 +1032,28 @@ changes.
 
 ### Upload and public-file routes
 
-| Method and path                                                              | Purpose                                                                                                                                            |
-|------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------|
-| `POST /auth/upload-batches`                                                  | Register one account-shared task with the full list of queued files/links.                                                                         |
-| `GET /auth/upload-batches`                                                   | List batch tasks and every per-item status for the authenticated account.                                                                          |
-| `PATCH /auth/upload-batches/{batch_id}`                                      | Update a batch's state, current child job, progress counters, or item status.                                                                      |
-| `POST /auth/upload-batches/{batch_id}/cancel`                                | Cancel the active child and stop subsequent queued items.                                                                                          |
-| `DELETE /auth/upload-batches/{batch_id}`                                     | Remove one terminal batch and its child job records.                                                                                               |
-| `DELETE /auth/upload-batches`                                                | Cancel active batches and clear all account tray history.                                                                                          |
-| `POST /auth/upload`                                                          | Create a browser-upload child job. Headers include `X-Data-Center`, `X-Directory`, `X-File-Name`, optional `X-File-Size`, and `X-Upload-Batch-Id`. |
-| `PUT /public/upload/{job_id}/chunk?offset=...&total=...`                     | Send bytes for a declared file range. Requires the owning user's bearer token.                                                                     |
-| `POST /auth/upload-link?link=...&data_center=...&directory=...&batch_id=...` | Create a child job to import a remote link within its parent batch.                                                                                |
-| `GET /auth/upload-jobs`                                                      | List child jobs for authenticated-account diagnostics/legacy consumers.                                                                            |
-| `POST /auth/upload-jobs/{job_id}/cancel`                                     | Cancel an owned child job and publish shared cancelled status.                                                                                     |
-| `POST /auth/upload-jobs/{job_id}/fail`                                       | Record a browser-side file-transfer failure on an owned child job.                                                                                 |
-| `DELETE /auth/upload-jobs/{job_id}`                                          | Dismiss a legacy standalone terminal child job.                                                                                                    |
-| `GET /auth/upload-jobs/{job_id}/status`                                      | Read status for a child job; requires the user's bearer token.                                                                                     |
-| `GET /public/ready`                                                          | Report whether the Discord storage client is ready.                                                                                                |
-| `GET /public/stream/{token}`                                                 | Stream a file and honor the HTTP `Range` header.                                                                                                   |
-| `GET /public/download/{token}`                                               | Stream a file as an attachment.                                                                                                                    |
+| Method and path                                                                                 | Purpose                                                                                                                                            |
+|-------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------|
+| `POST /auth/upload-batches`                                                                     | Register one account-shared task with the full list of queued files/links.                                                                         |
+| `GET /auth/upload-batches`                                                                      | List batch tasks and every per-item status for the authenticated account.                                                                          |
+| `PATCH /auth/upload-batches/{batch_id}`                                                         | Update a batch's state, current child job, progress counters, or item status.                                                                      |
+| `POST /auth/upload-batches/{batch_id}/cancel`                                                   | Cancel the active child and stop subsequent queued items.                                                                                          |
+| `DELETE /auth/upload-batches/{batch_id}`                                                        | Remove one terminal batch and its child job records.                                                                                               |
+| `DELETE /auth/upload-batches`                                                                   | Cancel active batches and clear all account tray history.                                                                                          |
+| `POST /auth/upload`                                                                             | Create a browser-upload child job. Headers include `X-Data-Center`, `X-Directory`, `X-File-Name`, optional `X-File-Size`, and `X-Upload-Batch-Id`. |
+| `PUT /public/upload/{job_id}/chunk?offset=...&total=...`                                        | Send bytes for a declared file range. Requires the owning user's bearer token.                                                                     |
+| `GET /auth/torrent-preview?link=...`                                                            | Resolve a magnet link and return torrent file indexes, paths, and sizes before payload download. Requires authentication.                          |
+| `POST /auth/upload-link?link=...&data_center=...&directory=...&batch_id=...&selected_files=...` | Create a child job to import a remote link; `selected_files` carries the selected torrent indexes when applicable.                                 |
+| `GET /auth/upload-jobs`                                                                         | List child jobs for authenticated-account diagnostics/legacy consumers.                                                                            |
+| `POST /auth/upload-jobs/{job_id}/cancel`                                                        | Cancel an owned child job and publish shared cancelled status.                                                                                     |
+| `POST /auth/upload-jobs/{job_id}/fail`                                                          | Record a browser-side file-transfer failure on an owned child job.                                                                                 |
+| `DELETE /auth/upload-jobs/{job_id}`                                                             | Dismiss a legacy standalone terminal child job.                                                                                                    |
+| `GET /auth/upload-jobs/{job_id}/status`                                                         | Read status for a child job; requires the user's bearer token.                                                                                     |
+| `GET /public/ready`                                                                             | Report whether the Discord storage client is ready.                                                                                                |
+| `GET /public/upload/{job_id}/status`                                                            | Read an owned upload child's status/progress through the public-router namespace; a bearer token is still required.                                |
+| `GET /public/stream/{token}`                                                                    | Stream a file and honor the HTTP `Range` header.                                                                                                   |
+| `GET /public/download/{token}`                                                                  | Download a file as an attachment with byte ranges and validators.                                                                                  |
+| `HEAD /public/download/{token}`                                                                 | Return download metadata such as content length and ETag without the response body.                                                                |
 
 These tables describe the routes relevant to the supplied source; they are not intended to replace generated OpenAPI documentation from a running
 instance.
@@ -1239,7 +1386,8 @@ frontend dependencies and regenerates `frontend/dist`. The Next.js dependencies/
   `/config.js` exposes `window.STORELIMITLESS_CONFIG.API_URL` at runtime.
 - **LOCAL source mode:** FastAPI runs alongside the Vite development server on port `5173`. Missing frontend dependencies are installed on startup.
 - **CLOUD executable:** frontend assets are excluded by setting `INCLUDE_FRONTEND=0`. The application points users to the Vercel-hosted website and
-  starts a Cloudflare tunnel only for the API. It must not attempt to serve a missing local `frontend/dist`.
+  starts a Cloudflare tunnel only for the API. It must not attempt to serve a missing local `frontend/dist`. The separate Next.js proxy in
+  `backend/storelimitlessbackend/` uses Upstash Redis to route requests to the latest registered tunnel.
 
 Do not hand-edit generated JavaScript/CSS in `frontend/dist`; make changes under `frontend/src/` and rebuild. Packaging is platform-specific, so build
 and smoke-test each target on its intended operating system where possible. A successful PyInstaller build alone does not prove that credentials,
@@ -1344,6 +1492,10 @@ This project should be treated as a self-hosted application that requires securi
 - When importing several links, use one URL per line. Check each job's separate status in the dashboard tray if one import fails while others
   continue.
 - Inspect the returned upload status and server logs for the background transfer error.
+- If Chrome displays **“Upload N files to this site?”** after choosing a folder, check the address first. The modern `showDirectoryPicker()` API is
+  restricted to secure contexts; an HTTP LAN URL such as `http://192.168.x.x:5173` typically falls back to the legacy `webkitdirectory` input, whose
+  confirmation is browser-controlled. Use HTTPS for the LAN website (or use a browser-supported secure context); JavaScript cannot reliably dismiss
+  the browser's security prompt.
 
 ### Streaming or seeking fails
 
@@ -1372,14 +1524,6 @@ This project should be treated as a self-hosted application that requires securi
 ---
 
 ## Developer guide
-
-### Type annotations and typing boundaries
-
-The supplied Python source was audited for function-signature annotations across `backend/` and `core/`. All 256 Python function and method definitions have return annotations, and all explicit parameters other than the conventional instance/class parameters (`self` and `cls`) have annotations. No missing Python function-parameter or return annotations were found in this source snapshot, so those signatures were left unchanged rather than rewriting already annotated code or altering its formatting.
-
-The internal Vercel/Next.js service under `backend/storelimitlessbackend/` uses TypeScript for `.ts` and `.tsx` files and has `strict: true` in `tsconfig.json`. The primary Vite/React frontend under `frontend/` is JavaScript (`.js`/`.jsx`), not TypeScript; JavaScript does not support native parameter/return type syntax. Its source was kept in JavaScript rather than converting files or adding broad `any` annotations that would create the appearance of type safety without providing it. If static type checking is desired for that frontend, add deliberate JSDoc types and enable TypeScript `checkJs` incrementally, resolving inferred prop, event, API-response, and state types instead of blanket-casting them.
-
-Typing verification for this source snapshot: an AST audit found no missing Python function argument/return annotations, and Python compilation was checked with `compileall`. This is a coverage audit, not a claim that a full mypy/pyright analysis or a production frontend build passed.
 
 ### Where to make changes
 
@@ -1483,4 +1627,20 @@ public-token expiry, and FTP seek behavior.
   deployment
   mode or workflow has been integration-tested.
 
-The supplied ZIP does not include a root `LICENSE` file; add one if this repository is intended to publish explicit licensing terms.
+For licensing terms, see the repository's `LICENSE` file.
+
+### Recent reliability updates
+
+- Torrent selection tasks now expose per-file download progress and per-file sequential upload progress in the upload tray. The selection dialog
+  closes as soon as the first selected torrent job is accepted, while the task continues in the background.
+- Upload concurrency is configured per storage provider through `DataCenter.MAX_PARALLEL_UPLOADS`: the source currently sets Discord to two concurrent
+  part uploads and Telegram to eight. The README value must be kept in sync with the provider class constants.
+- Torrent file-level progress is persisted with the child upload status so the tray can show individual status, byte counts, and progress bars rather
+  than only a batch-level percentage.
+- Streaming storage-chunk reads use a bounded long timeout and retry policy, Discord CDN reads retry incomplete responses without a fixed total-read
+  timeout, and the stream iterator prefetches the next storage part in the background. The stream endpoint continues to support HTTP byte ranges,
+  seeking, HEAD/ETag-assisted downloads, and resumable range transfer.
+- YouTube imports publish separate video download, audio download, merge, and storage-upload stages; the UI normalizes transient URL/ID placeholders
+  so a resolved title can replace the source URL as the display name.
+- Torrent selection uses checkboxes as the source of truth for which files to import. All files start checked by default; keyboard focus highlighting
+  is separate, and the picker isolates arrow-key navigation from the dashboard.

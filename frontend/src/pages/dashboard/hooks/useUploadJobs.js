@@ -46,6 +46,7 @@ export default function useUploadJobs(refreshDirectory) {
                         directory: String(batch.directory || "/home"),
                         dataCenter: String(batch.data_center || ""),
                         items: Array.isArray(batch.items) ? batch.items : [],
+                        torrentFiles: Array.isArray(batch.torrent_files) ? batch.torrent_files : [],
                         totalItems,
                         completedItems: Math.max(0, Number(batch.completed_items) || 0),
                         currentIndex: Math.max(0, Number(batch.current_index) || 0),

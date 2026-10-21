@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import re
 from asyncio import Task, gather, sleep
 from pathlib import Path
 from time import time
 from typing import Any, cast, Iterable
+from urllib.parse import urlsplit
 
 from fastapi import HTTPException
 
@@ -395,7 +397,7 @@ async def cancel_upload_job_state(job_id: str, username: str) -> str:
 
 
 async def list_user_upload_batches(username: str) -> list[dict[str, Any]]:
-    """List batch tasks with aggregate progress from the one currently active child job."""
+    """List batch tasks with aggregate progress and the current child stage."""
 
     index_key = user_upload_batches_key(username)
     raw_batch_ids: set[str] = await Redis.redis.smembers(index_key)
@@ -413,31 +415,61 @@ async def list_user_upload_batches(username: str) -> list[dict[str, Any]]:
         completed_items = max(0, min(int(metadata.get("completed_items") or 0), total_items))
         current_transfer = 0
         current_total = 0
-        current_name = str(metadata.get("current_name") or "")
+        current_name = str(metadata.get("current_name") or "").strip()
+        current_message = str(metadata.get("message") or "")
         current_job_id = str(metadata.get("current_job_id") or "")
+        items_raw = metadata.get("items") if isinstance(metadata.get("items"), list) else []
+        items = [dict(item) if isinstance(item, dict) else {"name": str(item)} for item in cast(Iterable, items_raw)]
+        current_index = int(metadata.get("current_index") or 0)
+        source_name = str(items[current_index].get("name") or "") if 0 <= current_index < len(items) else ""
+        current_name_is_url = current_name.lower().startswith(("http://", "https://"))
+
+        if current_name_is_url:
+            current_name = ""
+
+        parsed_source = urlsplit(source_name) if source_name.lower().startswith(("http://", "https://")) else None
+        source_host = (parsed_source.hostname or "").lower().removeprefix("www.") if parsed_source else ""
+        is_youtube_source = source_host in {"youtube.com", "youtu.be"} or source_host.endswith(".youtube.com")
+        source_path_name = (parsed_source.path.rstrip("/").rsplit("/", 1)[-1] if parsed_source else "")
+        placeholder_names = {"", "link", "upload", "torrent", "watch", "shorts", "embed", "live", "video", "update_name_from_backend"}
 
         if current_job_id:
             try:
                 child_progress: Progress = cast(Progress, await Redis.get(current_job_id, "Progress"))
                 current_transfer = max(0, int(child_progress.transfer or 0))
                 current_total = max(0, int(child_progress.total or 0))
-                resolved_name = str(child_progress.name or "").strip()
+                progress_name = str(child_progress.name or "").replace("\\", "/").rsplit("/", 1)[-1].strip()
+                progress_name_lower = progress_name.casefold()
+                progress_message = str(child_progress.message or "").strip()
 
-                if resolved_name not in {"", "link", "update_name_from_backend"}:
-                    current_name = resolved_name
+                name_is_video_id = bool(re.fullmatch(r"[A-Za-z0-9_-]{11}", progress_name))
+                name_is_path_placeholder = is_youtube_source and (
+                        progress_name == source_path_name or name_is_video_id
+                )
+                if (
+                        progress_name and
+                        progress_name_lower not in placeholder_names and
+                        not progress_name.lower().startswith(("http://", "https://")) and
+                        not name_is_path_placeholder
+                ):
+                    current_name = progress_name
+
+                if progress_message:
+                    if progress_message.casefold().startswith("upload complete of id="):
+                        current_message = "Finalizing upload"
+
+                    else:
+                        current_message = progress_message
 
             except KeyError:
                 pass
 
-        items = metadata.get("items") if isinstance(metadata.get("items"), list) else []
-        items = [dict(item) if isinstance(item, dict) else {"name": str(item)} for item in cast(Iterable, items)]
-        current_index = int(metadata.get("current_index") or 0)
         items_changed = False
 
         if str(metadata.get("kind") or "") == "link" and current_name and 0 <= current_index < len(items):
             submitted_name = str(items[current_index].get("name") or "")
 
-            if submitted_name != current_name and current_name not in {"link", "Upload", "Torrent"}:
+            if submitted_name != current_name and not current_name.lower().startswith(("http://", "https://")):
                 items[current_index]["name"] = current_name
                 items_changed = True
 
@@ -459,16 +491,17 @@ async def list_user_upload_batches(username: str) -> list[dict[str, Any]]:
             "directory": str(metadata.get("directory") or "/home"),
             "data_center": str(metadata.get("data_center") or ""),
             "items": items,
+            "torrent_files": metadata.get("torrent_files", []) if isinstance(metadata.get("torrent_files", []), list) else [],
             "total_items": int(metadata.get("total_items") or 0),
             "completed_items": completed_items,
-            "current_index": int(metadata.get("current_index") or 0),
+            "current_index": current_index,
             "current_job_id": current_job_id,
             "current_name": current_name,
             "status": status,
             "progress": progress,
             "transfer": current_transfer,
             "total": current_total,
-            "message": str(metadata.get("message") or status.title()),
+            "message": current_message or status.title(),
             "created_at": int(float(metadata.get("created_at") or 0) * 1000),
         })
 

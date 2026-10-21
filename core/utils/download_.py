@@ -33,7 +33,7 @@ from core.utils.env import GOOGLE_API_KEY
 from core.utils.progress import Progress, upload_growing_file
 
 
-async def download_processed_link(file: File, link: str) -> AsyncGenerator[Progress, None]:
+async def download_processed_link(file: File, link: str, selected_torrent_files: set[int] | None = None, ) -> AsyncGenerator[Progress, None]:
     """Download and upload a YouTube media URL or a torrent magnet URI."""
 
     from core.transfer import file_upload
@@ -47,7 +47,7 @@ async def download_processed_link(file: File, link: str) -> AsyncGenerator[Progr
         if not link.lower().startswith("magnet:?") or not has_info_hash:
             raise ValueError("Expected a valid torrent magnet URI with an xt info-hash topic")
 
-        async for progress_value in download_torrent(file, link):
+        async for progress_value in download_torrent(file, link, selected_torrent_files):
             yield progress_value
 
         return

@@ -80,6 +80,12 @@ export default function UploadPage({modal = false, targetDirectory = "", onClose
     const [status, setStatus] = useState("idle");
     const [dragOver, setDragOver] = useState(false);
     const [queueProgress, setQueueProgress] = useState({current: 0, total: 0});
+    const [torrentSelectionQueue, setTorrentSelectionQueue] = useState([]);
+    const [torrentSelectionIndex, setTorrentSelectionIndex] = useState(0);
+    const [torrentSelections, setTorrentSelections] = useState({});
+    const [torrentSelectionReady, setTorrentSelectionReady] = useState(false);
+    const [torrentSelectionModal, setTorrentSelectionModal] = useState(false);
+    const [torrentPreviewLoading, setTorrentPreviewLoading] = useState(false);
     const uploadButtonRef = useRef(null);
     const uploadRunRef = useRef(false);
     const keyboardActionsRef = useRef({isUploadDisabled: true, directory, navigate});
@@ -291,6 +297,10 @@ export default function UploadPage({modal = false, targetDirectory = "", onClose
             }
         }
 
+        const torrentLinks = uploadMode === "link" ? links.map((value, index) => ({
+            value, index
+        })).filter(({value}) => value.toLowerCase().startsWith("magnet:?")) : [];
+
         if (uploadRunRef.current) return;
         uploadRunRef.current = true;
         setStatus("uploading");
@@ -373,6 +383,73 @@ export default function UploadPage({modal = false, targetDirectory = "", onClose
             // contains every selected file/link, even though transfers run one at a time.
             if (modal) onClose?.(); else navigate(directoryToRoute(directory));
 
+            if (torrentLinks.length > 0) {
+                if (torrentLinks.length !== links.length) {
+                    throw new Error("Please submit torrent magnets separately from regular links so each import can be selected safely.");
+                }
+
+                // Inspection runs after the modal closes. The upload tray owns the task while
+                // metadata resolves, so the rest of the website remains usable.
+                void (async () => {
+                    try {
+                        await publishBatch({
+                            status: "uploading", message: "Inspecting torrent metadata", current_name: "Inspecting torrent metadata"
+                        });
+                        const previews = await Promise.all(torrentLinks.map(async ({value, index}) => {
+                            const params = new URLSearchParams({link: value});
+                            const response = await fetch(`${API_URL}/auth/torrent-preview?${params.toString()}`, {
+                                headers: {Authorization: `Bearer ${token}`}, cache: "no-store",
+                            });
+                            if (!response.ok) {
+                                let detail = `Could not inspect torrent (${response.status})`;
+                                try {
+                                    const payload = await response.json();
+                                    detail = payload.detail || detail;
+                                } catch {
+                                    // Keep the HTTP status message when the response is not JSON.
+                                }
+                                throw new Error(detail);
+                            }
+                            const preview = await response.json();
+                            if (!Array.isArray(preview.files) || preview.files.length === 0) {
+                                throw new Error(`Torrent ${preview.name || value} contains no selectable files.`);
+                            }
+                            return {
+                                link: value, queueIndex: index, name: String(preview.name || "Torrent"), files: preview.files.map((item) => ({
+                                    index: Number(item.index),
+                                    path: String(item.path || ""),
+                                    name: String(item.path || "").split("/").slice(1).join("/") || String(item.path || "").split("/").pop(),
+                                    size: Number(item.size) || 0,
+                                })),
+                            };
+                        }));
+                        await publishBatch({
+                            status: "queued",
+                            message: "Torrent metadata ready. Select files to begin.",
+                            current_name: "",
+                            torrent_files: previews,
+                            items: previews.map((torrent) => ({
+                                name: torrent.name,
+                                size: torrent.files.reduce((total, item) => total + item.size, 0),
+                                status: "queued",
+                                message: "Ready to select files",
+                            })),
+                        });
+                    } catch (error) {
+                        try {
+                            await publishBatch({
+                                status: "error", message: error instanceof Error ? error.message : "Could not inspect torrent metadata.",
+                            });
+                        } catch (publishError) {
+                            console.error("Could not update failed torrent inspection task:", publishError);
+                        }
+                    } finally {
+                        window.__storeLimitlessUploadTransfers?.delete(batchId);
+                    }
+                })();
+                return;
+            }
+
             /** Create one child upload job, and fully finish it before starting the next item. */
             const createJob = async (selectedFile, selectedLink = "", destinationDirectory = directory, displayName = selectedFile?.name || selectedLink, itemNumber = 1) => {
                 if (cancelToken.cancelled) throw new Error("Upload task was cancelled.");
@@ -392,6 +469,12 @@ export default function UploadPage({modal = false, targetDirectory = "", onClose
                     const params = new URLSearchParams({
                         link: selectedLink, data_center: dataCenter, directory: destinationDirectory, batch_id: batchId
                     });
+                    if (selectedLink.toLowerCase().startsWith("magnet:?")) {
+                        const selectedIndexes = torrentSelections[selectedLink];
+                        if (Array.isArray(selectedIndexes) && selectedIndexes.length) {
+                            params.set("selected_files", JSON.stringify(selectedIndexes));
+                        }
+                    }
                     response = await fetch(`${API_URL}/auth/upload-link?${params.toString()}`, {
                         method: "POST", headers: {Authorization: `Bearer ${token}`},
                     });
@@ -681,6 +764,48 @@ export default function UploadPage({modal = false, targetDirectory = "", onClose
         }
     };
 
+    // Choose a folder through the File System Access API when available.
+    // Unlike <input webkitdirectory>, this avoids Chromium's extra "Upload N files"
+    // confirmation while keeping the folder picker and preserving relative paths.
+    const handleChooseFolder = async () => {
+        if (status === "uploading") return;
+
+        if (typeof window.showDirectoryPicker !== "function") {
+            document.getElementById("folder-input-fallback")?.click();
+            return;
+        }
+
+        try {
+            const directoryHandle = await window.showDirectoryPicker({mode: "read"});
+            const selectedFiles = [];
+
+            const walkDirectory = async (handle, parentPath = "") => {
+                for await (const entry of handle.values()) {
+                    const relativePath = parentPath ? `${parentPath}/${entry.name}` : entry.name;
+                    if (entry.kind === "directory") {
+                        await walkDirectory(entry, relativePath);
+                    } else if (entry.kind === "file") {
+                        const file = await entry.getFile();
+                        Object.defineProperty(file, "webkitRelativePath", {value: relativePath});
+                        selectedFiles.push(file);
+                    }
+                }
+            };
+
+            await walkDirectory(directoryHandle);
+            if (selectedFiles.length) {
+                setFiles((current) => [...current, ...selectedFiles]);
+            } else {
+                setMessage("The selected folder contains no files.");
+                setStatus("error");
+            }
+        } catch (error) {
+            if (error?.name === "AbortError") return;
+            setMessage(error instanceof Error ? error.message : "Could not read the selected folder.");
+            setStatus("error");
+        }
+    };
+
     // ==========================================
     // CHECK IF UPLOAD BUTTON SHOULD BE DISABLED
     // ==========================================
@@ -902,25 +1027,25 @@ export default function UploadPage({modal = false, targetDirectory = "", onClose
                             />
                         </label>
                         <div className="mt-3 flex flex-wrap items-center gap-3">
-                            <label htmlFor="folder-input"
-                                   className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-[#363636] px-3 py-2 text-xs text-[#b4b4b4] transition-colors hover:border-[#4d4d4d] hover:text-[#fafafa]">
+                            <button type="button" onClick={handleChooseFolder} disabled={status === "uploading"}
+                                    className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-[#363636] px-3 py-2 text-xs text-[#b4b4b4] transition-colors hover:border-[#4d4d4d] hover:text-[#fafafa] disabled:opacity-50">
                                 <span className="material-symbols-outlined text-[17px]" aria-hidden="true">folder_open</span>
                                 Choose folder
-                                <input
-                                    id="folder-input"
-                                    type="file"
-                                    multiple
-                                    webkitdirectory=""
-                                    directory=""
-                                    className="hidden"
-                                    disabled={status === "uploading"}
-                                    onChange={(event) => {
-                                        const selectedFiles = Array.from(event.target.files || []);
-                                        if (selectedFiles.length) setFiles((current) => [...current, ...selectedFiles]);
-                                        event.target.value = "";
-                                    }}
-                                />
-                            </label>
+                            </button>
+                            <input
+                                id="folder-input-fallback"
+                                type="file"
+                                multiple
+                                webkitdirectory=""
+                                directory=""
+                                className="hidden"
+                                disabled={status === "uploading"}
+                                onChange={(event) => {
+                                    const selectedFiles = Array.from(event.target.files || []);
+                                    if (selectedFiles.length) setFiles((current) => [...current, ...selectedFiles]);
+                                    event.target.value = "";
+                                }}
+                            />
                             <p className="text-xs text-[#707070]">Nested folders are recreated during upload.</p>
                         </div>
                         {files.length > 0 && (<div className="mt-3 rounded-lg border border-[#2e2e2e] bg-[#1f1f1f] divide-y divide-[#2e2e2e]">
@@ -984,7 +1109,14 @@ export default function UploadPage({modal = false, targetDirectory = "", onClose
                                     rows={5}
                                     value={link}
                                     disabled={status === "uploading"}
-                                    onChange={(event) => setLink(event.target.value)}
+                                    onChange={(event) => {
+                                        setLink(event.target.value);
+                                        setTorrentSelectionQueue([]);
+                                        setTorrentSelectionIndex(0);
+                                        setTorrentSelections({});
+                                        setTorrentSelectionReady(false);
+                                        setTorrentSelectionModal(false);
+                                    }}
                                     placeholder={"https://example.com/file-one.zip\nhttps://example.com/file-two.mkv\nmagnet:?xt=urn:btih:...&dn=example-torrent"}
                                     className={["w-full min-h-28 rounded-md border border-[#363636]", "bg-white/[0.026] pl-10 pr-3 py-2 text-sm text-[#fafafa]", "placeholder:text-[#707070] outline-none transition-colors", "focus:border-[#707070] focus:ring-2 focus:ring-[#4d4d4d]/50", "disabled:opacity-60",].join(" ")}
                                 />
@@ -1014,10 +1146,10 @@ export default function UploadPage({modal = false, targetDirectory = "", onClose
                         ref={uploadButtonRef}
                         type="button"
                         onClick={handleUpload}
-                        disabled={isUploadDisabled}
+                        disabled={isUploadDisabled || torrentPreviewLoading}
                         className={["w-full h-[38px] flex items-center justify-center gap-2 rounded-md border", "border-[#3ecf8e]/40 bg-[#006239] text-sm text-[#fafafa] transition-colors", "hover:border-[#3ecf8e]/70 hover:bg-[#007a46] disabled:opacity-50", "disabled:cursor-not-allowed",].join(" ")}
                     >
-                        {status === "uploading" ? (<>
+                        {torrentPreviewLoading ? (<>Inspecting torrent files...</>) : status === "uploading" ? (<>
                         <span className="material-symbols-outlined text-[16px] animate-spin">
                             autorenew
                         </span>
@@ -1026,7 +1158,7 @@ export default function UploadPage({modal = false, targetDirectory = "", onClose
                         <span className="material-symbols-outlined text-[16px]">
                             cloud_upload
                         </span>
-                            {uploadMode === "link" ? `Import ${links.length} Link${links.length === 1 ? "" : "s"}` : `Upload ${files.length} File${files.length === 1 ? "" : "s"}`}
+                            {uploadMode === "link" ? `${torrentSelectionReady ? "Start importing" : "Import"} ${links.length} Link${links.length === 1 ? "" : "s"}` : `Upload ${files.length} File${files.length === 1 ? "" : "s"}`}
                         </>)}
                     </button>
 
@@ -1036,5 +1168,86 @@ export default function UploadPage({modal = false, targetDirectory = "", onClose
                 </div>
             </div>
         </div>
+        {torrentSelectionModal && torrentSelectionQueue[torrentSelectionIndex] && (() => {
+            const currentTorrent = torrentSelectionQueue[torrentSelectionIndex];
+            const selectedSet = new Set(currentTorrent.selected);
+            const totalSize = currentTorrent.files.reduce((total, item) => selectedSet.has(Number(item.index)) ? total + Number(item.size || 0) : total, 0);
+            const formatTorrentBytes = (bytes) => {
+                if (bytes < 1000) return `${bytes} B`;
+                const units = ["KB", "MB", "GB", "TB"];
+                let value = bytes;
+                let unit = -1;
+                do {
+                    value /= 1000;
+                    unit++;
+                } while (value >= 1000 && unit < units.length - 1);
+                return `${value.toFixed(1)} ${units[unit]}`;
+            };
+            const updateSelected = (fileIndex, checked) => {
+                setTorrentSelectionQueue((current) => current.map((torrent, index) => index !== torrentSelectionIndex ? torrent : ({
+                    ...torrent,
+                    selected: checked ? [...new Set([...torrent.selected, Number(fileIndex)])] : torrent.selected.filter((value) => value !== Number(fileIndex)),
+                })));
+            };
+            const continueSelection = () => {
+                if (currentTorrent.selected.length === 0) return;
+                setTorrentSelections((current) => ({...current, [currentTorrent.link]: currentTorrent.selected}));
+                if (torrentSelectionIndex + 1 < torrentSelectionQueue.length) {
+                    setTorrentSelectionIndex((current) => current + 1);
+                } else {
+                    setTorrentSelectionReady(true);
+                    setTorrentSelectionModal(false);
+                    setMessage("Torrent file selections saved. Start the import to continue.");
+                    setStatus("idle");
+                }
+            };
+            return (<div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4">
+                <section role="dialog" aria-modal="true" aria-labelledby="torrent-selection-title"
+                         className="w-full max-w-2xl overflow-hidden rounded-xl border border-[#363636] bg-[#1c1c1c] shadow-2xl">
+                    <header className="flex items-start justify-between border-b border-[#2e2e2e] px-5 py-4">
+                        <div className="min-w-0">
+                            <p className="text-xs text-[#3ecf8e]">Torrent {torrentSelectionIndex + 1} of {torrentSelectionQueue.length}</p>
+                            <h2 id="torrent-selection-title" className="mt-1 truncate text-lg font-medium text-[#fafafa]">{currentTorrent.name}</h2>
+                            <p className="mt-1 text-xs text-[#898989]">All files are selected by default. Deselect anything you do not want
+                                imported.</p>
+                        </div>
+                        <button type="button" onClick={() => setTorrentSelectionModal(false)} aria-label="Close torrent selection"
+                                className="rounded-md p-1 text-[#898989] hover:bg-white/5 hover:text-white">
+                            <span className="material-symbols-outlined">close</span>
+                        </button>
+                    </header>
+                    <div className="flex items-center justify-between border-b border-[#2e2e2e] px-5 py-3 text-xs text-[#898989]">
+                        <span>{currentTorrent.selected.length} of {currentTorrent.files.length} files selected</span>
+                        <span>{formatTorrentBytes(totalSize)}</span>
+                    </div>
+                    <div className="max-h-[55vh] overflow-y-auto divide-y divide-[#292929]">
+                        {currentTorrent.files.map((item) => {
+                            const checked = selectedSet.has(Number(item.index));
+                            return (<label key={item.index} className="flex cursor-pointer items-center gap-3 px-5 py-3 hover:bg-white/[0.025]">
+                                <input type="checkbox" checked={checked} onChange={(event) => updateSelected(item.index, event.target.checked)}
+                                       className="h-4 w-4 accent-[#3ecf8e]"/>
+                                <span className="material-symbols-outlined text-[18px] text-[#898989]">draft</span>
+                                <span className="min-w-0 flex-1 break-words text-sm text-[#e5e5e5]">{item.path}</span>
+                                <span className="shrink-0 text-xs text-[#898989]">{formatTorrentBytes(Number(item.size || 0))}</span>
+                            </label>);
+                        })}
+                    </div>
+                    <footer className="flex items-center justify-between gap-3 border-t border-[#2e2e2e] px-5 py-4">
+                        <button type="button" onClick={() => {
+                            setTorrentSelectionQueue([]);
+                            setTorrentSelectionIndex(0);
+                            setTorrentSelections({});
+                            setTorrentSelectionReady(false);
+                            setTorrentSelectionModal(false);
+                        }} className="rounded-md border border-[#363636] px-3 py-2 text-sm text-[#b4b4b4] hover:bg-white/5">Cancel
+                        </button>
+                        <button type="button" disabled={!currentTorrent.selected.length} onClick={continueSelection}
+                                className="rounded-md border border-[#3ecf8e]/40 bg-[#006239] px-4 py-2 text-sm text-white hover:bg-[#007a46] disabled:cursor-not-allowed disabled:opacity-50">
+                            {torrentSelectionIndex + 1 < torrentSelectionQueue.length ? "Next torrent" : "Save selections"}
+                        </button>
+                    </footer>
+                </section>
+            </div>);
+        })()}
     </div>);
 }

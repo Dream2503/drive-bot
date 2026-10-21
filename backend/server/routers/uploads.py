@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from asyncio import CancelledError, Task, create_task
 from datetime import datetime, timezone
 from mimetypes import guess_type
@@ -23,6 +24,7 @@ from core.config import TRANSFER_PATH
 from core.data_center import DataCenter
 from core.transfer import link_upload
 from core.utils import sanitize_sensitive_urls, write_log
+from core.utils.download_utils import preview_torrent_files
 from core.utils.progress import Progress
 from .upload_state import (
     cancel_upload_task,
@@ -202,6 +204,34 @@ async def patch_upload_batch(batch_id: str, payload: dict[str, Any] = Body(...),
 
     if "message" in payload:
         updates["message"] = str(payload.get("message") or "")[:500]
+
+    if "torrent_files" in payload:
+        torrent_files = payload.get("torrent_files")
+        if not isinstance(torrent_files, list):
+            raise HTTPException(status_code=422, detail="Invalid torrent file metadata")
+        updates["torrent_files"] = torrent_files
+
+    if "items" in payload:
+        items_payload = payload.get("items")
+        if not isinstance(items_payload, list):
+            raise HTTPException(status_code=422, detail="Invalid upload task items")
+        updates["items"] = [
+            {
+                "name": str(item.get("name") or "Torrent file")[:500],
+                "size": max(0, int(item.get("size") or 0)),
+                "status": str(item.get("status") or "queued"),
+                "message": str(item.get("message") or "Queued")[:300],
+                **({"index": int(item["index"])} if "index" in item else {}),
+                **({"path": str(item["path"])[:1000]} if "path" in item else {}),
+                **({"torrent_link": str(item["torrent_link"])} if "torrent_link" in item else {}),
+                **({"file_index": int(item["file_index"])} if "file_index" in item else {}),
+                **({"transfer": max(0, int(item.get("transfer") or 0))} if "transfer" in item else {}),
+                **({"total": max(0, int(item.get("total") or 0))} if "total" in item else {}),
+            }
+            for item in items_payload if isinstance(item, dict)
+        ]
+        updates["total_items"] = len(updates["items"])
+        updates["completed_items"] = sum(item["status"] == "completed" for item in updates["items"])
 
     if "current_name" in payload:
         updates["current_name"] = str(payload.get("current_name") or "")[:500]
@@ -680,8 +710,39 @@ async def upload_chunk(
     return JSONResponse({"job_id": job_id, "contiguous": contiguous})
 
 
+@router.get("/torrent-preview")
+async def torrent_preview(link: str, user: User = Depends(get_current_user)) -> JSONResponse:
+    """Return torrent file names and sizes without downloading their payload."""
+
+    raw_link: str = link.strip()
+    parsed_link: SplitResult = urlsplit(raw_link)
+    query: dict[str, list[str]] = {cast(str, key.lower()): cast(list[str], values) for key, values in parse_qs(parsed_link.query).items()}
+    has_info_hash: bool = any(topic.lower().startswith(("urn:btih:", "urn:btmh:")) for topic in query.get("xt", []))
+
+    if parsed_link.scheme.lower() != "magnet" or not raw_link.lower().startswith("magnet:?") or not has_info_hash:
+        raise HTTPException(status_code=400, detail="Invalid torrent magnet URI")
+
+    try:
+        preview: dict[str, Any] = await preview_torrent_files(raw_link)
+
+    except TimeoutError as error:
+        raise HTTPException(status_code=504, detail=str(error)) from error
+
+    except (ValueError, OSError, RuntimeError) as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+
+    return JSONResponse(preview)
+
+
 @router.post("/upload-link")
-async def upload_link(link: str, data_center: str, directory: str, batch_id: str = "", user: User = Depends(get_current_user)) -> JSONResponse:
+async def upload_link(
+        link: str,
+        data_center: str,
+        directory: str,
+        batch_id: str = "",
+        selected_files: str = "",
+        user: User = Depends(get_current_user),
+) -> JSONResponse:
     """Start a background job that imports an HTTP(S), YouTube, or torrent magnet link."""
 
     raw_link: str = link.strip()
@@ -698,13 +759,24 @@ async def upload_link(link: str, data_center: str, directory: str, batch_id: str
 
         link = raw_link
         raw_name: str = (query.get("dn") or [""])[0] or "Torrent"
+        try:
+            selected_torrent_files: set[int] | None = {int(index) for index in json.loads(selected_files)} if selected_files else None
+
+        except (TypeError, ValueError, json.JSONDecodeError) as error:
+            raise HTTPException(status_code=400, detail="Invalid selected torrent file indexes") from error
+
+        if selected_torrent_files is not None and (not selected_torrent_files or min(selected_torrent_files) < 0):
+            raise HTTPException(status_code=400, detail="Select at least one valid torrent file")
 
     else:
+        selected_torrent_files = None
         link = perform_validation(raw_link, "link")
         parsed_link = urlsplit(link)
         raw_name = unquote(Path(parsed_link.path).name).strip() or (parsed_link.hostname or "Link import")
 
     link_name: str = raw_name.replace("\\", "/").rsplit("/", 1)[-1].strip()[:255] or "Link import"
+    source_host: str = (parsed_link.hostname or "").lower().removeprefix("www.")
+    is_youtube: bool = not is_magnet and (source_host == "youtu.be" or source_host == "youtube.com" or source_host.endswith(".youtube.com"))
     data_center = perform_validation(data_center, "data_center")
 
     if batch_id:
@@ -747,9 +819,9 @@ async def upload_link(link: str, data_center: str, directory: str, batch_id: str
         latest_batch = await get_upload_batch_metadata(batch_id)
 
         if (
-                latest_batch is None or
-                latest_batch.get("username") != user.username or
-                latest_batch.get("cancelled") or latest_batch.get("status") in {"cancelled", "completed", "error"}
+                latest_batch is None
+                or latest_batch.get("username") != user.username
+                or latest_batch.get("cancelled") or latest_batch.get("status") in {"cancelled", "completed", "error"}
         ):
             await Redis.redis.srem(user_upload_jobs_key(user.username), job_id)
             await Redis.delete_key(upload_job_key(job_id))
@@ -762,12 +834,58 @@ async def upload_link(link: str, data_center: str, directory: str, batch_id: str
         progress: Progress
 
         try:
-            async for progress in link_upload(file, link):
+            async for progress in link_upload(file, link, selected_torrent_files):
                 latest_metadata = await get_upload_job_metadata(job_id)
 
                 if latest_metadata is None or latest_metadata.get("cancelled"):
                     await Redis.set(job_id, Progress(file.name, "Upload cancelled", 0))
                     return
+
+                if is_youtube and batch_id:
+                    candidate_name = str(progress.name or "").replace("\\", "/").rsplit("/", 1)[-1].strip()
+                    original_name = link_name
+                    normalized_candidate = candidate_name.casefold()
+                    placeholder_names = {"", "link", "upload", "torrent", "watch", "shorts", "embed", "live", "video", "update_name_from_backend"}
+                    is_video_id = len(candidate_name) == 11 and all(character.isalnum() or character in "_-" for character in candidate_name)
+                    is_resolved_name = (
+                            candidate_name
+                            and normalized_candidate not in placeholder_names
+                            and candidate_name != original_name
+                            and not candidate_name.lower().startswith(("http://", "https://"))
+                            and not is_video_id
+                    )
+                    latest_batch = await get_upload_batch_metadata(batch_id)
+
+                    if latest_batch and latest_batch.get("username") == user.username:
+                        batch_updates: dict[str, Any] = {}
+
+                        if is_resolved_name:
+                            if str(latest_batch.get("current_name") or "") != candidate_name:
+                                batch_updates["current_name"] = candidate_name
+
+                            batch_items: Any = latest_batch.get("items")
+
+                            if isinstance(batch_items, list):
+                                normalized_items: list[dict[str, Any]] = [
+                                    dict(item) if isinstance(item, dict) else {"name": str(item)}
+                                    for item in batch_items
+                                ]
+                                item_index: int = int(latest_batch.get("current_index") or 0)
+
+                                if 0 <= item_index < len(normalized_items) and str(normalized_items[item_index].get("name") or "") != candidate_name:
+                                    normalized_items[item_index]["name"] = candidate_name
+                                    batch_updates["items"] = normalized_items
+
+                        stage_message = str(progress.message or "").strip()
+
+                        if (
+                                stage_message.casefold() in {"downloading video", "downloading audio", "merging audio and video", "uploading file"}
+                                and str(latest_batch.get("message") or "") != stage_message
+                        ):
+                            batch_updates["message"] = stage_message
+
+                        if batch_updates:
+                            await update_upload_batch(batch_id, user.username, **batch_updates)
 
                 await Redis.set(job_id, progress)
 

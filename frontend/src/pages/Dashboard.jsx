@@ -263,7 +263,7 @@ export default function DashboardPage() {
     const moveDndCallbacksRef = useRef(null);
     const dragPreviewNodeRef = useRef(null);
     const [confirmAction, setConfirmAction] = useState(null);
-    const [confirmFocus, setConfirmFocus] = useState("cancel");
+    const [confirmFocus, setConfirmFocus] = useState("confirm");
     const [bulkActionLoading, setBulkActionLoading] = useState(false);
     const [bulkActionError, setBulkActionError] = useState("");
     const [renameTarget, setRenameTarget] = useState(null);
@@ -991,7 +991,7 @@ export default function DashboardPage() {
             setSelectedItems(new Set(snapshot));
             selectionAnchorRef.current = item.key;
             setBulkActionError("");
-            setConfirmFocus("cancel");
+            setConfirmFocus("confirm");
             setConfirmAction({
                 mode, items: actionItems, selectionSnapshot: snapshot, selectionAnchor: item.key,
             });
@@ -1514,7 +1514,7 @@ export default function DashboardPage() {
         const items = selectableItems.filter((item) => selectedItems.has(item.key));
         if (!items.length) return;
         setBulkActionError("");
-        setConfirmFocus("cancel");
+        setConfirmFocus("confirm");
         setConfirmAction({
             mode, items, // Keep the exact pre-dialog selection so Escape/Cancel restores it.
             selectionSnapshot: Array.from(selectedItems), selectionAnchor: selectionAnchorRef.current,
@@ -1535,8 +1535,8 @@ export default function DashboardPage() {
 
     useEffect(() => {
         if (!confirmAction) return undefined;
-        setConfirmFocus("cancel");
-        const frame = window.requestAnimationFrame(() => cancelConfirmButtonRef.current?.focus());
+        setConfirmFocus("confirm");
+        const frame = window.requestAnimationFrame(() => destructiveConfirmButtonRef.current?.focus());
         return () => window.cancelAnimationFrame(frame);
     }, [confirmAction]);
 

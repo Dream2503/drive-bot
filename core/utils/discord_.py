@@ -20,6 +20,7 @@ class Discord(DataCenter, metaclass=ConfigMeta):
     """Send and retrieve storage chunks through a configured Discord text channel."""
 
     NAME: str = "Discord"
+    MAX_PARALLEL_UPLOADS: int = 2
     TOKEN: str = DISCORD_TOKEN
     FILE_DUMP_ID: int = DISCORD_FILE_DUMP_ID
     FILE_DUMP: TextChannel
@@ -76,23 +77,50 @@ class Discord(DataCenter, metaclass=ConfigMeta):
 
     @staticmethod
     async def download(flink: str) -> bytes:
-        """Retrieve a Discord attachment by its stored message ID."""
+        """Retrieve a Discord attachment, retrying incomplete CDN reads without a short total timeout."""
 
         while not Discord.ready:
             await sleep(0.1)
 
-        fetch_future = run_coroutine_threadsafe(Discord.FILE_DUMP.fetch_message(int(flink)), Discord.LOOP)
-        message: Message = await wrap_future(fetch_future)
+        last_error: Exception | None = None
+        timeout: ClientTimeout = ClientTimeout(total=None, sock_connect=30, sock_read=120)
 
-        if not message.attachments:
-            raise OSError(f"No attachment found in Discord message {flink}")
+        for attempt in range(1, 6):
+            try:
+                fetch_future = run_coroutine_threadsafe(Discord.FILE_DUMP.fetch_message(int(flink)), Discord.LOOP)
+                message: Message = await wrap_future(fetch_future)
 
-        async with ClientSession(timeout=ClientTimeout(total=300)) as session:
-            async with session.get(message.attachments[0].url) as response:
-                if response.status != 200:
-                    raise OSError(f"Discord CDN returned status {response.status}")
+                if not message.attachments:
+                    raise OSError(f"No attachment found in Discord message {flink}")
 
-                return await response.read()
+                async with ClientSession(timeout=timeout) as session:
+                    async with session.get(message.attachments[0].url) as response:
+                        if response.status != 200:
+                            raise OSError(f"Discord CDN returned status {response.status}")
+
+                        chunks: list[bytes] = []
+
+                        async for chunk in response.content.iter_chunked(1024 * 1024):
+                            if chunk:
+                                chunks.append(chunk)
+
+                        data: bytes = b"".join(chunks)
+
+                        if not data:
+                            raise OSError(f"Discord CDN returned an empty attachment for message {flink}")
+
+                        return data
+
+            except (ClientPayloadError, ClientConnectionError, AsyncTimeoutError, TimeoutError, OSError) as error:
+                last_error = error
+
+                if attempt == 5:
+                    break
+
+                write_log("WARNING", Discord, "STREAM", "", f"CDN read for message {flink} failed (attempt {attempt}/5): {error}")
+                await sleep(min(2 ** (attempt - 1), 8))
+
+        raise OSError(f"Could not retrieve Discord attachment {flink} after 5 attempts") from last_error
 
     @staticmethod
     @app.event
