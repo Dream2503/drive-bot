@@ -378,7 +378,7 @@ transfer layer.
 3. The backend validates the requested provider, file name, target directory, batch ownership, and batch status. A child job ID is created. The
    backend stores the child's owner, display name, destination directory, provider, type, batch ID, and progress metadata in Redis, adds the job to
    the per-user index, and associates it with the parent batch. Pending file/session data also uses a time-to-live.
-4. The frontend divides each local file into **1 MiB chunks**, sends up to **8 chunks concurrently**, and retries transient chunk failures up to the
+4. The frontend divides each local file into **1 MiB chunks**, sends up to **4 chunks concurrently**, and retries transient chunk failures up to the
    configured attempt limit.
 5. The frontend sends byte chunks to `PUT /public/upload/{job_id}/chunk`, with `offset` and `total` query parameters.
 6. The backend writes each chunk at its declared byte offset and records received ranges in Redis. The range helper merges overlapping/adjacent ranges
