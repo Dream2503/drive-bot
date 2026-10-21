@@ -67,7 +67,7 @@ async def upload_growing_file(
     upload_tasks: set[Task[tuple[int, str]]] = set()
     results: dict[int, str] = {}
     part: int = start_part
-    max_tasks: int = 8
+    max_tasks: int = 4
 
     async def upload_part(index: int, size: int) -> tuple[int, str]:
         """Read one part off the event loop and retry provider I/O errors."""
