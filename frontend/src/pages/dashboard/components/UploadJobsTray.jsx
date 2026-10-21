@@ -47,7 +47,7 @@ export default function UploadJobsTray({uploadJobs, cancelUploadJob, dismissUplo
                     const taskTitle = singleItem?.name || job.name || "Upload task";
                     const finishedCount = Math.min(itemCount, Number(job.completedItems) || 0);
                     const statusColor = isError || isCancelled ? "text-[#ff7278]" : isComplete ? "text-[#3ecf8e]" : "text-[#8ca296]";
-                    const statusText = isComplete ? (singleItem ? "Completed" : `Completed · ${itemCount} items`) : isError ? job.message || "Some items failed" : isCancelled ? "Cancelled" : isQueued ? (singleItem ? "Queued" : `Queued · ${itemCount} items`) : singleItem ? `${finishedCount}/${itemCount} complete · ${job.currentName || singleItem.name}` : `${finishedCount}/${itemCount} complete${job.currentName ? ` · ${job.currentName}` : ""}`;
+                    const statusText = isComplete ? (singleItem ? "Completed" : `Completed · ${itemCount} items`) : isError ? job.message || "Some items failed" : isCancelled ? "Cancelled" : isQueued ? (singleItem ? "Queued" : `Queued · ${itemCount} items`) : singleItem ? `Uploading · ${job.currentName || singleItem.name}` : `${finishedCount}/${itemCount} complete${job.currentName ? ` · ${job.currentName}` : ""}`;
 
                     return (<div key={job.jobId}
                                  className="rounded-lg border border-transparent px-2 py-2 transition-colors duration-150 hover:border-[#293b30] hover:bg-[#19231c]">

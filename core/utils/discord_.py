@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from asyncio import AbstractEventLoop, get_running_loop, run_coroutine_threadsafe, sleep, wrap_future
+from asyncio import AbstractEventLoop, TimeoutError as AsyncTimeoutError, get_running_loop, run_coroutine_threadsafe, sleep, wrap_future
 from traceback import format_exc
 
 import discord
-from aiohttp import ClientSession, ClientTimeout
+from aiohttp import ClientConnectionError, ClientPayloadError, ClientSession, ClientTimeout
 from discord import Intents, Message, TextChannel
 from discord.ext.commands import Bot
 
@@ -33,11 +33,11 @@ class Discord(DataCenter, metaclass=ConfigMeta):
 
     @staticmethod
     async def upload(chunk: bytes, filename: str, progress: Progress) -> str:
-        """Upload one chunk as a Discord attachment and retry transient 503 errors."""
+        """Upload one chunk and retry transient Discord/API connection failures."""
 
-        attempt: int = 0
+        max_attempts: int = 5
 
-        while True:
+        for attempt in range(1, max_attempts + 1):
             try:
                 send_future = run_coroutine_threadsafe(
                     Discord.FILE_DUMP.send(file=discord.File(ProgressStream(chunk, progress), filename=filename)),
@@ -46,12 +46,33 @@ class Discord(DataCenter, metaclass=ConfigMeta):
                 message: Message = await wrap_future(send_future)
                 return str(message.id)
 
-            except discord.DiscordServerError as error:
-                if error.status != 503:
+            except (ClientPayloadError, ClientConnectionError, AsyncTimeoutError, TimeoutError) as error:
+                if attempt >= max_attempts:
                     raise
 
-                attempt += 1
-                await sleep(min(2 ** min(attempt - 1, 5), 30))
+                write_log(
+                    "WARNING",
+                    Discord,
+                    "UPLOAD",
+                    "",
+                    f"Transient Discord connection error uploading {filename} (attempt {attempt}/{max_attempts}): {error}",
+                )
+
+            except discord.HTTPException as error:
+                if not 500 <= error.status < 600 or attempt >= max_attempts:
+                    raise
+
+                write_log(
+                    "WARNING",
+                    Discord,
+                    "UPLOAD",
+                    "",
+                    f"Transient Discord HTTP {error.status} uploading {filename} (attempt {attempt}/{max_attempts})",
+                )
+
+            await sleep(min(2 ** (attempt - 1), 8))
+
+        return await Discord.upload(chunk, filename, progress)
 
     @staticmethod
     async def download(flink: str) -> bytes:

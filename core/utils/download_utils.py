@@ -541,6 +541,7 @@ async def download_torrent(file: File, link: str) -> AsyncGenerator[Progress, No
         total_upload_bytes: int = sum(path.stat().st_size for path, _ in downloadable_files)
         saved_count: int = 0
         first_saved_id: int | None = None
+        completed_upload_bytes: int = 0
 
         for file_index, (local_path, target_parts) in enumerate(downloadable_files, start=1):
             target_directory: Directory = await ensure_torrent_directory(file.username, base_directory, target_parts[:-1])
@@ -580,8 +581,11 @@ async def download_torrent(file: File, link: str) -> AsyncGenerator[Progress, No
             async for upload_progress in file_upload(torrent_file, local_path, intermediate=True):
                 upload_progress.name = relative_display_path
                 upload_progress.message = f"Uploading torrent files ({file_index}/{len(downloadable_files)})"
+                upload_progress.transfer = min(total_upload_bytes, completed_upload_bytes + max(0, int(upload_progress.transfer or 0)))
+                upload_progress.total = total_upload_bytes
                 yield upload_progress
 
+            completed_upload_bytes += local_size
             await torrent_file.save()
 
             if first_saved_id is None:
