@@ -312,8 +312,22 @@ def start_cloudflare_tunnel(service_url: str, label: str) -> tuple[Popen[str], s
             return
 
         for line in process.stdout:
+            normalized_line: str = line.lower()
+
+            # Browser seeking, media-player retries, and closed client connections can
+            # make cloudflared report these expected request cancellations as ERR logs.
+            # Suppress only this known transport noise; keep forwarding unrelated errors.
+            if (
+                "http2: stream closed" in normalized_line
+                or (
+                    "context canceled" in normalized_line
+                    and ("failed to serve incoming request" in normalized_line or "failed to proxy http" in normalized_line)
+                )
+            ):
+                continue
+
             write_log("INFO", Binaries, "START_CLOUDFLARE_TUNNEL", "server", f"[Cloudflare:{label}] {line.rstrip()}")
-            match: Match[str] | None = search(r"https://[a-zA-Z0-9-]+\.trycloudflare\.com", line)
+            match: Match[str] | None = search(r"https://[a-zA-Z0-9-]+\\.trycloudflare\\.com", line)
 
             if match is not None:
                 try:
