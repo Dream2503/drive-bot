@@ -260,10 +260,21 @@ function mergeTorrentProgress(items, owns, progressItems) {
     const byIndex = new Map(progressItems.map((p) => [Number(p.file_index), p]));
     return items.map((item) => {
         if (!owns(item)) return item;
-        const p = byIndex.get(Number(item.file_index)) || progressItems.find((candidate) => getFileName(candidate) === item.name);
+
+        // The API reports paths relative to the torrent root while the picker stores the
+        // full path. Match by stable file index first, then normalize both names as fallback.
+        const p = byIndex.get(Number(item.file_index)) || progressItems.find((candidate) =>
+            normalizePath(candidate.name).toLowerCase() === normalizePath(item.path || item.name).toLowerCase() ||
+            getFileName(candidate) === getFileName(item)
+        );
         if (!p) return item;
+
         const status = String(p.status || "downloading");
-        const message = status === "downloaded" ? "Downloaded · waiting to upload" : status === "downloading" ? "Downloading" : String(p.message || item.message || (status === "uploading" ? "Uploading" : status));
+        const message = status === "downloaded"
+            ? "Downloaded · waiting to upload"
+            : status === "downloading"
+                ? "Downloading"
+                : String(p.message || item.message || (status === "uploading" ? "Uploading" : status));
         return {...item, status, message, transfer: num(p.transfer), total: num(p.total) || num(item.size)};
     });
 }
@@ -328,7 +339,8 @@ async function runTorrentImport(job, selection, onStarted) {
             throw new Error(body.detail || `Could not start ${firstName}`);
         }
         const {job_id: importJobId} = await response.json();
-        await patch({current_job_id: importJobId, current_name: firstName, message: `Importing ${firstName}`});
+        const childJobPatch = await patch({current_job_id: importJobId, current_name: firstName, message: `Importing ${firstName}`});
+        if (!childJobPatch.ok) throw new Error(`Torrent started, but task state could not be updated (HTTP ${childJobPatch.status}).`);
 
         let delay = 500;
         while (true) {
@@ -346,7 +358,10 @@ async function runTorrentImport(job, selection, onStarted) {
                 const own = items.filter(owns);
                 const active = own.find((item) => item.status === "downloading" || item.status === "uploading") || own.find((item) => item.status === "downloaded") || own[0];
                 const activeName = active?.name || firstName;
-                await patch({items, current_name: activeName, message: `${active?.message || "Processing"}: ${activeName}`});
+                const progressPatch = await patch({items, current_name: activeName, message: `${active?.message || "Processing"}: ${activeName}`});
+                if (!progressPatch.ok) {
+                    throw new Error(`Torrent is running, but its progress could not be saved (HTTP ${progressPatch.status}).`);
+                }
             }
 
             if (jobStatus.status === "completed") break;
@@ -359,12 +374,13 @@ async function runTorrentImport(job, selection, onStarted) {
             const size = Number(item.size) || Number(item.total) || 0;
             return {...item, status: "completed", message: "Completed", transfer: size, total: size};
         });
-        await patch({
+        const completedPatch = await patch({
             items,
             completed_items: items.filter((item) => item.status === "completed").length,
             current_name: items.find(owns)?.name || firstName,
             message: `Completed ${firstName}`,
         });
+        if (!completedPatch.ok) throw new Error(`Torrent file finished, but completion state could not be saved (HTTP ${completedPatch.status}).`);
     }
 
     const final = await patch({status: "completed", message: "All selected torrent files uploaded", completed_items: items.length});
