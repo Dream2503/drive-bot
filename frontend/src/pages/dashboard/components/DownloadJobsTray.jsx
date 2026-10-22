@@ -13,7 +13,7 @@ function formatBytes(value) {
     return `${size.toFixed(1)} ${units[index]}`;
 }
 
-export default function DownloadJobsTray({jobs, onPause, onResume, onRemove, onClearCompleted}) {
+export default function DownloadJobsTray({jobs, onPause, onResume, onRemove, onClearCompleted, readOnly = false}) {
     if (!jobs.length) return null;
     const activeCount = jobs.filter((job) => job.status === "downloading").length;
     return <section
@@ -22,7 +22,7 @@ export default function DownloadJobsTray({jobs, onPause, onResume, onRemove, onC
             <span className="material-symbols-outlined text-[18px] text-[#3ecf8e]" aria-hidden="true">download</span>
             <span className="text-sm font-medium">Downloads</span>
             <span className="rounded-full border border-[#315642] bg-[#1a2a20] px-2 py-0.5 text-[10px] text-[#a5d9b8]">{activeCount} active</span>
-            <button type="button" onClick={onClearCompleted} className="ml-auto text-xs text-[#a8b7ad] hover:text-white">Clear completed</button>
+            {!readOnly && <button type="button" onClick={onClearCompleted} className="ml-auto text-xs text-[#a8b7ad] hover:text-white">Clear completed</button>}
         </header>
         <div className="max-h-72 space-y-2 overflow-y-auto p-2">
             {jobs.map((job) => {
@@ -34,22 +34,22 @@ export default function DownloadJobsTray({jobs, onPause, onResume, onRemove, onC
                               aria-hidden="true">{job.status === "completed" ? "check_circle" : job.status === "error" ? "error" : job.status === "paused" ? "pause_circle" : "downloading"}</span>
                         <div className="min-w-0 flex-1">
                             <p className="truncate text-xs font-medium" title={job.name}>{job.name}</p>
-                            <p className="mt-1 text-[11px] text-[#9bad9f]">{job.status === "downloading" ? (job.streamOnly || job.blobFallback) && job.total <= 0 ? `${formatBytes(job.transferred)} downloaded` : `${formatBytes(job.transferred)} / ${formatBytes(job.total)} · ${percent}%` : job.status === "paused" ? job.streamOnly ? job.message || "Paused · ZIP will restart from the beginning" : job.blobFallback ? "Paused · resuming restarts from the beginning" : `Paused · ${formatBytes(job.transferred)} of ${formatBytes(job.total)}` : job.status === "completed" ? `Completed · ${formatBytes(job.total || job.transferred)}` : job.message || "Download failed"}</p>
+                            <p className="mt-1 text-[11px] text-[#9bad9f]">{job.status === "downloading" ? (job.streamOnly || job.blobFallback || job.viewerDownload) && job.total <= 0 ? `${job.message || "Downloading"} · ${formatBytes(job.transferred)} downloaded` : `${formatBytes(job.transferred)} / ${formatBytes(job.total)} · ${percent}%` : job.status === "paused" ? job.streamOnly ? job.message || "Paused · ZIP will restart from the beginning" : job.blobFallback ? "Paused · resuming restarts from the beginning" : job.viewerDownload ? job.message || "Paused" : `Paused · ${formatBytes(job.transferred)} of ${formatBytes(job.total)}` : job.status === "completed" ? `Completed · ${formatBytes(job.total || job.transferred)}` : job.message || "Download failed"}</p>
                         </div>
-                        {!terminal && job.status === "downloading" &&
+                        {!readOnly && !terminal && job.status === "downloading" &&
                             <button type="button" onClick={() => onPause(job.id)} title="Pause download" aria-label={`Pause ${job.name}`}
                                     className="rounded p-1 text-[#a8b7ad] hover:bg-[#27342b] hover:text-white"><span
                                 className="material-symbols-outlined text-[17px]">pause</span></button>}
-                        {!terminal && job.status === "paused" &&
+                        {!readOnly && !terminal && job.status === "paused" &&
                             <button type="button" onClick={() => onResume(job.id)} title="Resume download" aria-label={`Resume ${job.name}`}
                                     className="rounded p-1 text-[#3ecf8e] hover:bg-[#27342b]"><span
                                 className="material-symbols-outlined text-[17px]">play_arrow</span></button>}
-                        <button type="button" onClick={() => onRemove(job.id)} title="Remove task" aria-label={`Remove ${job.name}`}
+                        {!readOnly && <button type="button" onClick={() => onRemove(job.id)} title="Remove task" aria-label={`Remove ${job.name}`}
                                 className="rounded p-1 text-[#849389] hover:bg-[#27342b] hover:text-white"><span
-                            className="material-symbols-outlined text-[16px]">close</span></button>
+                            className="material-symbols-outlined text-[16px]">close</span></button>}
                     </div>
                     {job.status === "downloading" && <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#29352d]">
-                        <div className={`h-full rounded-full bg-[#3ecf8e] transition-[width] duration-200 ${(job.streamOnly || job.blobFallback) && job.total <= 0 ? "w-1/3 animate-pulse" : ""}`} style={(job.streamOnly || job.blobFallback) && job.total <= 0 ? undefined : {width: `${percent}%`}}/>
+                        <div className={`h-full rounded-full bg-[#3ecf8e] transition-[width] duration-200 ${(job.streamOnly || job.blobFallback || job.viewerDownload) && job.total <= 0 ? "w-1/3 animate-pulse" : ""}`} style={(job.streamOnly || job.blobFallback || job.viewerDownload) && job.total <= 0 ? undefined : {width: `${percent}%`}}/>
                     </div>}
                 </article>;
             })}
