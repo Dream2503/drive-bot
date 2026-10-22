@@ -13,24 +13,56 @@ export default function useUploadJobs(refreshDirectory) {
     useEffect(() => {
         let cancelled = false;
         let polling = false;
+        let pollAgain = false;
         let pollTimer = null;
 
-        const scheduleNextPoll = () => {
+        const scheduleNextPoll = (immediate = false) => {
             if (cancelled) return;
-            const delay = hasActiveUploads.current ? 500 : 2000;
+            if (pollTimer !== null) window.clearTimeout(pollTimer);
+            const delay = immediate ? 0 : hasActiveUploads.current ? 500 : 2000;
             pollTimer = window.setTimeout(refreshUploadBatches, delay);
         };
 
-        const authenticatedFetch = (url, options = {}) => {
+        const authenticatedFetch = async (url, options = {}) => {
             const token = getToken();
-            if (!token) return Promise.resolve(null);
-            return fetch(url, {
-                ...options, headers: {...(options.headers || {}), Authorization: `Bearer ${token}`}, cache: "no-store",
-            });
+            if (!token) return null;
+
+            // A stalled tunnel/proxy response must not leave the single-flight
+            // polling guard locked forever. This is only the status request, not
+            // the underlying upload, so aborting it never cancels the transfer.
+            const controller = new AbortController();
+            const timeoutId = window.setTimeout(() => controller.abort(), 10000);
+            try {
+                return await fetch(url, {
+                    ...options,
+                    headers: {...(options.headers || {}), Authorization: `Bearer ${token}`},
+                    signal: controller.signal,
+                    cache: "no-store",
+                });
+            } finally {
+                window.clearTimeout(timeoutId);
+            }
+        };
+
+        const requestImmediateRefresh = () => {
+            if (cancelled) return;
+            if (polling) {
+                pollAgain = true;
+                return;
+            }
+            scheduleNextPoll(true);
+        };
+
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === "visible") requestImmediateRefresh();
         };
 
         const refreshUploadBatches = async () => {
-            if (polling || cancelled) return;
+            if (cancelled) return;
+            if (polling) {
+                pollAgain = true;
+                return;
+            }
             polling = true;
             try {
                 const response = await authenticatedFetch(`${API_URL}/auth/upload-batches`);
@@ -104,14 +136,26 @@ export default function useUploadJobs(refreshDirectory) {
                 console.error("Could not refresh upload tasks:", error);
             } finally {
                 polling = false;
-                scheduleNextPoll();
+                if (pollAgain) {
+                    pollAgain = false;
+                    scheduleNextPoll(true);
+                } else {
+                    scheduleNextPoll();
+                }
             }
         };
+
+        window.addEventListener("focus", requestImmediateRefresh);
+        window.addEventListener("online", requestImmediateRefresh);
+        document.addEventListener("visibilitychange", handleVisibilityChange);
 
         void refreshUploadBatches();
         return () => {
             cancelled = true;
             if (pollTimer !== null) window.clearTimeout(pollTimer);
+            window.removeEventListener("focus", requestImmediateRefresh);
+            window.removeEventListener("online", requestImmediateRefresh);
+            document.removeEventListener("visibilitychange", handleVisibilityChange);
         };
     }, []);
 
