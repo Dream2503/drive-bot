@@ -125,10 +125,16 @@ function formatEta(seconds) {
     return `${hours}h ${minutes}m left`;
 }
 
-/** Estimate rate from the latest account-synchronized progress snapshots. */
-function useTransferMetrics(transfer, total, status) {
+/**
+ * Estimate throughput from successive server progress snapshots.
+ *
+ * Keep this hook in the persistent file row/card rather than inside conditional
+ * progress-detail markup. Brief status changes and a quiet polling interval should
+ * not throw away the last useful rate estimate.
+ */
+function useTransferMetrics(transfer, total) {
     const [speed, setSpeed] = useState(0);
-    const previous = useRef({transfer: num(transfer), at: Date.now(), status});
+    const previous = useRef({transfer: num(transfer), at: Date.now()});
 
     useEffect(() => {
         const now = Date.now();
@@ -136,29 +142,25 @@ function useTransferMetrics(transfer, total, status) {
         const prior = previous.current;
         const elapsed = (now - prior.at) / 1000;
 
-        if (prior.status !== status || currentTransfer < prior.transfer) {
+        if (currentTransfer < prior.transfer) {
+            // A new transfer phase or resumed transfer reset its byte counter.
             setSpeed(0);
         } else if (elapsed >= 0.25 && currentTransfer > prior.transfer) {
-            setSpeed((currentTransfer - prior.transfer) / elapsed);
+            const measuredSpeed = (currentTransfer - prior.transfer) / elapsed;
+            setSpeed((currentSpeed) => currentSpeed > 0
+                ? currentSpeed * 0.7 + measuredSpeed * 0.3
+                : measuredSpeed);
         }
 
-        previous.current = {transfer: currentTransfer, at: now, status};
-    }, [transfer, status]);
-
-    useEffect(() => {
-        const interval = window.setInterval(() => {
-            if (Date.now() - previous.current.at >= 4000) setSpeed(0);
-        }, 1000);
-        return () => window.clearInterval(interval);
-    }, []);
+        previous.current = {transfer: currentTransfer, at: now};
+    }, [transfer]);
 
     const remaining = Math.max(0, num(total) - num(transfer));
     const eta = speed > 0 && remaining > 0 ? remaining / speed : null;
     return {speed, eta, remaining};
 }
 
-function TransferDetails({transfer, total, status, compact = false}) {
-    const {speed, eta} = useTransferMetrics(transfer, total, status);
+function TransferDetails({transfer, total, status, compact = false, speed = 0, eta = null}) {
     if (num(total) <= 0) return null;
 
     const transferLabel = status === "downloading" ? "Downloaded" : "Transferred";
@@ -181,6 +183,7 @@ function ItemRow({item, status}) {
     const meta = ITEM_STATUS[status] || ITEM_STATUS.queued;
     const {size, percent} = getItemProgress(item, status);
     const transfer = status === "completed" ? size : num(item.transfer);
+    const {speed, eta} = useTransferMetrics(transfer, size);
     const name = getFileName(item);
     const showPercent = meta.transferring && size > 0;
 
@@ -195,7 +198,7 @@ function ItemRow({item, status}) {
         </div>
         {showPercent && <>
             <ProgressBar percent={percent} className="ml-[23px] mt-1.5"/>
-            <TransferDetails transfer={transfer} total={size} status={status} compact/>
+            <TransferDetails transfer={transfer} total={size} status={status} compact speed={speed} eta={eta}/>
         </>}
     </div>;
 }
@@ -617,6 +620,7 @@ function describeJob(job) {
 
 function UploadJobCard({job, onSelectFiles, onCancel, onDismiss}) {
     const {isQueued, isActive, itemCount, title, statusText, statusTone, icon, iconTone, percent, transfer, total} = describeJob(job);
+    const {speed, eta} = useTransferMetrics(transfer, total);
     const torrents = job.torrentFiles || [];
     const items = Array.isArray(job.items) ? job.items : [];
     const hasPicker = torrents.length === 1 && job.status === "queued";
@@ -642,7 +646,8 @@ function UploadJobCard({job, onSelectFiles, onCancel, onDismiss}) {
                         {isQueued ? "Waiting" : `${percent.toFixed(1)}%`}
                     </p>
                     {!isQueued && <TransferDetails transfer={transfer} total={total}
-                                                   status={job.status === "completed" ? "completed" : (/download/i.test(String(job.message || "")) ? "downloading" : "uploading")}/>}
+                                                   status={job.status === "completed" ? "completed" : (/download/i.test(String(job.message || "")) ? "downloading" : "uploading")}
+                                                   speed={speed} eta={eta}/>}
                 </div>}
 
 
