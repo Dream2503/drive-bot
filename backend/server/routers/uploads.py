@@ -802,6 +802,8 @@ async def upload_link(
         link = perform_validation(raw_link, "link")
         parsed_link = urlsplit(link)
         raw_name = unquote(Path(parsed_link.path).name).strip() or (parsed_link.hostname or "Link import")
+        if telegram_source_name:
+            raw_name = telegram_source_name
 
     link_name: str = raw_name.replace("\\", "/").rsplit("/", 1)[-1].strip()[:255] or "Link import"
     source_host: str = (parsed_link.hostname or "").lower().removeprefix("www.")
