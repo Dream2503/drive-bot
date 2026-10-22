@@ -111,10 +111,76 @@ function ProgressBar({percent, muted = false, className = ""}) {
     </div>;
 }
 
+function formatRate(bytesPerSecond) {
+    return `${formatFileSize(bytesPerSecond)}/s`;
+}
+
+function formatEta(seconds) {
+    if (!Number.isFinite(seconds) || seconds < 0) return "Calculating ETA";
+    const value = Math.ceil(seconds);
+    if (value < 60) return `${value}s left`;
+    if (value < 3600) return `${Math.floor(value / 60)}m ${value % 60}s left`;
+    const hours = Math.floor(value / 3600);
+    const minutes = Math.floor((value % 3600) / 60);
+    return `${hours}h ${minutes}m left`;
+}
+
+/** Estimate rate from the latest account-synchronized progress snapshots. */
+function useTransferMetrics(transfer, total, status) {
+    const [speed, setSpeed] = useState(0);
+    const previous = useRef({transfer: num(transfer), at: Date.now(), status});
+
+    useEffect(() => {
+        const now = Date.now();
+        const currentTransfer = num(transfer);
+        const prior = previous.current;
+        const elapsed = (now - prior.at) / 1000;
+
+        if (prior.status !== status || currentTransfer < prior.transfer) {
+            setSpeed(0);
+        } else if (elapsed >= 0.25 && currentTransfer > prior.transfer) {
+            setSpeed((currentTransfer - prior.transfer) / elapsed);
+        }
+
+        previous.current = {transfer: currentTransfer, at: now, status};
+    }, [transfer, status]);
+
+    useEffect(() => {
+        const interval = window.setInterval(() => {
+            if (Date.now() - previous.current.at >= 4000) setSpeed(0);
+        }, 1000);
+        return () => window.clearInterval(interval);
+    }, []);
+
+    const remaining = Math.max(0, num(total) - num(transfer));
+    const eta = speed > 0 && remaining > 0 ? remaining / speed : null;
+    return {speed, eta, remaining};
+}
+
+function TransferDetails({transfer, total, status, compact = false}) {
+    const {speed, eta} = useTransferMetrics(transfer, total, status);
+    if (num(total) <= 0) return null;
+
+    const transferLabel = status === "downloading" ? "Downloaded" : "Transferred";
+    const done = status === "completed" || num(transfer) >= num(total);
+
+    return <div
+        className={`flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 font-mono tabular-nums text-[#789083] ${compact ? "ml-[23px] mt-1 text-[9px]" : "mt-1 text-[10px]"}`}>
+        <span>{transferLabel} {formatFileSize(Math.min(num(transfer), num(total)))} / {formatFileSize(total)}</span>
+        {!done && <>
+            <span className="text-[#3b5144]">·</span>
+            <span className="text-[#9ab5a5]">{formatRate(speed)}</span>
+            <span className="text-[#3b5144]">·</span>
+            <span>{eta !== null ? formatEta(eta) : "Calculating ETA"}</span>
+        </>}
+    </div>;
+}
+
 /** A single file/item line, shared by torrent panels and plain multi-item batches. */
 function ItemRow({item, status}) {
     const meta = ITEM_STATUS[status] || ITEM_STATUS.queued;
     const {size, percent} = getItemProgress(item, status);
+    const transfer = status === "completed" ? size : num(item.transfer);
     const name = getFileName(item);
     const showPercent = meta.transferring && size > 0;
 
@@ -127,7 +193,10 @@ function ItemRow({item, status}) {
                 {meta.label}{showPercent ? ` · ${percent.toFixed(0)}%` : ""}
             </span>
         </div>
-        {showPercent && <ProgressBar percent={percent} className="ml-[23px] mt-1.5"/>}
+        {showPercent && <>
+            <ProgressBar percent={percent} className="ml-[23px] mt-1.5"/>
+            <TransferDetails transfer={transfer} total={size} status={status} compact/>
+        </>}
     </div>;
 }
 
@@ -457,24 +526,21 @@ function describeJob(job) {
     const title = singleItem ? usableCurrent || usableItem || (sourceIsYouTube ? "YouTube video" : singleName || job.name || "Upload task") : job.kind === "link" && (itemCount > 1 || torrents.length > 1) ? "Link import" : job.name || "Upload task";
 
     /*
-     * Torrent imports have two separate progress streams:
-     * - the batch endpoint reports the current child job's transfer (which may reach
-     *   100% for one torrent even while that torrent's individual files are still
-     *   downloading), and
-     * - each selected file reports its own status, size, and transfer.
-     * Use the file records for the parent row so its bar and byte counter agree with
-     * the nested per-file progress panels. Non-torrent jobs keep the existing API values.
+     * Prefer item-level byte counts when available. This gives multi-file tasks a
+     * true whole-task byte total rather than showing only the current child's size.
+     * Torrent tasks use the same aggregation so their parent counter agrees with
+     * the nested per-file progress panels.
      */
-    const hasTorrentItems = torrents.length > 0 && items.length > 0;
-    const torrentTotal = hasTorrentItems ? items.reduce((sum, item) => sum + (num(item.size) || num(item.total)), 0) : 0;
-    const torrentTransfer = hasTorrentItems ? items.reduce((sum, item) => {
+    const hasDetailedItems = items.length > 0 && items.some((item) => num(item.size) > 0 || num(item.total) > 0);
+    const itemTotal = hasDetailedItems ? items.reduce((sum, item) => sum + (num(item.size) || num(item.total)), 0) : 0;
+    const itemTransfer = hasDetailedItems ? items.reduce((sum, item) => {
         const size = num(item.size) || num(item.total);
         const transferred = item.status === "completed" ? size : num(item.transfer);
         return sum + (size > 0 ? Math.min(size, transferred) : transferred);
     }, 0) : 0;
-    const total = torrentTotal > 0 ? torrentTotal : num(job.total);
-    const transfer = torrentTotal > 0 ? Math.min(torrentTotal, torrentTransfer) : num(job.transfer);
-    const rawPercent = torrentTotal > 0 ? transfer * 100 / torrentTotal : Number(job.progress) || 0;
+    const total = itemTotal > 0 ? itemTotal : num(job.total);
+    const transfer = itemTotal > 0 ? Math.min(itemTotal, itemTransfer) : num(job.transfer);
+    const rawPercent = itemTotal > 0 ? transfer * 100 / itemTotal : Number(job.progress) || 0;
     const percent = isComplete ? 100 : Math.max(0, Math.min(99, rawPercent));
 
     const stage = job.kind === "link" ? formatLinkStage(job.message) : "";
@@ -518,9 +584,10 @@ function UploadJobCard({job, onSelectFiles, onCancel, onDismiss}) {
                 {isActive && <div className="mt-2.5">
                     <ProgressBar percent={isQueued ? 0 : percent} muted={isQueued}/>
                     <p className="mt-1 text-right font-mono text-[10px] tabular-nums text-[#718477]">
-                        {total > 0 ? `${formatFileSize(transfer)} / ${formatFileSize(total)} · ` : ""}
                         {isQueued ? "Waiting" : `${percent.toFixed(1)}%`}
                     </p>
+                    {!isQueued && <TransferDetails transfer={transfer} total={total}
+                                                   status={job.status === "completed" ? "completed" : (/download/i.test(String(job.message || "")) ? "downloading" : "uploading")}/>}
                 </div>}
 
 

@@ -8,13 +8,39 @@ from typing import cast
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel, Field
 
 from backend.database.models import Directory, File, User
 from backend.server.jwt_handler import get_current_user
-from backend.server.security import create_public_stream_token
+from backend.server.security import create_public_stream_token, create_public_zip_token
 from backend.server.utils import perform_validation
 
 router: APIRouter = APIRouter()
+
+
+class ZipDownloadRequest(BaseModel):
+    """List of active file IDs to combine in a streamed ZIP archive."""
+
+    file_ids: list[int] = Field(min_length=2, max_length=500)
+
+
+@router.post("/files/zip-link")
+async def create_zip_download_link(payload: ZipDownloadRequest, user: User = Depends(get_current_user)) -> dict[str, object]:
+    """Validate the selected files and create a short-lived streaming ZIP URL."""
+
+    file_ids = payload.file_ids
+    if any(file_id <= 0 for file_id in file_ids):
+        raise HTTPException(status_code=422, detail="File IDs must be positive integers")
+    if len(set(file_ids)) != len(file_ids):
+        raise HTTPException(status_code=422, detail="Duplicate file IDs are not allowed")
+
+    # Resolve ownership and active/trash state before minting a public download token.
+    for file_id in file_ids:
+        file = await File.get(user.username, fid=file_id)
+        if file is None or file.username != user.username:
+            raise HTTPException(status_code=404, detail=f"Active file {file_id} was not found")
+
+    return {"public_token": create_public_zip_token(file_ids, user.username), "expires_in": 900}
 
 
 @router.post("/create-folder")

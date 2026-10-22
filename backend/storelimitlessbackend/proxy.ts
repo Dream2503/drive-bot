@@ -27,7 +27,7 @@ export async function proxy(request: NextRequest) {
         },);
     }
     const destination = new URL(`${request.nextUrl.pathname}${request.nextUrl.search}`, `${upstream}/`,);
-    const isMediaStream = pathname.startsWith("/public/stream/") || pathname.startsWith("/public/download/");
+    const isMediaStream = pathname.startsWith("/public/stream/") || pathname.startsWith("/public/download/") || pathname.startsWith("/public/download-zip/");
 
     if (isMediaStream) {
         const redirect = NextResponse.redirect(destination, 307);

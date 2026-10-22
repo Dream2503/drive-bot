@@ -2,18 +2,21 @@
 
 from __future__ import annotations
 
+import re
+import unicodedata
 from hashlib import sha256
 from mimetypes import guess_type
 from typing import cast, Any
 from urllib.parse import quote
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import JSONResponse, Response, StreamingResponse
 
 from backend.database.models import File, User
 from backend.database.redis_server import Redis
 from backend.server.jwt_handler import get_current_user
-from backend.server.security import verify_public_stream_token
+from backend.server.security import verify_public_stream_token, verify_public_zip_token
+from backend.server.zip_stream import ZipStreamEntry, stream_zip64, zip64_stored_content_length
 from core.stream import Stream
 from core.utils.discord_ import Discord
 from core.utils.progress import Progress
@@ -191,3 +194,77 @@ async def public_download_head(token: str, request: Request) -> Response:
 
     file = await _owned_public_file(token)
     return await _file_response(file, request, attachment=True, head_only=True)
+
+
+def _safe_zip_download_filename(value: str | None) -> str:
+    """Normalize a user-supplied archive filename for a safe Content-Disposition header."""
+
+    filename = unicodedata.normalize("NFC", str(value or "")).strip()
+    # Accept a filename, not a path. Strip directories and replace characters that
+    # are unsafe or invalid in common filesystems and HTTP header values.
+    filename = filename.replace("\\", "/").split("/")[-1]
+    filename = re.sub(r'[\x00-\x1f\x7f<>:"|?*]+', "_", filename).strip(" .")
+    if not filename or filename in {".", ".."}:
+        filename = "StoreLimitless-files"
+    if not filename.lower().endswith(".zip"):
+        filename += ".zip"
+    # Keep Content-Disposition comfortably within common header limits.
+    if len(filename) > 150:
+        stem = filename[:-4] if filename.lower().endswith(".zip") else filename
+        filename = f"{stem[:146]}.zip"
+    return filename
+
+
+@router.get("/download-zip/{token}")
+async def public_zip_download(
+        token: str,
+        filename: str = Query(default="StoreLimitless-files.zip", max_length=180),
+) -> Response:
+    """Stream a multi-file ZIP directly from remote storage with no server-side archive staging."""
+
+    try:
+        payload = verify_public_zip_token(token)
+    except ValueError as error:
+        raise HTTPException(status_code=404, detail="Invalid or expired ZIP download link") from error
+
+    username = cast(str, payload["username"])
+    file_ids = cast(list[int], payload["file_ids"])
+    files: list[File] = []
+    for file_id in file_ids:
+        file = await File.get(username, fid=file_id)
+        if file is None or file.username != username:
+            raise HTTPException(status_code=404, detail="One or more selected files are no longer available")
+        files.append(file)
+
+    # Start the HTTP response before contacting remote storage. Stream.prepare() verifies
+    # the final storage chunk, so doing it for every selected file here makes the browser
+    # wait for all those remote requests before its download even begins. Prepare each file
+    # lazily as the ZIP writer reaches it, and forward source bytes as soon as available.
+    async def stream_file(file: File):
+        try:
+            source = await Stream.prepare(file)
+            async for chunk in source.stream():
+                yield chunk
+        except (OSError, ValueError) as error:
+            # The ZIP has already started by this point; a storage failure ends the stream.
+            raise OSError(f'Cannot read "{file.name}": {error}') from error
+
+    entries: list[ZipStreamEntry] = []
+    for file in files:
+        if not file.links and int(file.size or 0) == 0:
+            entries.append(ZipStreamEntry(name=file.name, source=None, size=0))
+        else:
+            entries.append(ZipStreamEntry(name=file.name, source=stream_file(file), size=max(0, int(file.size or 0))))
+
+    archive_filename = _safe_zip_download_filename(filename)
+    headers = {
+        "Content-Disposition": _content_disposition(archive_filename, attachment=True),
+        "Cache-Control": "private, no-store, no-cache, must-revalidate, no-transform",
+        "X-Content-Type-Options": "nosniff",
+        "X-Accel-Buffering": "no",
+        "Referrer-Policy": "no-referrer",
+        # STORE-mode ZIP output has a predictable exact size, so browser download
+        # managers can show the total without buffering or pre-compressing the files.
+        "Content-Length": str(zip64_stored_content_length(entries)),
+    }
+    return StreamingResponse(stream_zip64(entries), status_code=200, headers=headers, media_type="application/zip")

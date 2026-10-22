@@ -241,6 +241,10 @@ export default function DashboardPage() {
     };
     const [showFolderModal, setShowFolderModal] = useState(false);
     const [showUploadModal, setShowUploadModal] = useState(false);
+    const [zipDownloadPrompt, setZipDownloadPrompt] = useState(null);
+    const [zipDownloadName, setZipDownloadName] = useState("StoreLimitless-files");
+    const [zipDownloadNameError, setZipDownloadNameError] = useState("");
+    const zipDownloadNameInputRef = useRef(null);
     const [externalDragOver, setExternalDragOver] = useState(false);
     /** @type {[File[], import("react").Dispatch<import("react").SetStateAction<File[]>>]} */
     const [pendingUploadFiles, setPendingUploadFiles] = useState([]);
@@ -268,11 +272,21 @@ export default function DashboardPage() {
     const [bulkActionError, setBulkActionError] = useState("");
     const [renameTarget, setRenameTarget] = useState(null);
     const [detailsTarget, setDetailsTarget] = useState(null);
+    const [detailsSelection, setDetailsSelection] = useState(null);
     const renameSelectionSnapshotRef = useRef(null);
     const cancelConfirmButtonRef = useRef(null);
     const destructiveConfirmButtonRef = useRef(null);
     const selectionSurfaceRef = useRef(null);
     const dragStateRef = useRef(null);
+
+    useEffect(() => {
+        if (!zipDownloadPrompt) return;
+        const frame = window.requestAnimationFrame(() => {
+            zipDownloadNameInputRef.current?.focus();
+            zipDownloadNameInputRef.current?.select();
+        });
+        return () => window.cancelAnimationFrame(frame);
+    }, [zipDownloadPrompt]);
     const suppressClickRef = useRef(false);
     const touchGestureRef = useRef(null);
     const lastTouchInteractionRef = useRef(0);
@@ -468,6 +482,61 @@ export default function DashboardPage() {
         } catch (error) {
             console.error("Download failed:", error);
             alert(error.message || "Failed to download file.");
+        }
+    };
+
+    /**
+     * Prepare a short-lived public URL for a ZIP streamed directly from storage,
+     * then let the browser download it without buffering the archive in JS memory.
+     * @param {Array<string | number>} fileIds
+     * @returns {Promise<void>}
+     */
+    const downloadFilesAsZip = async (fileIds, requestedName) => {
+        const uniqueIds = [...new Set((fileIds || []).map((id) => String(id)))];
+        if (uniqueIds.length < 2) {
+            alert("Select at least two files to download as a ZIP.");
+            return;
+        }
+
+        const downloadName = String(requestedName ?? "").trim();
+        if (!downloadName) {
+            setZipDownloadNameError("Enter a filename for the ZIP download.");
+            return;
+        }
+
+        const token = getToken();
+        if (!token) {
+            navigate("/");
+            return;
+        }
+
+        try {
+            const response = await fetch(`${API_URL}/auth/files/zip-link`, {
+                method: "POST",
+                headers: {Authorization: `Bearer ${token}`, "Content-Type": "application/json"},
+                body: JSON.stringify({file_ids: uniqueIds}),
+            });
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) {
+                if (response.status === 401) {
+                    localStorage.removeItem("token");
+                    navigate("/");
+                    return;
+                }
+                throw new Error(data.detail || "Could not prepare the ZIP download.");
+            }
+            if (!data.public_token) throw new Error("The server did not return a ZIP download token.");
+
+            const anchor = document.createElement("a");
+            const filenameQuery = new URLSearchParams({filename: downloadName}).toString();
+            anchor.href = `${API_URL}/public/download-zip/${encodeURIComponent(data.public_token)}?${filenameQuery}`;
+            anchor.rel = "noreferrer";
+            document.body.appendChild(anchor);
+            anchor.click();
+            anchor.remove();
+        } catch (error) {
+            console.error("ZIP download failed:", error);
+            alert(error.message || "Failed to download the selected files as a ZIP.");
         }
     };
 
@@ -827,9 +896,17 @@ export default function DashboardPage() {
      */
     const showContextMenuAt = (x, y, payload) => {
         const menuWidth = 192;
-        const selectedCount = payload.kind === "item" && selectedItems.has(payload.item?.key) ? selectableItems.filter((item) => selectedItems.has(item.key)).length : 1;
+        const actionItems = payload.kind === "item" && selectedItems.has(payload.item?.key)
+            ? selectableItems.filter((item) => selectedItems.has(item.key))
+            : payload.kind === "item" ? [payload.item] : [];
+        const selectedCount = actionItems.length || 1;
         const multiSelection = selectedCount > 1;
-        const menuHeight = payload.kind === "background" ? 80 : payload.item?.is_deleted ? 80 : multiSelection ? 80 : payload.item?.type === "folder" ? 120 : 160;
+        const multipleFilesSelected = activeTab !== "trash" && multiSelection && actionItems.every((item) => item?.type === "file" && !item.is_deleted);
+        const menuHeight = payload.kind === "background" ? 80
+            : payload.item?.is_deleted ? 80
+                : multipleFilesSelected ? 120
+                    : multiSelection ? 80
+                        : payload.item?.type === "folder" ? 120 : 160;
         setContextMenu({
             ...payload,
             x: Math.max(8, Math.min(x, window.innerWidth - menuWidth - 8)),
@@ -949,6 +1026,28 @@ export default function DashboardPage() {
         showContextMenuAt(event.clientX, event.clientY, {kind: "background"});
     };
 
+    const cancelZipDownloadPrompt = () => {
+        setZipDownloadPrompt(null);
+        setZipDownloadNameError("");
+    };
+
+    const confirmZipDownloadPrompt = (event) => {
+        event?.preventDefault();
+        const name = zipDownloadName.trim().replace(/\.zip$/i, "").trim();
+        if (!name) {
+            setZipDownloadNameError("Enter a filename for the ZIP download.");
+            zipDownloadNameInputRef.current?.focus();
+            return;
+        }
+        const fileIds = zipDownloadPrompt?.fileIds;
+        if (!fileIds?.length) {
+            cancelZipDownloadPrompt();
+            return;
+        }
+        cancelZipDownloadPrompt();
+        void downloadFilesAsZip(fileIds, `${name}.zip`);
+    };
+
     /**
      * Dispatch the selected context-menu action.
      * @param {string} action
@@ -973,6 +1072,18 @@ export default function DashboardPage() {
 
         const actionItems = selectedItems.has(item.key) ? selectableItems.filter((candidate) => selectedItems.has(candidate.key)) : [item];
 
+        if (action === "download-zip") {
+            const filesToDownload = actionItems.filter((candidate) => candidate.type === "file" && !candidate.is_deleted);
+            if (activeTab === "trash" || filesToDownload.length !== actionItems.length || filesToDownload.length < 2) {
+                alert("ZIP download is available when at least two active files are selected.");
+                return;
+            }
+            setZipDownloadName("StoreLimitless-files");
+            setZipDownloadNameError("");
+            setZipDownloadPrompt({fileIds: filesToDownload.map((candidate) => candidate.id)});
+            return;
+        }
+
         if (action === "move") {
             // If a parent folder and any of its descendants are selected together,
             // move only the top-level selection. Moving both would either duplicate
@@ -982,7 +1093,13 @@ export default function DashboardPage() {
             return;
         }
         if (action === "details") {
-            setDetailsTarget(item);
+            if (actionItems.length > 1) {
+                setDetailsTarget(null);
+                setDetailsSelection(actionItems);
+            } else {
+                setDetailsSelection(null);
+                setDetailsTarget(item);
+            }
             return;
         }
         if (action === "delete") {
@@ -2003,6 +2120,25 @@ export default function DashboardPage() {
             const target = event.target;
             if (target instanceof HTMLElement && (target.isContentEditable || target.closest("input, textarea, select, [contenteditable='true']"))) return;
 
+            // Alt+Enter opens details for the current selection, including a multi-selection.
+            if (event.altKey && event.key === "Enter") {
+                const selected = selectableItems.filter((item) => selectedItems.has(item.key));
+                if (selected.length > 1) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    setDetailsTarget(null);
+                    setDetailsSelection(selected);
+                    return;
+                }
+                if (selected.length === 1) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    setDetailsSelection(null);
+                    setDetailsTarget(selected[0]);
+                    return;
+                }
+            }
+
             if (event.altKey && event.key === "Enter") {
                 const selected = selectableItems.filter((item) => selectedItems.has(item.key));
                 if (selected.length === 1) {
@@ -2257,6 +2393,7 @@ export default function DashboardPage() {
         {contextMenu && (<DashboardContextMenu
             menu={contextMenu}
             multipleSelected={Boolean(contextMenu.item && selectedItems.has(contextMenu.item.key) && selectableItems.filter((item) => selectedItems.has(item.key)).length > 1)}
+            multipleFilesSelected={Boolean(contextMenu.item && activeTab !== "trash" && selectedItems.has(contextMenu.item.key) && selectableItems.filter((item) => selectedItems.has(item.key)).length > 1 && selectableItems.filter((item) => selectedItems.has(item.key)).every((item) => item.type === "file" && !item.is_deleted))}
             onClose={() => setContextMenu(null)}
             onAction={performContextMenuAction}
         />)}
@@ -2276,6 +2413,81 @@ export default function DashboardPage() {
             onClearCompleted={clearCompletedDownloads}
         />
 
+        {zipDownloadPrompt && (<div
+            className="fixed inset-0 z-[300] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+            onClick={(event) => {
+                if (event.target === event.currentTarget) cancelZipDownloadPrompt();
+            }}
+        >
+            <section
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="zip-download-title"
+                aria-describedby="zip-download-description"
+                className="w-full max-w-md overflow-hidden rounded-xl border border-[#35443a] bg-[#111713] shadow-2xl shadow-black/50"
+                onKeyDown={(event) => {
+                    // Keep modal keyboard shortcuts away from the Dashboard's file navigation.
+                    event.stopPropagation();
+                    if (event.key === "Escape") {
+                        event.preventDefault();
+                        cancelZipDownloadPrompt();
+                    }
+                }}
+            >
+                <header className="flex items-start gap-3 border-b border-[#29362e] bg-[#151d18] px-5 py-4">
+                    <span className="material-symbols-outlined mt-0.5 text-[22px] text-[#3ecf8e]" aria-hidden="true">folder_zip</span>
+                    <div className="min-w-0 flex-1">
+                        <h2 id="zip-download-title" className="text-sm font-semibold text-[#e8f0eb]">Download selected files as ZIP</h2>
+                        <p id="zip-download-description" className="mt-1 text-xs leading-relaxed text-[#8ca296]">Choose a name for your archive.
+                            StoreLimitless will stream the ZIP directly to your download.</p>
+                    </div>
+                    <button type="button" onClick={cancelZipDownloadPrompt}
+                            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-[#9bbba7] transition-colors hover:bg-white/5 hover:text-white"
+                            aria-label="Close filename dialog" title="Cancel">
+                        <span className="material-symbols-outlined text-[18px]" aria-hidden="true">close</span>
+                    </button>
+                </header>
+                <form onSubmit={confirmZipDownloadPrompt} className="space-y-4 px-5 py-4">
+                    <label htmlFor="zip-download-filename" className="block text-xs font-medium text-[#c6d2ca]">File name</label>
+                    <div
+                        className="flex items-center gap-2 rounded-lg border border-[#35483b] bg-[#0c110e] px-3 transition-colors focus-within:border-[#3ecf8e] focus-within:ring-2 focus-within:ring-[#3ecf8e]/15">
+                        <span className="material-symbols-outlined text-[17px] text-[#6e8b79]" aria-hidden="true">edit</span>
+                        <input
+                            ref={zipDownloadNameInputRef}
+                            id="zip-download-filename"
+                            name="zipDownloadFilename"
+                            type="text"
+                            autoComplete="off"
+                            spellCheck={false}
+                            maxLength={176}
+                            value={zipDownloadName}
+                            onChange={(event) => {
+                                setZipDownloadName(event.target.value.replace(/\.zip$/i, "").replace(/[\\/:*?"<>|]/g, "").trimStart());
+                                setZipDownloadNameError("");
+                            }}
+                            className="min-w-0 flex-1 bg-transparent py-3 text-sm text-[#f3f7f4] outline-none placeholder:text-[#607366]"
+                            placeholder="StoreLimitless-files"
+                            aria-invalid={Boolean(zipDownloadNameError)}
+                            aria-describedby={zipDownloadNameError ? "zip-download-error" : undefined}
+                        />
+                        <span className="shrink-0 select-none border-l border-[#29362e] pl-3 py-3 text-sm font-medium text-[#8ca296]">.zip</span>
+                    </div>
+                    {zipDownloadNameError && <p id="zip-download-error" role="alert" className="text-xs text-[#ff7278]">{zipDownloadNameError}</p>}
+                    <div className="flex items-center justify-between gap-3 border-t border-[#29362e] pt-3">
+                        <div className="ml-auto flex items-center gap-2">
+                            <button type="button" onClick={cancelZipDownloadPrompt}
+                                    className="rounded-lg border border-[#7f3439] bg-[#3a1c20] px-4 py-2.5 text-sm font-medium text-[#ff9a9f] transition-colors hover:border-[#a9434b] hover:bg-[#4a2227] focus:outline-none focus:ring-2 focus:ring-[#ff7278]/30">Cancel
+                            </button>
+                            <button type="submit"
+                                    className="inline-flex items-center gap-1.5 rounded-md border border-[#2e8058] bg-[#17643d] px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-[#1d794a] focus:outline-none focus:ring-2 focus:ring-[#3ecf8e]/40">
+                                <span className="material-symbols-outlined text-[15px]" aria-hidden="true">download</span> Download ZIP
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </section>
+        </div>)}
+
         <BulkActionConfirmModal
             confirmAction={confirmAction}
             bulkActionError={bulkActionError}
@@ -2291,6 +2503,11 @@ export default function DashboardPage() {
             item={renameTarget}
             onClose={closeRenameDialog}
             onRename={renameItem}
+        />)}
+
+        {detailsSelection && (<MultiSelectionDetailsModal
+            items={detailsSelection}
+            onClose={() => setDetailsSelection(null)}
         />)}
 
         {detailsTarget && (<ItemDetailsModal
@@ -2323,4 +2540,76 @@ export default function DashboardPage() {
             onMove={(items, destinationPath) => moveItemsToDirectory(items, destinationPath)}
         />)}
     </div>);
+}
+
+
+/** Shows metadata that is meaningful across a multi-item selection. */
+function MultiSelectionDetailsModal({items, onClose}) {
+    const selected = Array.isArray(items) ? items : [];
+    const files = selected.filter((item) => item.type === "file");
+    const folders = selected.filter((item) => item.type === "folder");
+    const knownBytes = files.reduce((sum, item) => sum + Math.max(0, Number(item.size ?? item.object?.size) || 0), 0);
+    const formatBytes = (bytes) => {
+        if (!Number.isFinite(bytes) || bytes <= 0) return "0 B";
+        const units = ["B", "KB", "MB", "GB", "TB", "PB"];
+        const unit = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+        return `${(bytes / (1024 ** unit)).toLocaleString(undefined, {maximumFractionDigits: 2})} ${units[unit]}`;
+    };
+    const uniqueTypes = [...new Set(files.map((item) => String(item.name || "").split(".").pop().toLowerCase()).filter(Boolean))];
+    return <div className="fixed inset-0 z-[310] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm" onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+    }}>
+        <section role="dialog" aria-modal="true" aria-labelledby="multi-details-title"
+                 className="w-full max-w-lg overflow-hidden rounded-xl border border-[#35443a] bg-[#111713] shadow-2xl shadow-black/50"
+                 onKeyDown={(event) => {
+                     event.stopPropagation();
+                     if (event.key === "Escape") {
+                         event.preventDefault();
+                         onClose();
+                     }
+                 }}>
+            <header className="flex items-start gap-3 border-b border-[#29362e] bg-[#151d18] px-5 py-4">
+                <span className="material-symbols-outlined mt-0.5 text-[22px] text-[#3ecf8e]" aria-hidden="true">info</span>
+                <div className="min-w-0 flex-1">
+                    <h2 id="multi-details-title" className="text-sm font-semibold text-[#e8f0eb]">Selection details</h2>
+                    <p className="mt-1 text-xs text-[#8ca296]">Shared information for the selected items</p>
+                </div>
+                <button type="button" onClick={onClose} aria-label="Close details"
+                        className="flex h-8 w-8 items-center justify-center rounded-lg text-[#9bbba7] transition-colors hover:bg-white/5 hover:text-white">
+                    <span className="material-symbols-outlined text-[18px]">close</span></button>
+            </header>
+            <div className="space-y-3 p-5">
+                <div className="grid grid-cols-2 gap-3">
+                    <div className="rounded-lg border border-[#293b30] bg-[#0c110e] p-3"><p className="text-xs text-[#8ca296]">Selected items</p><p
+                        className="mt-1 text-lg font-semibold tabular-nums text-[#e8f0eb]">{selected.length}</p></div>
+                    <div className="rounded-lg border border-[#293b30] bg-[#0c110e] p-3"><p className="text-xs text-[#8ca296]">Files + folders</p><p
+                        className="mt-1 text-sm font-medium text-[#e8f0eb]">{files.length} files · {folders.length} folders</p></div>
+                    <div className="col-span-2 rounded-lg border border-[#293b30] bg-[#0c110e] p-3"><p className="text-xs text-[#8ca296]">Known total
+                        file size</p><p
+                        className="mt-1 text-xl font-semibold tabular-nums text-[#3ecf8e]">{formatBytes(knownBytes)}</p>{folders.length > 0 &&
+                        <p className="mt-1 text-[11px] leading-relaxed text-[#718477]">Folder contents are not included in this total unless their
+                            sizes are provided by the current listing.</p>}</div>
+                    <div className="rounded-lg border border-[#293b30] bg-[#0c110e] p-3"><p className="text-xs text-[#8ca296]">File types</p><p
+                        className="mt-1 break-words text-sm text-[#dce9e0]">{uniqueTypes.length ? uniqueTypes.map((type) => `.${type}`).join(", ") : "None"}</p>
+                    </div>
+                    <div className="rounded-lg border border-[#293b30] bg-[#0c110e] p-3"><p className="text-xs text-[#8ca296]">Deleted items</p><p
+                        className="mt-1 text-sm text-[#dce9e0]">{selected.filter((item) => item.is_deleted).length}</p></div>
+                </div>
+                <div className="max-h-44 overflow-y-auto rounded-lg border border-[#293b30]">
+                    {selected.map((item) => <div key={item.key}
+                                                 className="flex min-w-0 items-center gap-2 border-b border-[#202d24] px-3 py-2 last:border-b-0">
+                        <span className="material-symbols-outlined text-[16px] text-[#3ecf8e]">{item.type === "folder" ? "folder" : "draft"}</span>
+                        <span className="min-w-0 flex-1 truncate text-xs text-[#c6d2ca]" title={item.name}>{item.name}</span>
+                        {item.type === "file" && <span
+                            className="shrink-0 text-[11px] tabular-nums text-[#8ca296]">{formatBytes(Math.max(0, Number(item.size ?? item.object?.size) || 0))}</span>}
+                    </div>)}
+                </div>
+            </div>
+            <footer className="flex justify-end border-t border-[#29362e] px-5 py-3">
+                <button type="button" onClick={onClose}
+                        className="rounded-lg border border-[#35443a] bg-[#18211b] px-4 py-2 text-sm font-medium text-[#dce9e0] transition-colors hover:bg-[#232f27]">Close
+                </button>
+            </footer>
+        </section>
+    </div>;
 }
