@@ -69,7 +69,7 @@ export default function UploadPage({modal = false, targetDirectory = "", onClose
     /** @type {[File[], import("react").Dispatch<import("react").SetStateAction<File[]>>]} */
     const [files, setFiles] = useState(() => Array.from(initialFiles || []));
     const [link, setLink] = useState("");
-    const links = link.split(/\r?\n/).map((value) => value.trim()).filter(Boolean);
+    const links = link.trim() ? [link.trim()] : [];
     /** @type {["file" | "link", import("react").Dispatch<import("react").SetStateAction<"file" | "link">>]} */
     const [uploadMode, setUploadMode] = useState("file");
 
@@ -326,7 +326,7 @@ export default function UploadPage({modal = false, targetDirectory = "", onClose
 
         try {
             const folderRoots = [...new Set(filesWithPaths.map(({relativePath}) => relativePath.split("/").filter(Boolean)[0]).filter(Boolean))];
-            const batchName = uploadMode === "link" ? `Import ${links.length} link${links.length === 1 ? "" : "s"}` : folderRoots.length === 1 && filesWithPaths.some(({relativePath}) => relativePath.includes("/")) ? `${folderRoots[0]} (${filesWithPaths.length} file${filesWithPaths.length === 1 ? "" : "s"})` : `${filesWithPaths.length} file${filesWithPaths.length === 1 ? "" : "s"}`;
+            const batchName = uploadMode === "link" ? "Link import" : folderRoots.length === 1 && filesWithPaths.some(({relativePath}) => relativePath.includes("/")) ? `${folderRoots[0]} (${filesWithPaths.length} file${filesWithPaths.length === 1 ? "" : "s"})` : `${filesWithPaths.length} file${filesWithPaths.length === 1 ? "" : "s"}`;
             const batchResponse = await fetch(`${API_URL}/auth/upload-batches`, {
                 method: "POST", headers: {Authorization: `Bearer ${token}`, "Content-Type": "application/json"}, body: JSON.stringify({
                     name: batchName, kind: uploadMode, directory, data_center: dataCenter, items: queueItems,
@@ -1081,7 +1081,7 @@ export default function UploadPage({modal = false, targetDirectory = "", onClose
                 ========================================== */}
                     {uploadMode === "link" && (<div className="mb-6">
                         <p className={labelClass}>
-                            File links
+                            File link
                         </p>
                         <div className="bg-[#1f1f1f] border border-[#2e2e2e] rounded-lg p-4">
                             <div className="flex items-center gap-3 mb-4">
@@ -1092,10 +1092,10 @@ export default function UploadPage({modal = false, targetDirectory = "", onClose
                                 </div>
                                 <div>
                                     <p className="text-sm text-[#fafafa]">
-                                        Import from Links
+                                        Import from Link
                                     </p>
                                     <p className="text-xs text-[#898989]">
-                                        Paste one HTTP(S) link or torrent magnet per line. Imports run one at a time.
+                                        Import one HTTP(S) URL or one torrent magnet per task.
                                     </p>
                                 </div>
                             </div>
@@ -1105,20 +1105,33 @@ export default function UploadPage({modal = false, targetDirectory = "", onClose
                             <span className="material-symbols-outlined absolute left-3 top-3 text-[18px] text-[#707070]">
                                 link
                             </span>
-                                <textarea
-                                    rows={5}
+                                <input
+                                    type="text"
+                                    inputMode="url"
+                                    autoComplete="off"
+                                    spellCheck={false}
                                     value={link}
                                     disabled={status === "uploading"}
+                                    onPaste={(event) => {
+                                        const pasted = event.clipboardData.getData("text/plain").trim();
+                                        if (/[\r\n]/.test(pasted)) {
+                                            event.preventDefault();
+                                            setMessage("Only one link can be imported per task. Paste a single URL or torrent magnet.");
+                                            setStatus("error");
+                                        }
+                                    }}
                                     onChange={(event) => {
                                         setLink(event.target.value);
+                                        setMessage("");
+                                        setStatus("idle");
                                         setTorrentSelectionQueue([]);
                                         setTorrentSelectionIndex(0);
                                         setTorrentSelections({});
                                         setTorrentSelectionReady(false);
                                         setTorrentSelectionModal(false);
                                     }}
-                                    placeholder={"https://example.com/file-one.zip\nhttps://example.com/file-two.mkv\nmagnet:?xt=urn:btih:...&dn=example-torrent"}
-                                    className={["w-full min-h-28 rounded-md border border-[#363636]", "bg-white/[0.026] pl-10 pr-3 py-2 text-sm text-[#fafafa]", "placeholder:text-[#707070] outline-none transition-colors", "focus:border-[#707070] focus:ring-2 focus:ring-[#4d4d4d]/50", "disabled:opacity-60",].join(" ")}
+                                    placeholder="https://example.com/file.zip or magnet:?xt=urn:btih:..."
+                                    className={["w-full h-11 rounded-md border border-[#363636]", "bg-white/[0.026] pl-10 pr-3 py-2 text-sm text-[#fafafa]", "placeholder:text-[#707070] outline-none transition-colors", "focus:border-[#707070] focus:ring-2 focus:ring-[#4d4d4d]/50", "disabled:opacity-60",].join(" ")}
                                 />
                             </div>
 
@@ -1128,13 +1141,13 @@ export default function UploadPage({modal = false, targetDirectory = "", onClose
                                 check_circle
                             </span>
                                 <p className="text-xs">
-                                    {links.length} link{links.length === 1 ? "" : "s"} ready to import
+                                    Link ready to import
                                 </p>
                             </div>)}
                             <p className="text-xs text-[#707070] mt-3 leading-relaxed">
-                                Use one publicly accessible HTTP(S) link or a valid torrent magnet URI per line. Torrent contents
-                                are downloaded completely before their files are uploaded, and torrent folders are preserved.
-                                Each link gets its own job in the dashboard upload tray. Each import finishes before the next starts.
+                                Enter one publicly accessible HTTP(S) URL or one valid torrent magnet URI. Multiple links in a single task are
+                                disabled. Torrent contents
+                                are downloaded completely before their files are uploaded, and torrent folder paths are preserved.
                             </p>
                         </div>
                     </div>)}
@@ -1158,7 +1171,7 @@ export default function UploadPage({modal = false, targetDirectory = "", onClose
                         <span className="material-symbols-outlined text-[16px]">
                             cloud_upload
                         </span>
-                            {uploadMode === "link" ? `${torrentSelectionReady ? "Start importing" : "Import"} ${links.length} Link${links.length === 1 ? "" : "s"}` : `Upload ${files.length} File${files.length === 1 ? "" : "s"}`}
+                            {uploadMode === "link" ? `${torrentSelectionReady ? "Start importing" : "Import link"}` : `Upload ${files.length} File${files.length === 1 ? "" : "s"}`}
                         </>)}
                     </button>
 

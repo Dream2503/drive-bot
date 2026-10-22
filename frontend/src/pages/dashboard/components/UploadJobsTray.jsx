@@ -454,7 +454,7 @@ function describeJob(job) {
     const usableCurrent = currentName && !isUnresolvedName(rawCurrentName, sourceIsYouTube) ? currentName : "";
     const singleName = singleItem ? getFileName(singleItem) : "";
     const usableItem = singleName && !isUnresolvedName(rawItemName, sourceIsYouTube) ? singleName : "";
-    const title = singleItem ? usableCurrent || usableItem || (sourceIsYouTube ? "YouTube video" : singleName || job.name || "Upload task") : job.name || "Upload task";
+    const title = singleItem ? usableCurrent || usableItem || (sourceIsYouTube ? "YouTube video" : singleName || job.name || "Upload task") : job.kind === "link" && (itemCount > 1 || torrents.length > 1) ? "Link import" : job.name || "Upload task";
 
     /*
      * Torrent imports have two separate progress streams:
@@ -498,7 +498,7 @@ function UploadJobCard({job, onSelectFiles, onCancel, onDismiss}) {
     const {isQueued, isActive, itemCount, title, statusText, statusTone, icon, iconTone, percent, transfer, total} = describeJob(job);
     const torrents = job.torrentFiles || [];
     const items = Array.isArray(job.items) ? job.items : [];
-    const hasPicker = torrents.length > 0 && job.status === "queued";
+    const hasPicker = torrents.length === 1 && job.status === "queued";
 
     return <article
         className="rounded-lg border border-[#212c25] bg-[#151d18]/50 px-3 py-2.5 transition-colors hover:border-[#2d4337] hover:bg-[#19231c]">
@@ -507,7 +507,8 @@ function UploadJobCard({job, onSelectFiles, onCancel, onDismiss}) {
 
             <div className="min-w-0 flex-1">
                 <p className="truncate text-[13px] font-medium text-[#e8f0eb]" title={title}>{title}</p>
-                <p className={`mt-0.5 text-[11px] ${statusTone}`} title={job.message}>{statusText}</p>
+                <p className={`mt-0.5 text-[11px] ${statusTone}`}
+                   title={job.message}>{torrents.length > 1 && job.status === "queued" ? "Multiple-link imports are disabled. Submit one link per task." : statusText}</p>
 
                 {hasPicker && <button type="button" onClick={() => onSelectFiles(job)}
                                       className="mt-2 rounded-md border border-[#2e8058] bg-[#173c29] px-2.5 py-1.5 text-[11px] font-medium text-[#9be8bd] transition-colors hover:bg-[#205538]">
@@ -522,19 +523,10 @@ function UploadJobCard({job, onSelectFiles, onCancel, onDismiss}) {
                     </p>
                 </div>}
 
-                {torrents.length > 1 && <div className="mt-2.5 space-y-2 rounded-lg border border-[#29362e] bg-black/10 p-2">
-                    <p className="px-1 pt-0.5 text-[11px] text-[#8ca296]">
-                        {torrents.length} torrents, processed one at a time
-                    </p>
-                    {torrents.map((torrent, i) => <TorrentLinkPanel key={getTorrentKey(torrent, i)} torrent={torrent} index={i}
-                                                                    parentStatus={job.status}
-                                                                    items={items.filter((item) => belongsToTorrent(item, torrent, i))}/>)}
-                </div>}
 
-                {torrents.length <= 1 && itemCount > 1 && items.length > 0 &&
-                    <div className="mt-2.5 space-y-0.5 rounded-lg border border-[#29362e] bg-black/10 p-1.5">
-                        {items.map((item, i) => <ItemRow key={`${getFileName(item)}-${i}`} item={item} status={String(item.status || "queued")}/>)}
-                    </div>}
+                {itemCount > 1 && items.length > 0 && <div className="mt-2.5 space-y-0.5 rounded-lg border border-[#29362e] bg-black/10 p-1.5">
+                    {items.map((item, i) => <ItemRow key={`${getFileName(item)}-${i}`} item={item} status={String(item.status || "queued")}/>)}
+                </div>}
             </div>
 
             {isActive ? <button type="button" onClick={() => onCancel(job.jobId)} className={`${iconBtnDanger} shrink-0`}
@@ -564,7 +556,7 @@ export default function UploadJobsTray({uploadJobs, cancelUploadJob, dismissUplo
     const promptedRef = useRef(new Set());
 
     function openSelection(job) {
-        if (!job || !Array.isArray(job.torrentFiles) || job.torrentFiles.length === 0) return;
+        if (!job || !Array.isArray(job.torrentFiles) || job.torrentFiles.length !== 1) return;
         promptedRef.current.add(job.jobId);
         setSelectionJob(job);
         setSelectionIndex(0);
@@ -580,7 +572,7 @@ export default function UploadJobsTray({uploadJobs, cancelUploadJob, dismissUplo
     // Once torrent metadata has resolved, prompt for file selection automatically.
     useEffect(() => {
         if (selectionJob) return;
-        const queued = uploadJobs.find((job) => job.status === "queued" && job.torrentFiles?.length > 0 && !promptedRef.current.has(job.jobId));
+        const queued = uploadJobs.find((job) => job.status === "queued" && job.torrentFiles?.length === 1 && !promptedRef.current.has(job.jobId));
         if (queued) openSelection(queued);
     }, [uploadJobs, selectionJob]);
 

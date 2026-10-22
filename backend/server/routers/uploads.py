@@ -127,7 +127,7 @@ async def upload_file(
 
 @router.post("/upload-batches")
 async def create_upload_batch(payload: dict[str, Any] = Body(...), user: User = Depends(get_current_user)) -> JSONResponse:
-    """Register one tray task for a complete multi-file, folder, or multi-link upload."""
+    """Register one tray task for a multi-file upload or a single link import."""
 
     name = str(payload.get("name") or "Upload task").strip()[:255]
     kind = str(payload.get("kind") or "file")
@@ -137,6 +137,9 @@ async def create_upload_batch(payload: dict[str, Any] = Body(...), user: User = 
 
     if kind not in {"file", "link"} or not isinstance(raw_items, list) or not raw_items or len(raw_items) > 2000:
         raise HTTPException(status_code=422, detail="Upload batch must contain between 1 and 2000 items")
+
+    if kind == "link" and len(raw_items) != 1:
+        raise HTTPException(status_code=422, detail="Only one link can be imported per upload task")
 
     directory_obj = await Directory.get(user.username, path=Path(directory))
 
@@ -207,14 +210,21 @@ async def patch_upload_batch(batch_id: str, payload: dict[str, Any] = Body(...),
 
     if "torrent_files" in payload:
         torrent_files = payload.get("torrent_files")
+
         if not isinstance(torrent_files, list):
             raise HTTPException(status_code=422, detail="Invalid torrent file metadata")
+
+        if metadata.get("kind") == "link" and len(torrent_files) > 1:
+            raise HTTPException(status_code=422, detail="Only one torrent link can be attached to an upload task")
+
         updates["torrent_files"] = torrent_files
 
     if "items" in payload:
         items_payload = payload.get("items")
+
         if not isinstance(items_payload, list):
             raise HTTPException(status_code=422, detail="Invalid upload task items")
+
         updates["items"] = [
             {
                 "name": str(item.get("name") or "Torrent file")[:500],
