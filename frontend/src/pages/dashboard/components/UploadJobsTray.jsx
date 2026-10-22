@@ -654,8 +654,8 @@ function describeJob(job) {
     else if (isError) statusText = job.message || "Some items failed";
     else if (isCancelled) statusText = "Cancelled";
     else if (isQueued) statusText = singleItem ? "Queued" : `Queued · ${itemsLabel}`;
-    else if (stageText) statusText = stageText;
     else if (hasTorrentItems) statusText = `${downloadedCount} of ${itemCount} downloaded`;
+    else if (stageText) statusText = stageText;
     else if (singleItem) statusText = sourceIsYouTube ? "Processing video" : "Uploading";
     else statusText = `${finished} of ${itemCount} complete`;
 
