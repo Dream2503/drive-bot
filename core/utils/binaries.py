@@ -327,7 +327,7 @@ def start_cloudflare_tunnel(service_url: str, label: str) -> tuple[Popen[str], s
                 continue
 
             write_log("INFO", Binaries, "START_CLOUDFLARE_TUNNEL", "server", f"[Cloudflare:{label}] {line.rstrip()}")
-            match: Match[str] | None = search(r"https://[a-zA-Z0-9-]+\\.trycloudflare\\.com", line)
+            match: Match[str] | None = search(r"https://[a-zA-Z0-9-]+\.trycloudflare\.com", line)
 
             if match is not None:
                 try:
