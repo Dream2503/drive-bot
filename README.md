@@ -238,7 +238,7 @@ generated caches, virtual environments, and dependency folders are deliberately 
 │       ├── download_utils.py         # Direct HTTP, Google Drive, YouTube, and libtorrent helpers
 │       ├── env.py                    # Credentials/configuration constants
 │       ├── progress.py               # Progress tracking and part uploader
-│       └── telegram_.py              # Telegram storage provider
+│       ├── telegram_.py              # Telegram storage provider
 │       └── telegram_link.py          # Telegram message-link resolver and user-session login
 ├── data/
 │   ├── logs.lock                     # Runtime log-file lock
@@ -444,11 +444,11 @@ scratch space cleaned up when the application shuts down.
 
 ### Remote-link imports
 
-\`POST /auth/upload-link\` starts a background import job for **one remote source URL**. Link mode intentionally accepts one HTTP(S) URL or one valid
+`POST /auth/upload-link` starts a background import job for **one remote source URL**. Link mode intentionally accepts one HTTP(S) URL or one valid
 torrent magnet URI per task. It no longer treats newline-separated URLs as a multi-link batch; start another import for each additional source. Local
 multi-file and nested-folder uploads remain batch operations.
 
-Torrent metadata inspection is tracked in the upload tray. Before payload downloading starts, \`GET /auth/torrent-preview\` resolves one magnet and
+Torrent metadata inspection is tracked in the upload tray. Before payload downloading starts, `GET /auth/torrent-preview` resolves one magnet and
 returns its file list. When metadata is ready, the tray exposes **Select files and start**. Every file is selected by default; deselect unwanted files.
 The picker shows names relative to the torrent root, without repeating the root directory name. Selected torrent files download into temporary staging,
 then are uploaded sequentially to the chosen storage provider. The upload tray shows per-file download/upload state and progress.
@@ -457,39 +457,39 @@ The server chooses the downloader from the URL host or URI scheme:
 
 - **Direct HTTP(S) file URLs** use a streamed download. The response should contain file bytes, not an ordinary web page. The downloader uses filename
   metadata where available, rejects likely HTML pages that do not look like file downloads, and attempts to resume an interrupted transfer with HTTP
-  \`Range\` requests. Resume is safe only when the origin confirms the exact requested byte offset and supports byte-range responses.
-- **Google Drive links** (\`drive.google.com\`) use the Google Drive downloader. The current implementation requests file name/size metadata through the
+  `Range` requests. Resume is safe only when the origin confirms the exact requested byte offset and supports byte-range responses.
+- **Google Drive links** (`drive.google.com`) use the Google Drive downloader. The current implementation requests file name/size metadata through the
   Google Drive API, so the configured Google API key and access to the file are required.
-- **YouTube links** (\`youtube.com\`, its subdomains, and \`youtu.be\`) use \`yt-dlp\` and FFmpeg to download/process media. The downloader resolves a
+- **YouTube links** (`youtube.com`, its subdomains, and `youtu.be`) use `yt-dlp` and FFmpeg to download/process media. The downloader resolves a
   stable media filename from metadata/output paths and publishes separate progress phases for video download, audio download, audio/video merging, and
   storage upload. Merging does not necessarily have a meaningful percentage.
-- **Magnet links** (\`magnet:?xt=urn:btih:...\` or \`magnet:?xt=urn:btmh:...\`) use the \`libtorrent\` engine. A single magnet task can import several
+- **Magnet links** (`magnet:?xt=urn:btih:...` or `magnet:?xt=urn:btmh:...`) use the `libtorrent` engine. A single magnet task can import several
   selected files from the same torrent. Progress reports peer discovery, metadata retrieval, downloading, and file-level upload progress.
-- **Telegram message links** (\`t.me\`, \`telegram.me\`, including private \`t.me/c/…/…\` links the logged-in account can access) are resolved before the
+- **Telegram message links** (`t.me`, `telegram.me`, including private `t.me/c/…/…` links the logged-in account can access) are resolved before the
   regular URL downloader starts. StoreLimitless uses a separate Telethon **user** session to open the original message, require a media attachment,
-  forward that original message to \`@PremiumFiletoLink_Bot\`, and wait up to 90 seconds for a response containing the actual URL behind a **FAST
+  forward that original message to `@PremiumFiletoLink_Bot`, and wait up to 90 seconds for a response containing the actual URL behind a **FAST
   DOWNLOAD** button or inline hyperlink. The resolver follows HTTP redirects without buffering the file and sends the resulting URL through the normal
   import workflow. It never falls back to downloading the Telegram message page itself. Missing/inaccessible messages, forwarding failures, missing
   download targets, unauthenticated sessions, and timeouts fail the import with an explicit error.
 
 To enable Telegram message-link imports:
 
-1. Configure the existing \`TELEGRAM_API_ID\` and \`TELEGRAM_API_HASH\` credentials used by the Telegram integration.
-2. Open \`@PremiumFiletoLink_Bot\` in Telegram and press **Start** once, if this account has not started it before.
-3. While StoreLimitless is running, enter \`telegram-login\` in its terminal and complete the phone-number, login-code, and (if enabled) two-step
-   verification prompts. In source mode, run \`python -m core.utils.telegram_link --login\` from the repository root instead.
-4. Keep the generated \`telegram_user.session\` file private. It authenticates the Telegram user account and is separate from the existing Telegram
+1. Configure the existing `TELEGRAM_API_ID` and `TELEGRAM_API_HASH` credentials used by the Telegram integration.
+2. Open `@PremiumFiletoLink_Bot` in Telegram and press **Start** once, if this account has not started it before.
+3. While StoreLimitless is running, enter `telegram-login` in its terminal and complete the phone-number, login-code, and (if enabled) two-step
+   verification prompts. In source mode, run `python -m core.utils.telegram_link --login` from the repository root instead.
+4. Keep the generated `telegram_user.session` file private. It authenticates the Telegram user account and is separate from the existing Telegram
    storage-bot session. Do not commit or share it.
 
 The Telegram user account must have access to the linked channel/group and permission to forward its file message. This workflow requires Telethon and
-outbound connectivity to Telegram. The other downloader dependencies are \`yt-dlp\` plus FFmpeg for YouTube, and the Python \`libtorrent\` module for
+outbound connectivity to Telegram. The other downloader dependencies are `yt-dlp` plus FFmpeg for YouTube, and the Python `libtorrent` module for
 magnet torrents.
 
 For a direct-download example, submit a single source URL such as:
 
-\`\`\`text
+```text
 https://downloads.example.org/archive.zip
-\`\`\`
+```
 
 Blank lines or additional URLs do not form a multi-source import task. Direct links to ordinary HTML pages, authenticated downloads the server cannot
 access, expired links, or unsupported provider-specific pages may fail even when the URL is syntactically valid.
@@ -654,8 +654,8 @@ JavaScript. To use the modern folder picker and disk-backed resumable downloads 
 ### Streaming multi-file ZIP downloads
 
 Select at least two active files in the dashboard, open the context menu, choose **Download as ZIP**, and enter the archive filename in the app's
-filename dialog. The frontend requests a short-lived ZIP token from \`POST /auth/files/zip-link\`, then starts a browser download from
-\`GET /public/download-zip/{token}?filename=...\`.
+filename dialog. The frontend requests a short-lived ZIP token from `POST /auth/files/zip-link`, then starts a browser download from
+`GET /public/download-zip/{token}?filename=...`.
 
 The FastAPI endpoint streams a ZIP64 archive while it reads each source file from the configured remote storage provider. It does not download all
 files into a temporary server directory or create a complete intermediate archive on disk. Output is streamed in ZIP STORE mode, which avoids
@@ -761,15 +761,15 @@ dashboard UI and data lifecycle logic are organized under `frontend/src/pages/da
 
 | Route          | Page / behavior                                                                                                   |
 |----------------|--------------------------------------------------------------------------------------------------------------------|
-| \`/\`            | Public product landing page (\`Landing.jsx\`) with product information and sign-in / registration links.              |
-| \`/login\`       | Sign-in form (\`Auth.jsx\` with \`initialMode="login"\`).                                                              |
-| \`/signup\`      | Registration form (\`Auth.jsx\` with \`initialMode="signup"\`).                                                       |
-| \`/home\`        | Dashboard root.                                                                                                   |
-| \`/home/*\`      | Dashboard at a nested folder route.                                                                               |
-| \`/dashboard\`   | Legacy route that redirects to the matching \`/home\` route.                                                        |
-| \`/upload\`      | Standalone upload/import route (\`dashboard/components/UploadModal.jsx\`).                                          |
-| \`/upload-tray\` | Dedicated full-screen upload task tray (\`UploadTrayPage.jsx\`); minimize returns to the originating folder.       |
-| \`/view/:fileId\`| File preview and media player (\`dashboard/components/ViewFile.jsx\`).                                               |
+| `/`            | Public product landing page (`Landing.jsx`) with product information and sign-in / registration links.              |
+| `/login`       | Sign-in form (`Auth.jsx` with `initialMode="login"`).                                                              |
+| `/signup`      | Registration form (`Auth.jsx` with `initialMode="signup"`).                                                       |
+| `/home`        | Dashboard root.                                                                                                   |
+| `/home/*`      | Dashboard at a nested folder route.                                                                               |
+| `/dashboard`   | Legacy route that redirects to the matching `/home` route.                                                        |
+| `/upload`      | Standalone upload/import route (`dashboard/components/UploadModal.jsx`).                                          |
+| `/upload-tray` | Dedicated full-screen upload task tray (`UploadTrayPage.jsx`); minimize returns to the originating folder.       |
+| `/view/:fileId` | File preview and media player (`dashboard/components/ViewFile.jsx`).                                               |
 
 ### Frontend module map
 
@@ -935,8 +935,8 @@ On the standalone upload page:
 - **Backspace** returns to the dashboard when focus is not in an editable field; normal text editing is preserved.
 - **Enter** triggers the upload/import action when it is enabled, except when focus is in a text-editing control. Key repeat is ignored so the same
   action is not accidentally started more than once.
-- **Folder picker:** the Choose folder control uses \`window.showDirectoryPicker()\` when supported, recursively gathers files and records relative paths,
-  then recreates those nested paths at upload time. Browsers/security contexts without that API use a hidden \`webkitdirectory\` input as a fallback;
+- **Folder picker:** the Choose folder control uses `window.showDirectoryPicker()` when supported, recursively gathers files and records relative paths,
+  then recreates those nested paths at upload time. Browsers/security contexts without that API use a hidden `webkitdirectory` input as a fallback;
   browser-owned multi-file confirmation prompts may therefore still appear on ordinary HTTP LAN origins.
 - In **Link** mode, submit one publicly accessible HTTP(S) URL, one valid magnet URI, or one supported Telegram message link per task. Multi-link input
   is disabled. Begin another import to process another remote source.
