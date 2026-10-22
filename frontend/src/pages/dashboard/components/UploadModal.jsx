@@ -697,7 +697,11 @@ export default function UploadPage({modal = false, targetDirectory = "", onClose
 
             if (cancelToken.cancelled) throw new Error("Upload task was cancelled.");
             if (failedItems.length) {
-                const firstFailure = String(failedItems[0]?.message || "Import failed").replace(/^Upload failed:\s*/i, "").replace(/\s+/g, " ").trim();
+                const rawFailure = String(failedItems[0]?.message || "Import failed").replace(/^Upload failed:\s*/i, "").replace(/\s+/g, " ").trim();
+                const normalizedFailure = rawFailure.toLowerCase();
+                const firstFailure = normalizedFailure.includes("forward") && normalizedFailure.includes("restrict")
+                    ? "Telegram has restricted forwarding for this message. Use a public file message that allows forwarding."
+                    : rawFailure;
                 const failureRemainder = failedItems.length > 1
                     ? ` (${failedItems.length - 1} additional failure${failedItems.length === 2 ? "" : "s"})`
                     : "";
