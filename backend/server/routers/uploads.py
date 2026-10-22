@@ -887,6 +887,12 @@ async def upload_link(
 
                         await update_upload_batch(batch_id, user.username, **batch_updates)
 
+            latest_metadata = await get_upload_job_metadata(job_id)
+
+            if latest_metadata is None or latest_metadata.get("cancelled"):
+                await Redis.set(job_id, Progress(file.name, "Upload cancelled", 0))
+                return
+
             async for progress in link_upload(file, download_link, selected_torrent_files):
                 latest_metadata = await get_upload_job_metadata(job_id)
 
