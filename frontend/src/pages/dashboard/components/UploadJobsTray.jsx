@@ -531,11 +531,27 @@ function describeJob(job) {
      * Torrent tasks use the same aggregation so their parent counter agrees with
      * the nested per-file progress panels.
      */
+    const hasTorrentItems = torrents.length > 0 && items.length > 0;
     const hasDetailedItems = items.length > 0 && items.some((item) => num(item.size) > 0 || num(item.total) > 0);
     const itemTotal = hasDetailedItems ? items.reduce((sum, item) => sum + (num(item.size) || num(item.total)), 0) : 0;
+
+    // Torrent files are downloaded to the server before they are uploaded to the
+    // selected storage provider. During the upload phase, `downloaded` means the
+    // source download is ready, not that the file has been stored. Count only
+    // completed storage uploads plus the bytes of the currently uploading file.
+    // While the torrent itself is still downloading, keep using its download
+    // progress so the parent bar remains useful during that earlier phase.
+    const torrentUploadPhase = hasTorrentItems && items.some((item) => item.status === "uploading" || item.status === "completed");
     const itemTransfer = hasDetailedItems ? items.reduce((sum, item) => {
         const size = num(item.size) || num(item.total);
-        const transferred = item.status === "completed" ? size : num(item.transfer);
+        let transferred;
+        if (item.status === "completed") {
+            transferred = size;
+        } else if (torrentUploadPhase && hasTorrentItems) {
+            transferred = item.status === "uploading" ? num(item.transfer) : 0;
+        } else {
+            transferred = num(item.transfer);
+        }
         return sum + (size > 0 ? Math.min(size, transferred) : transferred);
     }, 0) : 0;
     const total = itemTotal > 0 ? itemTotal : num(job.total);
