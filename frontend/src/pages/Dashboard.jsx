@@ -176,6 +176,83 @@ export default function DashboardPage() {
                 if (!granted) throw new Error("Permission to write the selected download file was denied.");
             }
 
+            if (job.streamOnly) {
+                const response = await fetch(job.url, {signal: controller.signal, cache: "no-store"});
+                if (!response.ok) throw new Error(`ZIP stream failed (${response.status}).`);
+
+                const contentLength = response.headers.get("content-length");
+                const latestTotal = contentLength ? Number(contentLength) : 0;
+                updateDownloadJob(job.id, {
+                    total: latestTotal,
+                    transferred: 0,
+                    message: "Downloading ZIP to temporary storage",
+                });
+
+                const writer = await handle.createWritable();
+                let transferred = 0;
+                let lastReported = 0;
+                try {
+                    const reader = response.body?.getReader();
+                    if (reader) {
+                        while (true) {
+                            if (controller.signal.aborted) {
+                                await reader.cancel().catch(() => {});
+                                throw new DOMException("Download paused", "AbortError");
+                            }
+                            const {done, value} = await reader.read();
+                            if (done) break;
+                            if (!value?.byteLength) continue;
+                            await writer.write(value);
+                            transferred += value.byteLength;
+                            if (transferred - lastReported >= 1024 * 1024 || (latestTotal > 0 && transferred >= latestTotal)) {
+                                updateDownloadJob(job.id, {
+                                    transferred,
+                                    total: latestTotal,
+                                    message: "Downloading ZIP to temporary storage",
+                                });
+                                lastReported = transferred;
+                            }
+                        }
+                    } else {
+                        const bytes = await response.arrayBuffer();
+                        await writer.write(bytes);
+                        transferred = bytes.byteLength;
+                    }
+
+                    if (controller.signal.aborted) throw new DOMException("Download paused", "AbortError");
+                    if (latestTotal > 0 && transferred !== latestTotal) {
+                        throw new Error(`Incomplete ZIP stream: received ${transferred} of ${latestTotal} bytes.`);
+                    }
+                    await writer.close();
+                } catch (error) {
+                    await writer.abort().catch(() => {});
+                    throw error;
+                }
+
+                const completedFile = await handle.getFile();
+                const objectUrl = URL.createObjectURL(completedFile);
+                const anchor = document.createElement("a");
+                anchor.href = objectUrl;
+                anchor.download = job.name || completedFile.name || "StoreLimitless-files.zip";
+                anchor.rel = "noreferrer";
+                document.body.appendChild(anchor);
+                anchor.click();
+                anchor.remove();
+                window.setTimeout(() => {
+                    URL.revokeObjectURL(objectUrl);
+                    navigator.storage.getDirectory()
+                        .then((root) => root.removeEntry(job.tempName))
+                        .catch(() => {});
+                }, 5 * 60 * 1000);
+                updateDownloadJob(job.id, {
+                    status: "completed",
+                    transferred,
+                    total: latestTotal || transferred,
+                    message: "ZIP staged in StoreLimitless · browser download started",
+                });
+                return;
+            }
+
             const head = await fetch(job.url, {method: "HEAD", signal: controller.signal});
             if (!head.ok) throw new Error(`Could not verify download source (${head.status}).`);
             const latestTotal = Number(head.headers.get("content-length") || job.total || 0);
@@ -244,7 +321,11 @@ export default function DashboardPage() {
             updateDownloadJob(job.id, {status: "completed", transferred: latestTotal, total: latestTotal, message: staged ? "Complete · browser download started" : "Download complete"});
         } catch (error) {
             if (error?.name === "AbortError" || controller.signal.aborted) {
-                updateDownloadJob(job.id, {status: "paused", message: "Paused"});
+                updateDownloadJob(job.id, {
+                    status: "paused",
+                    transferred: job.streamOnly ? 0 : (downloadJobsRef.current.find((item) => item.id === job.id)?.transferred || 0),
+                    message: job.streamOnly ? "Paused · resuming restarts the ZIP transfer" : "Paused",
+                });
             } else {
                 updateDownloadJob(job.id, {status: "error", message: error?.message || "Download failed"});
             }
@@ -725,13 +806,40 @@ export default function DashboardPage() {
             }
             if (!data.public_token) throw new Error("The server did not return a ZIP download token.");
 
-            const anchor = document.createElement("a");
+            if (typeof navigator.storage?.getDirectory !== "function") {
+                throw new Error("This browser does not support staged downloads. Use a recent Chromium-based browser.");
+            }
+            if (typeof navigator.storage.persist === "function") {
+                await navigator.storage.persist().catch(() => false);
+            }
+
             const filenameQuery = new URLSearchParams({filename: downloadName}).toString();
-            anchor.href = `${API_URL}/public/download-zip/${encodeURIComponent(data.public_token)}?${filenameQuery}`;
-            anchor.rel = "noreferrer";
-            document.body.appendChild(anchor);
-            anchor.click();
-            anchor.remove();
+            const url = `${API_URL}/public/download-zip/${encodeURIComponent(data.public_token)}?${filenameQuery}`;
+            const root = await navigator.storage.getDirectory();
+            const tempName = `storelimitless-zip-${crypto.randomUUID()}.download`;
+            const tempHandle = await root.getFileHandle(tempName, {create: true});
+            const writer = await tempHandle.createWritable();
+            await writer.truncate(0);
+            await writer.close();
+
+            const job = {
+                id: crypto.randomUUID(),
+                name: downloadName,
+                tempName,
+                streamOnly: true,
+                url,
+                total: 0,
+                etag: "",
+                transferred: 0,
+                status: "paused",
+                message: "Queued",
+                createdAt: Date.now(),
+            };
+            const next = [job, ...downloadJobsRef.current];
+            downloadJobsRef.current = next;
+            setDownloadJobs(next);
+            await saveResumableDownload(job);
+            runResumableDownload(job);
         } catch (error) {
             console.error("ZIP download failed:", error);
             alert(error.message || "Failed to download the selected files as a ZIP.");
