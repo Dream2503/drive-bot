@@ -170,7 +170,10 @@ function useTransferMetrics(transfer, total, metricKey) {
 
         const sample = {transfer: currentTransfer, at: now, speed: nextSpeed};
         previous.current = sample;
+        // Keep the HMR cache bounded on accounts with a large amount of upload history.
+        cache.delete(key);
         cache.set(key, sample);
+        if (cache.size > 500) cache.delete(cache.keys().next().value);
         setSpeed(nextSpeed);
     }, [currentTransfer, key]);
 
