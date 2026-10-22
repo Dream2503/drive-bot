@@ -478,6 +478,9 @@ export default function ViewFile() {
     const publicToken = searchParams.get("public_token") || (!isNumericFileId ? routeId : null);
     const [publicFile, setPublicFile] = useState(null);
     const [publicFileError, setPublicFileError] = useState("");
+    const [downloadUrl, setDownloadUrl] = useState("");
+    const [downloadPending, setDownloadPending] = useState(true);
+    const [downloadError, setDownloadError] = useState("");
     const name = searchParams.get("name") || publicFile?.name || "Untitled";
     const kind = searchParams.get("kind") || getFileKind(publicFile?.name || name);
 
@@ -508,6 +511,72 @@ export default function ViewFile() {
             cancelled = true;
         };
     }, [publicToken]);
+
+    // Prepare a public download URL for both compact share links and normal signed-in views.
+    // The backend sends Content-Disposition: attachment, so this works for every file type.
+    useEffect(() => {
+        let cancelled = false;
+        setDownloadUrl("");
+        setDownloadError("");
+
+        if (publicToken) {
+            if (publicFile) {
+                setDownloadUrl(`${API_URL}/public/download/${encodeURIComponent(publicToken)}`);
+                setDownloadPending(false);
+            } else if (publicFileError) {
+                setDownloadError(publicFileError);
+                setDownloadPending(false);
+            } else {
+                setDownloadPending(true);
+            }
+            return () => {
+                cancelled = true;
+            };
+        }
+
+        if (!fileId) {
+            setDownloadError("No file was selected.");
+            setDownloadPending(false);
+            return () => {
+                cancelled = true;
+            };
+        }
+
+        const sessionToken = localStorage.getItem("token");
+        if (!sessionToken) {
+            setDownloadError("Sign in to download this file.");
+            setDownloadPending(false);
+            return () => {
+                cancelled = true;
+            };
+        }
+
+        setDownloadPending(true);
+        (async () => {
+            try {
+                const response = await fetch(`${API_URL}/auth/file/${encodeURIComponent(fileId)}/public-link`, {
+                    method: "POST",
+                    headers: {Authorization: `Bearer ${sessionToken}`},
+                });
+                const data = await response.json().catch(() => ({}));
+                if (response.status === 401) {
+                    localStorage.removeItem("token");
+                    throw new Error("Your session has expired. Sign in again to download this file.");
+                }
+                if (!response.ok) throw new Error(data.detail || "Could not prepare the download.");
+                if (!data.public_token) throw new Error("The server did not return a download token.");
+                if (!cancelled) setDownloadUrl(`${API_URL}/public/download/${encodeURIComponent(data.public_token)}`);
+            } catch (err) {
+                if (!cancelled) setDownloadError(err instanceof Error ? err.message : "Could not prepare the download.");
+            } finally {
+                if (!cancelled) setDownloadPending(false);
+            }
+        })();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [fileId, navigate, publicFile, publicFileError, publicToken]);
 
     /** @type {[VideoSource | null, import("react").Dispatch<import("react").SetStateAction<VideoSource | null>>]} */
     const [source, setSource] = useState(null);
@@ -641,17 +710,31 @@ export default function ViewFile() {
                       aria-hidden="true">{kind === "pdf" ? "picture_as_pdf" : kind === "text" ? "code" : kind === "markdown" ? "article" : kind === "audio" ? "audio_file" : "movie"}</span>
             </div>
             <h1 className="min-w-0 truncate text-sm font-medium">{name}</h1>
-            {source?.streamUrl && kind === "video" && (<button
-                type="button"
-                onClick={copyStreamLink}
-                title={publicToken ? "Copy the public view link to your clipboard" : "Copy the stream URL to your clipboard"}
-                aria-live="polite"
-                className="ml-auto flex shrink-0 items-center gap-2 rounded-md border border-[#3a3a3a] px-3 py-1.5 text-xs text-[#fafafa] transition-colors hover:bg-[#2a2a2a] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#3ecf8e]"
-            >
-                <span className="material-symbols-outlined text-[17px]"
-                      aria-hidden="true">{copyStatus === "Copied!" ? "check" : copyStatus === "Copy failed" ? "error" : "content_copy"}</span>
-                {copyStatus || (publicToken ? "Copy share link" : "Copy stream link")}
-            </button>)}
+            <div className="ml-auto flex shrink-0 items-center gap-2">
+                <a
+                    href={downloadUrl || undefined}
+                    title={downloadError || (downloadPending ? "Preparing download" : "Download this file")}
+                    aria-disabled={!downloadUrl}
+                    onClick={(event) => {
+                        if (!downloadUrl) event.preventDefault();
+                    }}
+                    className={`flex shrink-0 items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#3ecf8e] ${downloadUrl ? "border-[#2e8058] bg-[#17643d] text-white hover:bg-[#1d794a]" : "cursor-not-allowed border-[#3a3a3a] bg-[#252525] text-[#808080]"}`}
+                >
+                    <span className="material-symbols-outlined text-[17px]" aria-hidden="true">{downloadPending ? "progress_activity" : "download"}</span>
+                    {downloadPending ? "Preparing…" : "Download"}
+                </a>
+                {source?.streamUrl && kind === "video" && (<button
+                    type="button"
+                    onClick={copyStreamLink}
+                    title={publicToken ? "Copy the public view link to your clipboard" : "Copy the stream URL to your clipboard"}
+                    aria-live="polite"
+                    className="flex shrink-0 items-center gap-2 rounded-md border border-[#3a3a3a] px-3 py-1.5 text-xs text-[#fafafa] transition-colors hover:bg-[#2a2a2a] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#3ecf8e]"
+                >
+                    <span className="material-symbols-outlined text-[17px]"
+                          aria-hidden="true">{copyStatus === "Copied!" ? "check" : copyStatus === "Copy failed" ? "error" : "content_copy"}</span>
+                    {copyStatus || (publicToken ? "Copy share link" : "Copy stream link")}
+                </button>)}
+            </div>
         </header>
 
         <main className="min-h-0 flex-1 overflow-hidden p-0">
