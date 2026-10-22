@@ -350,7 +350,7 @@ export default function UploadJobsTray({uploadJobs, cancelUploadJob, dismissUplo
                                     </p>
                                 </>)}
                                 {job.torrentFiles?.length > 1 && <div
-                                    className="upload-tray-scrollbar mt-2 max-h-[min(55vh,32rem)] space-y-2 overflow-y-auto rounded-md border border-[#29362e] bg-black/10 p-2">
+                                    className="mt-2 space-y-2 rounded-md border border-[#29362e] bg-black/10 p-2">
                                     <div className="flex items-center justify-between px-1 pb-1">
                                         <span
                                             className="text-[10px] font-semibold uppercase tracking-wide text-[#9bbba7]">{job.torrentFiles.length} Links</span>
@@ -366,7 +366,7 @@ export default function UploadJobsTray({uploadJobs, cancelUploadJob, dismissUplo
                                 </div>}
                                 {(!job.torrentFiles || job.torrentFiles.length <= 1) && itemCount > 1 && Array.isArray(job.items) && job.items.length > 0 && (
                                     <div
-                                        className="upload-tray-scrollbar mt-2 max-h-36 space-y-1 overflow-y-auto rounded-md border border-[#29362e] bg-black/10 p-1.5">
+                                        className="mt-2 space-y-1 rounded-md border border-[#29362e] bg-black/10 p-1.5">
                                         {job.items.map((item, index) => {
                                             const itemStatus = String(item.status || "queued");
                                             const itemComplete = itemStatus === "completed";
