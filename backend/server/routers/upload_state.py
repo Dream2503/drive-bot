@@ -327,6 +327,86 @@ async def update_upload_batch(batch_id: str, username: str, **updates: Any) -> d
     return metadata
 
 
+async def reconcile_completed_link_batch(batch_id: str, username: str, child_job_id: str) -> bool:
+    """Repair a link batch from the authoritative child-job result, even if the browser missed its final PATCH."""
+
+    if not child_job_id:
+        return False
+
+    batch = await get_upload_batch_metadata(batch_id)
+    if (
+            batch is None
+            or batch.get("username") != username
+            or batch.get("kind") != "link"
+            or batch.get("cancelled")
+            or batch.get("status") in {"completed", "error", "cancelled"}
+    ):
+        return False
+
+    child_metadata = await get_upload_job_metadata(child_job_id)
+    if (
+            child_metadata is None
+            or child_metadata.get("username") != username
+            or str(child_metadata.get("batch_id") or "") != batch_id
+    ):
+        return False
+
+    try:
+        progress: Progress = cast(Progress, await Redis.get(child_job_id, "Progress"))
+    except KeyError:
+        return False
+
+    if resolve_upload_job_status(str(progress.message or ""), child_metadata) != "completed":
+        return False
+
+    raw_items = batch.get("items") if isinstance(batch.get("items"), list) else []
+    items = [dict(item) if isinstance(item, dict) else {"name": str(item)} for item in raw_items]
+    child_items = getattr(progress, "torrent_items", []) or []
+    by_file_index = {
+        int(item["file_index"]): item
+        for item in child_items
+        if isinstance(item, dict) and item.get("file_index") is not None
+    }
+
+    # A link child only returns a terminal-success progress after the entire direct-link,
+    # YouTube, or selected-torrent import has finished. Therefore every selected batch item
+    # can be reconciled to completed, even if a browser polling request was interrupted.
+    for item in items:
+        child_item = None
+        if item.get("file_index") is not None:
+            try:
+                child_item = by_file_index.get(int(item["file_index"]))
+            except (TypeError, ValueError):
+                child_item = None
+
+        size = max(
+            int(item.get("size") or 0),
+            int(child_item.get("total") or 0) if child_item else 0,
+            int(child_item.get("transfer") or 0) if child_item else 0,
+        )
+        if size == 0:
+            size = max(0, int(item.get("total") or 0), int(item.get("transfer") or 0))
+
+        item["status"] = "completed"
+        item["message"] = "Completed"
+        if size > 0 or "transfer" in item or "total" in item:
+            item["size"] = size
+            item["transfer"] = size
+            item["total"] = size
+
+    total_items = len(items)
+    await update_upload_batch(
+        batch_id,
+        username,
+        status="completed",
+        message="Upload completed successfully",
+        items=items,
+        total_items=total_items,
+        completed_items=total_items,
+    )
+    return True
+
+
 async def cleanup_upload_artifacts(job_id: str) -> None:
     """Remove temporary chunk files and Redis session state for an uncommitted upload."""
 
@@ -410,6 +490,14 @@ async def list_user_upload_batches(username: str) -> list[dict[str, Any]]:
         if metadata is None or metadata.get("username") != username:
             await Redis.redis.srem(index_key, batch_id)
             continue
+
+        # Self-heal batches that stayed "uploading" because the browser never received the
+        # child's terminal status or could not send its final batch PATCH.
+        if metadata.get("kind") == "link" and metadata.get("status") in {"queued", "uploading"}:
+            child_job_id = str(metadata.get("current_job_id") or "")
+            if child_job_id:
+                await reconcile_completed_link_batch(batch_id, username, child_job_id)
+                metadata = await get_upload_batch_metadata(batch_id) or metadata
 
         total_items = max(1, int(metadata.get("total_items") or 0))
         completed_items = max(0, min(int(metadata.get("completed_items") or 0), total_items))

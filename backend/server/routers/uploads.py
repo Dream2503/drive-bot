@@ -42,6 +42,7 @@ from .upload_state import (
     terminal_upload_job_key,
     track_upload_task,
     register_upload_batch,
+    reconcile_completed_link_batch,
     update_upload_batch,
     upload_batch_key,
     user_upload_batches_key,
@@ -198,6 +199,11 @@ async def patch_upload_batch(batch_id: str, payload: dict[str, Any] = Body(...),
     if metadata is None or metadata.get("username") != user.username:
         raise HTTPException(status_code=404, detail="Upload task not found")
 
+    if metadata.get("status") == "completed":
+        # Completion is terminal. A late progress snapshot from the browser must not
+        # replace completed per-file states with stale "downloading" values.
+        return JSONResponse({"batch_id": batch_id, "status": "completed"})
+
     status = str(payload.get("status") or metadata.get("status") or "queued")
 
     if status not in {"queued", "uploading", "completed", "error", "cancelled"}:
@@ -210,21 +216,16 @@ async def patch_upload_batch(batch_id: str, payload: dict[str, Any] = Body(...),
 
     if "torrent_files" in payload:
         torrent_files = payload.get("torrent_files")
-
         if not isinstance(torrent_files, list):
             raise HTTPException(status_code=422, detail="Invalid torrent file metadata")
-
         if metadata.get("kind") == "link" and len(torrent_files) > 1:
             raise HTTPException(status_code=422, detail="Only one torrent link can be attached to an upload task")
-
         updates["torrent_files"] = torrent_files
 
     if "items" in payload:
         items_payload = payload.get("items")
-
         if not isinstance(items_payload, list):
             raise HTTPException(status_code=422, detail="Invalid upload task items")
-
         updates["items"] = [
             {
                 "name": str(item.get("name") or "Torrent file")[:500],
@@ -724,7 +725,6 @@ async def upload_chunk(
 @router.get("/torrent-preview")
 async def torrent_preview(link: str, user: User = Depends(get_current_user)) -> JSONResponse:
     """Return torrent file names and sizes without downloading their payload."""
-
     raw_link: str = link.strip()
     parsed_link: SplitResult = urlsplit(raw_link)
     query: dict[str, list[str]] = {cast(str, key.lower()): cast(list[str], values) for key, values in parse_qs(parsed_link.query).items()}
@@ -899,6 +899,12 @@ async def upload_link(
                             await update_upload_batch(batch_id, user.username, **batch_updates)
 
                 await Redis.set(job_id, progress)
+
+            # The storage worker, not the browser's polling loop, owns successful completion.
+            # This avoids leaving a finished link/torrent batch stuck at 95% when a proxy
+            # request drops the child's final status or the browser's final PATCH.
+            if batch_id:
+                await reconcile_completed_link_batch(batch_id, user.username, job_id)
 
         except CancelledError:
             return
