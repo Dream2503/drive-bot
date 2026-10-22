@@ -17,7 +17,7 @@ import useDashboardData, {clearDashboardTreeCache} from "./dashboard/hooks/useDa
 import useGlobalFileSearch from "./dashboard/hooks/useGlobalFileSearch.js";
 import useUploadJobs from "./dashboard/hooks/useUploadJobs.js";
 import {API_URL, DASHBOARD_SELECTION_STORAGE_KEY, DASHBOARD_SELECTIONS_BY_VIEW_KEY,} from "./dashboard/constants.js";
-import {decodePathSegment, folderPathToRoute, getFileIcon, getFileKind, getToken, makeSelectionViewKey,} from "./dashboard/utils.js";
+import {createUniqueId, decodePathSegment, folderPathToRoute, getFileIcon, getFileKind, getToken, makeSelectionViewKey,} from "./dashboard/utils.js";
 
 /** @typedef {"files" | "trash"} DashboardTab */
 /** @typedef {{icon: string, color: string}} FileIconStyle */
@@ -629,7 +629,7 @@ export default function DashboardPage() {
                 }
                 await navigator.storage.persist().catch(() => false);
 
-                const tempName = `storelimitless-${crypto.randomUUID()}.download`;
+                const tempName = `storelimitless-${createUniqueId()}.download`;
                 const root = await navigator.storage.getDirectory();
                 const tempHandle = await root.getFileHandle(tempName, {create: true});
                 const writer = await tempHandle.createWritable();
@@ -638,7 +638,7 @@ export default function DashboardPage() {
 
                 const file = files.find((item) => String(item.id) === String(fileId));
                 const job = {
-                    id: crypto.randomUUID(),
+                    id: createUniqueId(),
                     fileId: String(fileId),
                     name: file?.name || "download",
                     tempName,
@@ -698,7 +698,7 @@ export default function DashboardPage() {
                     await writable.truncate(0);
                     await writable.close();
                     const job = {
-                        id: crypto.randomUUID(),
+                        id: createUniqueId(),
                         fileId: String(fileId),
                         name: file?.name || handle.name || "download",
                         handle,
@@ -743,7 +743,7 @@ export default function DashboardPage() {
 
             const file = files.find((item) => String(item.id) === String(fileId));
             const job = {
-                id: crypto.randomUUID(),
+                id: createUniqueId(),
                 fileId: String(fileId),
                 name: file?.name || "download",
                 url: `${API_URL}/public/download/${encodeURIComponent(data.public_token)}`,
@@ -907,14 +907,14 @@ export default function DashboardPage() {
             const filenameQuery = new URLSearchParams({filename: downloadName}).toString();
             const url = `${API_URL}/public/download-zip/${encodeURIComponent(data.public_token)}?${filenameQuery}`;
             const root = await navigator.storage.getDirectory();
-            const tempName = `storelimitless-zip-${crypto.randomUUID()}.download`;
+            const tempName = `storelimitless-zip-${createUniqueId()}.download`;
             const tempHandle = await root.getFileHandle(tempName, {create: true});
             const writer = await tempHandle.createWritable();
             await writer.truncate(0);
             await writer.close();
 
             const job = {
-                id: crypto.randomUUID(),
+                id: createUniqueId(),
                 name: downloadName,
                 tempName,
                 streamOnly: true,
