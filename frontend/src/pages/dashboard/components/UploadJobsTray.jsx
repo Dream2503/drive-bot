@@ -220,12 +220,12 @@ function ItemRow({item, status, metricKey}) {
             <span className="min-w-0 flex-1 truncate text-[11px] text-[#c6d2ca]" title={name}>{name}</span>
             <span className={`shrink-0 text-[10px] tabular-nums ${TEXT[meta.tone]}`}>{meta.label}</span>
         </div>
-        {showPercent && <div className="ml-[23px] mt-1.5 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-            <TransferDetails transfer={transfer} total={size} status={status} inline speed={speed} eta={eta}/>
-            <div className="min-w-[3rem] flex-1">
-                <ProgressBar percent={percent}/>
+        {showPercent && <div className="ml-[23px] mt-1.5 min-w-0 space-y-1">
+            <ProgressBar percent={percent}/>
+            <div className="flex min-w-0 items-center justify-between gap-2">
+                <TransferDetails transfer={transfer} total={size} status={status} inline speed={speed} eta={eta}/>
+                <span className="shrink-0 text-[9px] font-mono tabular-nums text-[#789083]">{percent.toFixed(0)}%</span>
             </div>
-            <span className="shrink-0 text-[9px] font-mono tabular-nums text-[#789083]">{percent.toFixed(0)}%</span>
         </div>}
     </div>;
 }
@@ -688,16 +688,16 @@ function UploadJobCard({job, onSelectFiles, onCancel, onDismiss}) {
                     Select files and start
                 </button>}
 
-                {isActive && <div className="mt-2.5 flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1">
-                    {!isQueued && <TransferDetails transfer={transfer} total={total}
-                                                   status={job.status === "completed" ? "completed" : (/download/i.test(String(job.message || "")) ? "downloading" : "uploading")}
-                                                   inline speed={speed} eta={eta}/>}
-                    <div className="min-w-[3rem] flex-1">
-                        <ProgressBar percent={isQueued ? 0 : percent} muted={isQueued}/>
+                {isActive && <div className="mt-2.5 min-w-0 space-y-1">
+                    <ProgressBar percent={isQueued ? 0 : percent} muted={isQueued}/>
+                    <div className="flex min-w-0 items-center justify-between gap-2">
+                        {!isQueued && <TransferDetails transfer={transfer} total={total}
+                                                       status={job.status === "completed" ? "completed" : (/download/i.test(String(job.message || "")) ? "downloading" : "uploading")}
+                                                       inline speed={speed} eta={eta}/>}
+                        <span className="shrink-0 text-right font-mono text-[10px] tabular-nums text-[#718477]">
+                            {isQueued ? "Waiting" : `${percent.toFixed(1)}%`}
+                        </span>
                     </div>
-                    <span className="shrink-0 text-right font-mono text-[10px] tabular-nums text-[#718477]">
-                        {isQueued ? "Waiting" : `${percent.toFixed(1)}%`}
-                    </span>
                 </div>}
 
 
