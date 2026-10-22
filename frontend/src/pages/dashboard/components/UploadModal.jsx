@@ -1111,7 +1111,7 @@ export default function UploadPage({modal = false, targetDirectory = "", onClose
                                         Import from Link
                                     </p>
                                     <p className="text-xs text-[#898989]">
-                                        Import one HTTP(S) URL or one torrent magnet per task.
+                                        Import one HTTP(S) URL, public Telegram file-message link, or torrent magnet per task.
                                     </p>
                                 </div>
                             </div>
@@ -1146,7 +1146,7 @@ export default function UploadPage({modal = false, targetDirectory = "", onClose
                                         setTorrentSelectionReady(false);
                                         setTorrentSelectionModal(false);
                                     }}
-                                    placeholder="https://example.com/file.zip or magnet:?xt=urn:btih:..."
+                                    placeholder="https://example.com/file.zip, https://t.me/channel/123 or magnet:?xt=urn:btih:..."
                                     className={["w-full h-11 rounded-md border border-[#363636]", "bg-white/[0.026] pl-10 pr-3 py-2 text-sm text-[#fafafa]", "placeholder:text-[#707070] outline-none transition-colors", "focus:border-[#707070] focus:ring-2 focus:ring-[#4d4d4d]/50", "disabled:opacity-60",].join(" ")}
                                 />
                             </div>
@@ -1161,9 +1161,10 @@ export default function UploadPage({modal = false, targetDirectory = "", onClose
                                 </p>
                             </div>)}
                             <p className="text-xs text-[#707070] mt-3 leading-relaxed">
-                                Enter one publicly accessible HTTP(S) URL or one valid torrent magnet URI. Multiple links in a single task are
-                                disabled. Torrent contents
-                                are downloaded completely before their files are uploaded, and torrent folder paths are preserved.
+                                Enter one publicly accessible HTTP(S) URL, one public Telegram file-message link, or one valid torrent magnet URI.
+                                Telegram links must point to a public post with a downloadable attachment. Private /c/ links, invite-only chats,
+                                and messages without a file attachment are rejected with a specific error. Multiple links in a single task are
+                                disabled. Torrent contents are downloaded completely before their files are uploaded, and torrent folder paths are preserved.
                             </p>
                         </div>
                     </div>)}
