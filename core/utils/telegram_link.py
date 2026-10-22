@@ -169,8 +169,21 @@ async def _resolve_telegram_message_link(link: str) -> tuple[str, str]:
         if not await client.is_user_authorized():
             raise RuntimeError(
                 "Telegram link processing is not configured yet: the Telegram user session is not authenticated. "
-                "Run 'telegram-login' at the StoreLimitless terminal prompt (or "
-                "'python -m core.utils.telegram_link --login') once and complete the Telegram login prompts."
+                "Run 'telegram-login --new' at the StoreLimitless terminal prompt and sign in with your personal "
+                "Telegram account."
+            )
+
+        account = await client.get_me()
+
+        if account is None:
+            raise RuntimeError("Telegram did not return the account for the configured user session.")
+
+        if getattr(account, "bot", False):
+            raise RuntimeError(
+                "TELEGRAM_USER_SESSION_STRING is authenticated as a Telegram BOT account, not a personal user "
+                "account. Message-history lookup requires a user session. Run 'telegram-login --new', sign in "
+                "with your personal Telegram phone number, then replace TELEGRAM_USER_SESSION_STRING in your "
+                "private core/utils/env.py with the newly printed value."
             )
 
         try:
@@ -207,6 +220,12 @@ async def _resolve_telegram_message_link(link: str) -> tuple[str, str]:
             if isinstance(error, AsyncTimeoutError):
                 raise TimeoutError(
                     "Timed out while checking the public Telegram message. Check the link and try again."
+                ) from error
+            if error_name == "BotMethodInvalidError":
+                raise RuntimeError(
+                    "Telegram rejected a user-only message-history request. The configured Telegram session "
+                    "is likely a bot session. Run 'telegram-login --new' and save the generated personal-user "
+                    "session string in core/utils/env.py."
                 ) from error
             raise RuntimeError(
                 f"Could not access the public Telegram message ({error_name}). "
@@ -328,8 +347,8 @@ async def _resolve_telegram_message_link(link: str) -> tuple[str, str]:
         await client.disconnect()
 
 
-async def login_telegram_user_session() -> None:
-    """Interactively authenticate the separate Telegram user session."""
+async def login_telegram_user_session(force_new: bool = False) -> None:
+    """Authenticate a personal Telegram account and print a portable session string."""
 
     from telethon import TelegramClient
     from telethon.sessions import StringSession
@@ -337,8 +356,7 @@ async def login_telegram_user_session() -> None:
     if not TELEGRAM_API_ID or not TELEGRAM_API_HASH:
         raise RuntimeError("Telegram API_ID/API_HASH are missing from core.utils.env")
 
-    session_string: str = str(getattr(env_config, "TELEGRAM_USER_SESSION_STRING", "") or "").strip()
-    session = StringSession(session_string) if session_string else str(TELEGRAM_USER_SESSION)
+    session = StringSession() if force_new else str(TELEGRAM_USER_SESSION)
     client = TelegramClient(session, TELEGRAM_API_ID, TELEGRAM_API_HASH)
 
     try:
@@ -348,15 +366,20 @@ async def login_telegram_user_session() -> None:
         if account is None:
             raise RuntimeError("Telegram returned no account after login")
 
+        if getattr(account, "bot", False):
+            raise RuntimeError(
+                "The session file is authenticated as a Telegram BOT account, not a personal user account. "
+                "Run 'telegram-login --new' to create a fresh session, then sign in with your personal phone number."
+            )
+
         print(f"Telegram user session authenticated as @{account.username or account.id}.")
 
-        if session_string:
-            print("Persistent Telegram session loaded from TELEGRAM_USER_SESSION_STRING in core.utils.env.")
-        else:
+        if not force_new:
             print(f"Session stored at: {TELEGRAM_USER_SESSION}")
-            exported_session: str = StringSession.save(client.session)
-            print("Copy this line into your private core/utils/env.py file to persist the login across redeployments:")
-            print(f'TELEGRAM_USER_SESSION_STRING: str = "{exported_session}"')
+
+        exported_session: str = StringSession.save(client.session)
+        print("Copy this line into your private core/utils/env.py file to persist the login across redeployments:")
+        print(f'TELEGRAM_USER_SESSION_STRING: str = "{exported_session}"')
 
     finally:
         await client.disconnect()
@@ -365,7 +388,9 @@ async def login_telegram_user_session() -> None:
 if __name__ == "__main__":
     import sys
 
-    if sys.argv[1:] != ["--login"]:
-        raise SystemExit("Usage: python -m core.utils.telegram_link --login")
+    arguments: list[str] = sys.argv[1:]
 
-    run(login_telegram_user_session())
+    if arguments not in (["--login"], ["--login", "--new"]):
+        raise SystemExit("Usage: python -m core.utils.telegram_link --login [--new]")
+
+    run(login_telegram_user_session(force_new=arguments == ["--login", "--new"]))
