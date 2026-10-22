@@ -72,7 +72,10 @@ function belongsToTorrent(item, torrent, index) {
 function getItemProgress(item, status) {
     const size = getItemSize(item);
     const done = status === "completed";
-    const percent = done ? 100 : size ? Math.min(100, num(item.transfer) * 100 / size) : 0;
+    const hasPublishedProgress = item.progress !== undefined && item.progress !== null;
+    const percent = done ? 100 : hasPublishedProgress
+        ? Math.max(0, Math.min(100, num(item.progress)))
+        : size ? Math.min(100, num(item.transfer) * 100 / size) : 0;
     return {size, percent};
 }
 
@@ -626,7 +629,24 @@ function describeJob(job) {
     }, 0) : 0;
     const total = itemTotal > 0 ? itemTotal : num(job.total);
     const transfer = itemTotal > 0 ? Math.min(itemTotal, itemTransfer) : num(job.transfer);
-    const rawPercent = itemTotal > 0 ? transfer * 100 / itemTotal : Number(job.progress) || 0;
+    const hasExplicitItemProgress = hasDetailedItems && items.some((item) => item.progress !== undefined && item.progress !== null);
+    const progressWeightedByItem = hasExplicitItemProgress ? items.reduce((sum, item) => {
+        const size = num(item.size) || num(item.total);
+        if (size <= 0) return sum;
+        const itemPercent = item.status === "completed"
+            ? 100
+            : item.progress !== undefined && item.progress !== null
+                ? Math.max(0, Math.min(100, num(item.progress)))
+                : Math.max(0, Math.min(100, num(item.transfer) * 100 / size));
+        return sum + size * itemPercent / 100;
+    }, 0) : 0;
+    // Ordinary file batches publish a backend-computed current fraction, while torrent
+    // batches expose per-file byte counts. Prefer explicit pipeline progress when present.
+    const rawPercent = hasExplicitItemProgress && itemTotal > 0
+        ? progressWeightedByItem * 100 / itemTotal
+        : itemTotal > 0 && hasTorrentItems
+            ? transfer * 100 / itemTotal
+            : Number(job.progress) || 0;
     const percent = isComplete ? 100 : Math.max(0, Math.min(99, rawPercent));
 
     const stage = job.kind === "link" ? formatLinkStage(job.message) : "";
