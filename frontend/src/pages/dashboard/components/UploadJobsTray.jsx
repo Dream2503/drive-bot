@@ -725,6 +725,7 @@ export default function UploadJobsTray({
     resumeDownload,
     removeDownload,
     clearCompletedDownloads,
+    readOnlyDownloads = false,
     fullscreen = false,
     onMinimize,
 }) {
@@ -929,6 +930,7 @@ export default function UploadJobsTray({
                         onResume={resumeDownload}
                         onRemove={removeDownload}
                         onClearCompleted={clearCompletedDownloads}
+                        readOnly={readOnlyDownloads}
                         embedded
                     />}
 
