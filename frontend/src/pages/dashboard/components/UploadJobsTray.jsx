@@ -1,5 +1,5 @@
 import {useEffect, useRef, useState} from "react";
-import {useNavigate} from "react-router-dom";
+import {useLocation, useNavigate} from "react-router-dom";
 import {API_URL, iconBtn, iconBtnDanger} from "../constants.js";
 import {formatFileSize, getToken} from "../utils.js";
 
@@ -672,6 +672,10 @@ function UploadJobCard({job, onSelectFiles, onCancel, onDismiss}) {
 
 export default function UploadJobsTray({uploadJobs, cancelUploadJob, dismissUploadJob, clearAllUploadJobs, fullscreen = false}) {
     const navigate = useNavigate();
+    const location = useLocation();
+    const returnTo = typeof location.state?.returnTo === "string" && /^\/home(?:\/|$)/.test(location.state.returnTo)
+        ? location.state.returnTo
+        : "/home";
     const [selectionJob, setSelectionJob] = useState(null); // non-null means the picker is open
     const [selection, setSelection] = useState({});         // torrentKey -> selected file indexes
     const [selectionIndex, setSelectionIndex] = useState(0);
@@ -786,10 +790,14 @@ export default function UploadJobsTray({uploadJobs, cancelUploadJob, dismissUplo
                     </span>}
                 </div>
                 <div className="flex shrink-0 items-center gap-1">
-                    <button type="button" onClick={() => navigate(fullscreen ? "/home" : "/upload-tray")}
+                    <button type="button" onClick={() => fullscreen
+                        ? navigate(returnTo, {replace: true})
+                        : navigate("/upload-tray", {
+                            state: {returnTo: `${location.pathname}${location.search}${location.hash}`},
+                        })}
                             className="flex h-7 w-7 items-center justify-center rounded-md text-[#9bbba7] transition-colors hover:bg-white/5 hover:text-[#f3f7f4]"
-                            title={fullscreen ? "Return to dashboard" : "Open full-screen upload tray"}
-                            aria-label={fullscreen ? "Return to dashboard" : "Maximize upload tray"}>
+                            title={fullscreen ? "Return to previous directory" : "Open full-screen upload tray"}
+                            aria-label={fullscreen ? "Minimize upload tray and return to previous directory" : "Maximize upload tray"}>
                         <Icon name={fullscreen ? "close_fullscreen" : "open_in_full"} className="text-[17px]"/>
                     </button>
                     <button type="button" onClick={() => clearAllUploadJobs?.()}
