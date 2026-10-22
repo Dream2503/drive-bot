@@ -165,9 +165,20 @@ async def main() -> None:
                         else:
                             print("Interactive prompt restored.")
 
-                    elif command in {"telegram-login", "login-telegram"}:
+                    elif command in {
+                        "telegram-login",
+                        "login-telegram",
+                        "telegram-login --new",
+                        "login-telegram --new",
+                        "telegram-login-new",
+                    }:
                         try:
-                            await to_thread(run, login_telegram_user_session())
+                            force_new: bool = command in {
+                                "telegram-login --new",
+                                "login-telegram --new",
+                                "telegram-login-new",
+                            }
+                            await to_thread(run, login_telegram_user_session(force_new=force_new))
                         except Exception as error:
                             print(f"Telegram user login failed: {error}")
 
