@@ -153,11 +153,11 @@ async def _resolve_telegram_message_link(link: str) -> tuple[str, str]:
         except (RPCError, AsyncTimeoutError) as error:
             raise RuntimeError(f"Could not access Telegram message: {type(error).__name__}") from error
 
-        if source_message is None or not getattr(source_message, "media", None):
-            raise ValueError("Telegram message was not found or does not contain a file/media attachment")
+        source_file = getattr(source_message, "file", None) if source_message is not None else None
+        if source_message is None or not getattr(source_message, "media", None) or source_file is None:
+            raise ValueError("Telegram message was not found or does not contain a downloadable file attachment")
 
         client.add_event_handler(receive_bot_message, events.NewMessage(incoming=True))
-        client.add_event_handler(receive_bot_message, events.MessageEdited(incoming=True))
 
         try:
             try:
@@ -229,13 +229,11 @@ async def _resolve_telegram_message_link(link: str) -> tuple[str, str]:
             if final_parsed.scheme not in {"http", "https"} or not final_parsed.hostname:
                 raise ValueError("FAST DOWNLOAD redirected to an invalid URL")
 
-            source_file = getattr(source_message, "file", None)
             source_name: str = str(getattr(source_file, "name", "") or "Telegram download")
             return final_url, source_name
 
         finally:
             client.remove_event_handler(receive_bot_message, events.NewMessage(incoming=True))
-            client.remove_event_handler(receive_bot_message, events.MessageEdited(incoming=True))
 
     finally:
         await client.disconnect()
