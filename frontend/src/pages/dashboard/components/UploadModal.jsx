@@ -697,13 +697,19 @@ export default function UploadPage({modal = false, targetDirectory = "", onClose
 
             if (cancelToken.cancelled) throw new Error("Upload task was cancelled.");
             if (failedItems.length) {
+                const firstFailure = String(failedItems[0]?.message || "Import failed").replace(/\s+/g, " ").trim();
+                const failureRemainder = failedItems.length > 1
+                    ? ` (${failedItems.length - 1} additional failure${failedItems.length === 2 ? "" : "s"})`
+                    : "";
+                const failureSummary = `${failedItems.length} of ${queueTotal} item(s) failed: ${firstFailure}${failureRemainder}`.slice(0, 480);
+
                 await publishBatch({
                     status: "error",
                     current_index: queueTotal,
                     completed_items: successfulItems,
                     current_job_id: "",
                     current_name: "",
-                    message: `${failedItems.length} of ${queueTotal} item(s) failed`
+                    message: failureSummary
                 });
             } else {
                 await publishBatch({
