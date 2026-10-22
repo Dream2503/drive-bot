@@ -621,6 +621,10 @@ async def list_user_upload_batches(username: str) -> list[dict[str, Any]]:
             metadata["items"] = items
             await Redis.set_json(upload_batch_key(batch_id), metadata)
 
+        # The child progress above may have completed another torrent file during
+        # this poll. Re-read the reconciled count before calculating the batch bar,
+        # rather than displaying the previous poll's completed-file count.
+        completed_items = max(0, min(int(metadata.get("completed_items") or 0), total_items))
         current_fraction = min(1.0, current_transfer / current_total) if current_total else 0.0
         status = str(metadata.get("status") or "queued")
         progress = 100.0 if status == "completed" else min(99.0, ((completed_items + current_fraction) / total_items) * 100.0)
