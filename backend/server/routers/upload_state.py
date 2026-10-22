@@ -521,6 +521,8 @@ async def list_user_upload_batches(username: str) -> list[dict[str, Any]]:
         source_path_name = (parsed_source.path.rstrip("/").rsplit("/", 1)[-1] if parsed_source else "")
         placeholder_names = {"", "link", "upload", "torrent", "watch", "shorts", "embed", "live", "video", "update_name_from_backend"}
 
+        items_changed = False
+
         if current_job_id:
             try:
                 child_progress: Progress = cast(Progress, await Redis.get(current_job_id, "Progress"))
@@ -549,10 +551,64 @@ async def list_user_upload_batches(username: str) -> list[dict[str, Any]]:
                     else:
                         current_message = progress_message
 
+                # The child process is the source of truth for torrent file-level progress.
+                # Rebuild the tray items from Redis on every batch poll so a frontend reload
+                # or hot-module replacement cannot strand the tray at its last browser PATCH.
+                child_items = getattr(child_progress, "torrent_items", []) or []
+                if child_items and str(metadata.get("kind") or "") == "link":
+                    child_by_index = {
+                        int(child_item["file_index"]): child_item
+                        for child_item in child_items
+                        if isinstance(child_item, dict) and child_item.get("file_index") is not None
+                    }
+                    for item in items:
+                        if item.get("file_index") is None:
+                            continue
+                        try:
+                            child_item = child_by_index.get(int(item["file_index"]))
+                        except (TypeError, ValueError):
+                            child_item = None
+                        if child_item is None:
+                            continue
+
+                        child_status = str(child_item.get("status") or item.get("status") or "queued")
+                        child_transfer = max(0, int(child_item.get("transfer") or 0))
+                        child_total = max(0, int(child_item.get("total") or item.get("size") or 0))
+                        child_name = str(child_item.get("name") or item.get("name") or "")
+                        child_message = str(child_item.get("message") or child_status.title())
+                        if (
+                                item.get("status") != child_status
+                                or int(item.get("transfer") or 0) != child_transfer
+                                or int(item.get("total") or item.get("size") or 0) != child_total
+                                or item.get("name") != child_name
+                                or item.get("message") != child_message
+                        ):
+                            item.update({
+                                "status": child_status,
+                                "transfer": child_transfer,
+                                "total": child_total,
+                                "size": child_total,
+                                "name": child_name,
+                                "message": child_message,
+                            })
+                            items_changed = True
+
+                    completed_from_child = sum(1 for item in items if item.get("status") == "completed")
+                    if int(metadata.get("completed_items") or 0) != completed_from_child:
+                        metadata["completed_items"] = completed_from_child
+                        items_changed = True
+
+                    active_item = next(
+                        (item for item in items if item.get("status") in {"downloading", "uploading"}),
+                        None,
+                    )
+                    if active_item is not None:
+                        current_name = str(active_item.get("name") or current_name)
+                        current_message = str(active_item.get("message") or current_message)
+
             except KeyError:
                 pass
 
-        items_changed = False
 
         if str(metadata.get("kind") or "") == "link" and current_name and 0 <= current_index < len(items):
             submitted_name = str(items[current_index].get("name") or "")
