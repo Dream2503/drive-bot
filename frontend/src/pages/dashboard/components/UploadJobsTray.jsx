@@ -568,7 +568,13 @@ function describeJob(job) {
     const usableCurrent = currentName && !isUnresolvedName(rawCurrentName, sourceIsYouTube) ? currentName : "";
     const singleName = singleItem ? getFileName(singleItem) : "";
     const usableItem = singleName && !isUnresolvedName(rawItemName, sourceIsYouTube) ? singleName : "";
-    const title = singleItem ? usableCurrent || usableItem || (sourceIsYouTube ? "YouTube video" : singleName || job.name || "Upload task") : job.kind === "link" && (itemCount > 1 || torrents.length > 1) ? "Link import" : job.name || "Upload task";
+    const torrentName = String(torrents[0]?.name || "").trim();
+    const firstItemName = items.length ? getFileName(items[0]) : "";
+    const title = singleItem
+        ? usableCurrent || usableItem || (sourceIsYouTube ? "YouTube video" : singleName || job.name || "Upload task")
+        : job.kind === "link"
+            ? usableCurrent || torrentName || firstItemName || job.name || "Upload task"
+            : job.name || "Upload task";
 
     /*
      * Prefer item-level byte counts when available. This gives multi-file tasks a
@@ -580,12 +586,10 @@ function describeJob(job) {
     const hasDetailedItems = items.length > 0 && items.some((item) => num(item.size) > 0 || num(item.total) > 0);
     const itemTotal = hasDetailedItems ? items.reduce((sum, item) => sum + (num(item.size) || num(item.total)), 0) : 0;
 
-    // Torrent files are downloaded to the server before they are uploaded to the
-    // selected storage provider. During the upload phase, `downloaded` means the
-    // source download is ready, not that the file has been stored. Count only
-    // completed storage uploads plus the bytes of the currently uploading file.
-    // While the torrent itself is still downloading, keep using its download
-    // progress so the parent bar remains useful during that earlier phase.
+    // Each torrent file is uploaded as soon as it finishes downloading. During
+    // storage upload, count completed files plus the bytes transferred for the
+    // currently uploading file; do not count a fully downloaded-but-not-yet-stored
+    // file as completed upload progress.
     const torrentUploadPhase = hasTorrentItems && items.some((item) => item.status === "uploading" || item.status === "completed");
     const itemTransfer = hasDetailedItems ? items.reduce((sum, item) => {
         const size = num(item.size) || num(item.total);
