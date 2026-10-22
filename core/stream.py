@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from asyncio import Task, create_task, gather, sleep, wait_for
+from asyncio import CancelledError, Task, create_task, gather, sleep, wait_for
 from bisect import bisect_right
 from dataclasses import dataclass
 from re import Match, fullmatch
@@ -66,6 +66,9 @@ class Stream:
                     expected_last = candidate
                     await DataCenter.cache_part(str(file.id), last_index, candidate)
                     break
+
+                except CancelledError:
+                    raise
 
                 except Exception as error:
                     last_error = error
