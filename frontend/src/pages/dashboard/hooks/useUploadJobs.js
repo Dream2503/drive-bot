@@ -57,6 +57,38 @@ export default function useUploadJobs(refreshDirectory) {
             if (document.visibilityState === "visible") requestImmediateRefresh();
         };
 
+        const persistTerminalBatch = (batch, status, message, items) => {
+            if (!["completed", "error", "cancelled"].includes(status)) return;
+            if (!(window.__storeLimitlessTerminalBatchSync instanceof Map)) {
+                window.__storeLimitlessTerminalBatchSync = new Map();
+            }
+
+            const syncKey = `${batch.jobId}:${status}`;
+            const syncCache = window.__storeLimitlessTerminalBatchSync;
+            if (syncCache.has(syncKey)) return;
+
+            const completedItems = items.filter((item) => item.status === "completed").length;
+            const request = authenticatedFetch(`${API_URL}/auth/upload-batches/${encodeURIComponent(batch.jobId)}`, {
+                method: "PATCH",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify({
+                    status,
+                    message: String(message || status),
+                    items,
+                    total_items: items.length,
+                    completed_items: completedItems,
+                }),
+            }).then((response) => {
+                if (!response?.ok) syncCache.delete(syncKey);
+            }).catch(() => {
+                // Allow the next status poll to retry if the server could not save it.
+                syncCache.delete(syncKey);
+            });
+
+            syncCache.set(syncKey, request);
+            if (syncCache.size > 200) syncCache.delete(syncCache.keys().next().value);
+        };
+
         const refreshUploadBatches = async () => {
             if (cancelled) return;
             if (polling) {
@@ -126,11 +158,47 @@ export default function useUploadJobs(refreshDirectory) {
                         const childItems = Array.isArray(child.torrent_items) ? child.torrent_items : [];
                         if (!childItems.length) {
                             if (["completed", "error", "cancelled"].includes(child.status)) {
+                                const terminalItems = normalized.items.map((item) => ({...item}));
+                                if (child.status === "completed") {
+                                    for (const item of terminalItems) {
+                                        item.status = "completed";
+                                        item.message = "Completed";
+                                        const size = Math.max(0, Number(item.size) || Number(item.total) || 0);
+                                        item.transfer = size;
+                                        item.total = size;
+                                        item.size = size;
+                                    }
+                                } else if (child.status === "cancelled") {
+                                    for (const item of terminalItems) {
+                                        if (!["completed", "error", "skipped"].includes(item.status)) {
+                                            item.status = "cancelled";
+                                            item.message = "Cancelled";
+                                        }
+                                    }
+                                } else {
+                                    let markedActive = false;
+                                    for (const item of terminalItems) {
+                                        if (["completed", "error", "cancelled", "skipped"].includes(item.status)) continue;
+                                        if (!markedActive && ["downloading", "uploading"].includes(item.status)) {
+                                            item.status = "error";
+                                            item.message = String(child.message || "Upload failed");
+                                            markedActive = true;
+                                        } else {
+                                            item.status = "skipped";
+                                            item.message = "Not started after failure";
+                                        }
+                                    }
+                                }
+
+                                const message = String(child.message || normalized.message);
+                                persistTerminalBatch(normalized, child.status, message, terminalItems);
                                 return {
                                     ...normalized,
+                                    items: terminalItems,
                                     status: child.status,
+                                    completedItems: terminalItems.filter((item) => item.status === "completed").length,
                                     progress: child.status === "completed" ? 100 : normalized.progress,
-                                    message: String(child.message || normalized.message),
+                                    message,
                                 };
                             }
                             return normalized;
@@ -188,6 +256,10 @@ export default function useUploadJobs(refreshDirectory) {
 
                         const activeItem = items.find((item) => ["downloading", "uploading"].includes(item.status));
                         const completedItems = items.filter((item) => item.status === "completed").length;
+                        const message = String(activeItem?.message || child.message || normalized.message);
+                        if (["completed", "error", "cancelled"].includes(childBatchStatus)) {
+                            persistTerminalBatch(normalized, childBatchStatus, message, items);
+                        }
                         return {
                             ...normalized,
                             items,
@@ -195,7 +267,7 @@ export default function useUploadJobs(refreshDirectory) {
                             progress: childBatchStatus === "completed" ? 100 : normalized.progress,
                             completedItems,
                             currentName: String(activeItem?.name || child.name || normalized.currentName),
-                            message: String(activeItem?.message || child.message || normalized.message),
+                            message,
                         };
                     } catch {
                         // A temporary status-fetch failure must not discard the last
