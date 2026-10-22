@@ -1,6 +1,7 @@
 import {useCallback, useEffect, useRef, useState} from "react";
 import {useNavigate, useParams, useSearchParams} from "react-router-dom";
 import FileContentPreview, {MediaPreview} from "./FileContentPreview.jsx";
+import {getFileKind} from "../utils.js";
 
 /**
  * @typedef {{name: string}} PreviewFile
@@ -468,12 +469,46 @@ function VideoPlayer({file, streamUrl, heightClass = "h-[70vh]"}) {
  * @returns {import("react").ReactElement}
  */
 export default function ViewFile() {
-    const {fileId} = useParams();
+    const {fileId: routeId} = useParams();
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
-    const name = searchParams.get("name") || "Untitled";
-    const kind = searchParams.get("kind");
+    const isNumericFileId = /^\d+$/.test(String(routeId || ""));
+    const fileId = isNumericFileId ? routeId : null;
+    // Keep old query-token links working while accepting the shorter /view/<token> form.
+    const publicToken = searchParams.get("public_token") || (!isNumericFileId ? routeId : null);
+    const [publicFile, setPublicFile] = useState(null);
+    const [publicFileError, setPublicFileError] = useState("");
+    const name = searchParams.get("name") || publicFile?.name || "Untitled";
+    const kind = searchParams.get("kind") || getFileKind(publicFile?.name || name);
     const publicToken = searchParams.get("public_token");
+
+    useEffect(() => {
+        if (!publicToken) {
+            setPublicFile(null);
+            setPublicFileError("");
+            return;
+        }
+
+        let cancelled = false;
+        setPublicFile(null);
+        setPublicFileError("");
+
+        (async () => {
+            try {
+                const response = await fetch(`${API_URL}/public/metadata/${encodeURIComponent(publicToken)}`);
+                const data = await response.json().catch(() => ({}));
+                if (!response.ok) throw new Error(data.detail || "Could not open this shared file.");
+                if (!data.name) throw new Error("The public link did not return file information.");
+                if (!cancelled) setPublicFile(data);
+            } catch (err) {
+                if (!cancelled) setPublicFileError(err instanceof Error ? err.message : "Could not open this shared file.");
+            }
+        })();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [publicToken]);
 
     /** @type {[VideoSource | null, import("react").Dispatch<import("react").SetStateAction<VideoSource | null>>]} */
     const [source, setSource] = useState(null);
@@ -621,7 +656,17 @@ export default function ViewFile() {
         </header>
 
         <main className="min-h-0 flex-1 overflow-hidden p-0">
-            {kind === "text" || kind === "markdown" ? <FileContentPreview fileId={fileId} kind={kind} navigate={navigate} publicToken={publicToken}/> : kind === "pdf" ?
+            {publicToken && !publicFile && !publicFileError ? (
+                <div className="flex h-full flex-col items-center justify-center gap-3 text-sm text-[#898989]">
+                    <span className="material-symbols-outlined animate-spin text-[32px]" aria-hidden="true">progress_activity</span>
+                    Preparing shared file…
+                </div>
+            ) : publicToken && publicFileError ? (
+                <div className="flex h-full flex-col items-center justify-center gap-2 px-6 text-center">
+                    <span className="material-symbols-outlined text-[40px] text-[#ff6369]" aria-hidden="true">error</span>
+                    <p className="text-sm text-[#ff6369]">{publicFileError}</p>
+                </div>
+            ) : kind === "text" || kind === "markdown" ? <FileContentPreview fileId={fileId} kind={kind} navigate={navigate} publicToken={publicToken}/> : kind === "pdf" ?
                 <MediaPreview fileId={fileId} navigate={navigate} type="pdf" publicToken={publicToken}/> : kind === "audio" ?
                     <MediaPreview fileId={fileId} navigate={navigate} type="audio" publicToken={publicToken}/> : kind !== "video" ? (
                         <div className="flex h-full flex-col items-center justify-center gap-2 text-center text-[#898989]">

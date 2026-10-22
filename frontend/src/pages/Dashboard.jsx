@@ -533,13 +533,7 @@ export default function DashboardPage() {
             }
             if (!data.public_token) throw new Error("The server did not return a public link.");
 
-            const params = new URLSearchParams({
-                name: file.name || "Untitled",
-                public_token: data.public_token,
-            });
-            const kind = getFileKind(file.name);
-            if (kind) params.set("kind", kind);
-            const url = new URL(`/view/${encodeURIComponent(String(file.id))}?${params.toString()}`, window.location.origin).toString();
+            const url = new URL(`/view/${encodeURIComponent(data.public_token)}`, window.location.origin).toString();
 
             setShareDialog({name: file.name, url, loading: false, error: ""});
         } catch (error) {
