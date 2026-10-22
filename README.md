@@ -450,7 +450,7 @@ To enable this workflow:
 
 1. Configure the existing `TELEGRAM_API_ID` and `TELEGRAM_API_HASH` application credentials used by the Telegram integration.
 2. Open `@PremiumFiletoLink_Bot` in Telegram and press **Start** once, if this account has not started it before.
-3. From the repository root, run `python -m core.utils.telegram_link --login` and complete the phone-number, login-code, and (if enabled) two-step-verification prompts.
+3. While StoreLimitless is running, enter `telegram-login` in its terminal and complete the phone-number, login-code, and (if enabled) two-step-verification prompts. In source mode, you can alternatively run `python -m core.utils.telegram_link --login` from the repository root.
 4. Keep the generated `telegram_user.session` file private. It authenticates your Telegram user account and is separate from the existing Telegram storage-bot session. Do not commit or share it.
 
 The Telegram account must have access to the linked channel/group and permission to forward its file message. Public message links and private `t.me/c/…/…` links are supported when that account can access the message. This feature requires Telethon to be able to connect to Telegram at import time.
