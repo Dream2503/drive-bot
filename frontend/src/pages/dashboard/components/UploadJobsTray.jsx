@@ -288,10 +288,22 @@ async function runTorrentImport(job, selection, onStarted) {
     const token = getToken();
     if (!token) throw new Error("Your session has expired.");
 
-    const torrents = job.torrentFiles;
+    const torrents = Array.isArray(job.torrentFiles) ? job.torrentFiles : [];
+    if (torrents.length !== 1) {
+        throw new Error("Import one torrent per task. Multiple torrent links are not supported.");
+    }
+
     const selectedFor = (torrent, i) => selection[getTorrentKey(torrent, i)] || [];
-    const patch = (body) => patchBatch(token, job.jobId, body);
+    const patch = async (body) => {
+        const response = await patchBatch(token, job.jobId, body);
+        if (!response.ok) {
+            const payload = await response.json().catch(() => ({}));
+            throw new Error(payload.detail || `Could not update torrent task (HTTP ${response.status}).`);
+        }
+        return response;
+    };
     const totalFiles = torrents.reduce((count, torrent, i) => count + selectedFor(torrent, i).length, 0);
+    if (totalFiles === 0) throw new Error("Select at least one file from the torrent.");
 
     let items = torrents.flatMap((torrent, i) => torrent.files
         .filter((file) => selectedFor(torrent, i).includes(Number(file.index)))
@@ -306,16 +318,14 @@ async function runTorrentImport(job, selection, onStarted) {
             path: file.path,
         })));
 
-    const started = await patch({
+    await patch({
         status: "uploading",
-        message: `Downloading ${totalFiles} selected file${totalFiles === 1 ? "" : "s"}`,
+        message: `Starting torrent download for ${totalFiles} selected file${totalFiles === 1 ? "" : "s"}`,
         items,
         total_items: totalFiles,
         completed_items: 0,
         current_name: items[0]?.name || "",
     });
-    if (!started.ok) throw new Error("Could not start the torrent task.");
-    onStarted();
 
     for (const [i, torrent] of torrents.entries()) {
         const selected = selectedFor(torrent, i);
@@ -339,8 +349,12 @@ async function runTorrentImport(job, selection, onStarted) {
             throw new Error(body.detail || `Could not start ${firstName}`);
         }
         const {job_id: importJobId} = await response.json();
-        const childJobPatch = await patch({current_job_id: importJobId, current_name: firstName, message: `Importing ${firstName}`});
-        if (!childJobPatch.ok) throw new Error(`Torrent started, but task state could not be updated (HTTP ${childJobPatch.status}).`);
+        await patch({current_job_id: importJobId, current_name: firstName, message: `Importing ${firstName}`});
+
+        // Keep the picker open until the backend has accepted the child job and its ID
+        // has been recorded. A failed request can then be corrected and retried without
+        // leaving an orphaned, terminal-looking batch in the tray.
+        onStarted();
 
         let delay = 500;
         while (true) {
@@ -349,7 +363,12 @@ async function runTorrentImport(job, selection, onStarted) {
             });
             if (!statusResponse.ok) {
                 const err = await statusResponse.json().catch(() => ({}));
-                throw new Error(`Could not check status for ${firstName}: ${err.detail || err.message || `HTTP ${statusResponse.status}`}`);
+                const message = `Could not check status for ${firstName}: ${err.detail || err.message || `HTTP ${statusResponse.status}`}`;
+                const failure = new Error(message);
+                if (statusResponse.status === 401 || statusResponse.status === 403 || statusResponse.status === 404) {
+                    failure.terminalStatus = "error";
+                }
+                throw failure;
             }
             const jobStatus = await statusResponse.json();
 
@@ -365,7 +384,11 @@ async function runTorrentImport(job, selection, onStarted) {
             }
 
             if (jobStatus.status === "completed") break;
-            if (jobStatus.status === "cancelled" || jobStatus.status === "error") throw new Error(jobStatus.message || `${firstName} failed`);
+            if (jobStatus.status === "cancelled" || jobStatus.status === "error") {
+                const failure = new Error(jobStatus.message || `${firstName} failed`);
+                failure.terminalStatus = jobStatus.status;
+                throw failure;
+            }
             await new Promise((resolve) => window.setTimeout(resolve, delay));
             delay = Math.min(2000, delay + 250);
         }
@@ -698,9 +721,35 @@ export default function UploadJobsTray({uploadJobs, cancelUploadJob, dismissUplo
             });
         } catch (err) {
             const message = err instanceof Error ? err.message : "Could not start torrent download.";
-            if (!pickerClosed) setError(message);
             const token = getToken();
-            if (token) void patchBatch(token, job.jobId, {status: "error", message});
+
+            if (!pickerClosed) {
+                setError(message);
+                // A start failure must remain retryable. Restore the queued state instead
+                // of making this task terminal before the torrent child was accepted.
+                if (token) {
+                    void patchBatch(token, job.jobId, {
+                        status: "queued",
+                        message: `Could not start torrent import: ${message}`,
+                    }).catch((patchError) => console.error("Could not restore torrent task after start failure:", patchError));
+                }
+            } else if (err?.terminalStatus) {
+                if (token) {
+                    void patchBatch(token, job.jobId, {
+                        status: err.terminalStatus,
+                        message,
+                    }).catch((patchError) => console.error("Could not save torrent task failure:", patchError));
+                }
+            } else {
+                // A temporary progress/API failure after the child started must not mark
+                // the parent terminal; the backend reconciles the batch from child state.
+                if (token) {
+                    void patchBatch(token, job.jobId, {
+                        status: "uploading",
+                        message: `Torrent import started; waiting for server progress: ${message}`,
+                    }).catch((patchError) => console.error("Could not save torrent recovery state:", patchError));
+                }
+            }
         } finally {
             if (!pickerClosed) setStarting(false);
         }
