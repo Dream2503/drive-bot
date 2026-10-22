@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from asyncio import CancelledError, Task, create_task
+from asyncio import CancelledError, Task, create_task, wait_for
 from datetime import datetime, timezone
 from mimetypes import guess_type
 from pathlib import Path
@@ -20,9 +20,10 @@ from backend.database.models import Directory, File, User
 from backend.database.redis_server import Redis
 from backend.server.jwt_handler import get_current_user
 from backend.server.utils import perform_validation
-from core.config import TRANSFER_PATH
+from core.config import TELEGRAM_USER_SESSION, TRANSFER_PATH
 from core.data_center import DataCenter
 from core.transfer import link_upload
+from core.utils.env import TELEGRAM_USER_API_HASH, TELEGRAM_USER_API_ID
 from core.utils import sanitize_sensitive_urls, write_log
 from core.utils.download_utils import preview_torrent_files
 from core.utils.progress import Progress
@@ -745,6 +746,147 @@ async def torrent_preview(link: str, user: User = Depends(get_current_user)) -> 
     return JSONResponse(preview)
 
 
+TELEGRAM_PROCESSING_BOT: str = "PremiumFiletoLink_Bot"
+TELEGRAM_PROCESSING_TIMEOUT: float = 90.0
+
+
+async def _resolve_telegram_message_link(link: str) -> tuple[str, str]:
+    """Forward a Telegram file message to the processing bot and resolve FAST DOWNLOAD."""
+
+    parsed: SplitResult = urlsplit(link)
+    hostname: str = (parsed.hostname or "").lower()
+    if hostname not in {"t.me", "www.t.me", "telegram.me", "www.telegram.me"}:
+        return link, ""
+
+    parts: list[str] = [part for part in parsed.path.split("/") if part]
+    if parts and parts[0] == "s":
+        parts = parts[1:]
+    if not parts:
+        raise HTTPException(status_code=400, detail="Telegram link does not identify a message")
+
+    if parts[0] == "c":
+        if len(parts) < 3 or not parts[1].isdigit() or not parts[2].isdigit():
+            raise HTTPException(status_code=400, detail="Invalid private Telegram message link")
+        chat: str = f"-100{parts[1]}"
+        message_id: int = int(parts[2])
+    elif parts[0].isdigit():
+        if len(parts) < 2 or not parts[1].isdigit():
+            raise HTTPException(status_code=400, detail="Invalid Telegram message link")
+        chat = f"-100{parts[0]}"
+        message_id = int(parts[1])
+    else:
+        if len(parts) < 2 or not parts[1].isdigit():
+            raise HTTPException(status_code=400, detail="Telegram link does not identify a supported message")
+        chat = parts[0]
+        message_id = int(parts[1])
+
+    from telethon import TelegramClient
+    from telethon.errors import RPCError
+
+    if not TELEGRAM_USER_API_ID or not TELEGRAM_USER_API_HASH:
+        raise HTTPException(
+            status_code=503,
+            detail="Telegram processing is not configured. Set TELEGRAM_USER_API_ID and TELEGRAM_USER_API_HASH and authenticate the separate Telegram user session.",
+        )
+
+    client = TelegramClient(str(TELEGRAM_USER_SESSION), TELEGRAM_USER_API_ID, TELEGRAM_USER_API_HASH)
+    try:
+        await wait_for(client.connect(), timeout=15)
+        if not await client.is_user_authorized():
+            raise HTTPException(
+                status_code=503,
+                detail="Telegram user session is not authenticated. Complete the one-time Telegram user login to create the telegram_user session.",
+            )
+
+        try:
+            source_message = await wait_for(client.get_messages(chat, ids=message_id), timeout=20)
+        except (RPCError, TimeoutError) as error:
+            raise HTTPException(status_code=502, detail=f"Could not access Telegram message: {type(error).__name__}") from error
+
+        if source_message is None or not getattr(source_message, "media", None):
+            raise HTTPException(status_code=422, detail="Telegram message was not found or has no file/media attachment.")
+
+        try:
+            forwarded = await wait_for(client.forward_messages(TELEGRAM_PROCESSING_BOT, source_message), timeout=20)
+        except (RPCError, TimeoutError) as error:
+            raise HTTPException(status_code=502, detail=f"Could not forward the Telegram file to @{TELEGRAM_PROCESSING_BOT}: {type(error).__name__}") from error
+        if not forwarded:
+            raise HTTPException(status_code=502, detail=f"Telegram did not confirm forwarding the file to @{TELEGRAM_PROCESSING_BOT}.")
+
+        try:
+            async with client.conversation(TELEGRAM_PROCESSING_BOT, timeout=TELEGRAM_PROCESSING_TIMEOUT, exclusive=False) as conversation:
+                response = await conversation.get_response()
+        except TimeoutError as error:
+            raise HTTPException(status_code=504, detail=f"@{TELEGRAM_PROCESSING_BOT} did not respond within {int(TELEGRAM_PROCESSING_TIMEOUT)} seconds.") from error
+        except RPCError as error:
+            raise HTTPException(status_code=502, detail=f"Telegram processing bot conversation failed: {type(error).__name__}") from error
+
+        response_text: str = str(getattr(response, "raw_text", "") or "")
+        fast_url: str | None = None
+        buttons = getattr(response, "buttons", None) or []
+        entities = list(getattr(response, "entities", None) or [])
+
+        for row in buttons:
+            for button in row:
+                label: str = str(getattr(button, "text", "") or "").strip().casefold()
+                if "fast download" not in label:
+                    continue
+                target = getattr(button, "url", None)
+                if not target and getattr(button, "button", None) is not None:
+                    target = getattr(button.button, "url", None)
+                if target:
+                    fast_url = str(target).strip()
+                    break
+            if fast_url:
+                break
+
+        if not fast_url:
+            for entity in entities:
+                offset = int(getattr(entity, "offset", -1))
+                length = int(getattr(entity, "length", 0))
+                target = getattr(entity, "url", None)
+                if offset >= 0 and length > 0 and target and "fast download" in response_text[offset:offset + length].strip().casefold():
+                    fast_url = str(target).strip()
+                    break
+
+        if not fast_url:
+            raise HTTPException(
+                status_code=422,
+                detail=f"@{TELEGRAM_PROCESSING_BOT} replied, but its response has no usable FAST DOWNLOAD hyperlink.",
+            )
+
+        parsed_url = urlsplit(fast_url)
+        if parsed_url.scheme not in {"http", "https"} or not parsed_url.hostname:
+            raise HTTPException(status_code=422, detail="The FAST DOWNLOAD button did not contain a valid HTTP(S) URL.")
+
+        from requests import head
+        from requests.exceptions import RequestException
+        try:
+            redirect_response = await wait_for(
+                __import__("asyncio").to_thread(
+                    head, fast_url, allow_redirects=True, timeout=(8, 15),
+                    headers={"User-Agent": "Mozilla/5.0 StoreLimitless"},
+                ),
+                timeout=25,
+            )
+            try:
+                final_url: str = str(redirect_response.url or fast_url)
+            finally:
+                redirect_response.close()
+        except (RequestException, TimeoutError):
+            final_url = fast_url
+
+        final_parsed = urlsplit(final_url)
+        if final_parsed.scheme not in {"http", "https"} or not final_parsed.hostname:
+            raise HTTPException(status_code=422, detail="FAST DOWNLOAD redirected to an invalid URL.")
+
+        source_file = getattr(source_message, "file", None)
+        source_name: str = str(getattr(source_file, "name", "") or "Telegram download")
+        return final_url, source_name
+    finally:
+        await client.disconnect()
+
+
 @router.post("/upload-link")
 async def upload_link(
         link: str,
@@ -757,6 +899,13 @@ async def upload_link(
     """Start a background job that imports an HTTP(S), YouTube, or torrent magnet link."""
 
     raw_link: str = link.strip()
+    telegram_source_name: str = ""
+
+    initial_hostname: str = (urlsplit(raw_link).hostname or "").lower()
+    if initial_hostname in {"t.me", "www.t.me", "telegram.me", "www.telegram.me"}:
+        link, telegram_source_name = await _resolve_telegram_message_link(raw_link)
+        raw_link = link.strip()
+
     parsed_link: SplitResult = urlsplit(raw_link)
     is_magnet: bool = parsed_link.scheme.lower() == "magnet"
 
