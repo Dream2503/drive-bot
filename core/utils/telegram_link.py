@@ -176,6 +176,23 @@ async def _resolve_telegram_message_link(link: str) -> tuple[str, str]:
         try:
             chat_entity = await wait_for(client.get_entity(chat), timeout=20)
             source_message = await wait_for(client.get_messages(chat_entity, ids=message_id), timeout=20)
+
+            if source_message is None:
+                async def find_message_in_history() -> Any | None:
+                    """Retry a direct message lookup through the group's history."""
+
+                    async for candidate in client.iter_messages(
+                        chat_entity,
+                        min_id=message_id - 1,
+                        max_id=message_id + 1,
+                        limit=3,
+                    ):
+                        if int(getattr(candidate, "id", 0)) == message_id:
+                            return candidate
+
+                    return None
+
+                source_message = await wait_for(find_message_in_history(), timeout=20)
         except (RPCError, AsyncTimeoutError) as error:
             error_name: str = type(error).__name__
             if error_name in {"ChannelPrivateError", "ChannelInvalidError", "UsernameInvalidError", "UsernameNotOccupiedError"}:
@@ -197,20 +214,13 @@ async def _resolve_telegram_message_link(link: str) -> tuple[str, str]:
             ) from error
 
         if source_message is None:
-            if getattr(chat_entity, "megagroup", False):
-                raise ValueError(
-                    f"Telegram resolved @{chat} as a public group, but did not return message {message_id} "
-                    "to the StoreLimitless Telegram session. A public group link can still be inaccessible "
-                    "to API lookups when that Telegram account has not joined the group. Open "
-                    f"https://t.me/{chat} using the same Telegram account configured for StoreLimitless, "
-                    "join the group if prompted, and retry. If that account is already a member, the message "
-                    "may have been deleted or may no longer be available."
-                )
-
             raise ValueError(
-                f"Telegram resolved @{chat}, but message {message_id} was not returned. "
-                "The message may have been deleted, the ID may be incorrect, or the message may not be "
-                "available to the StoreLimitless Telegram account."
+                f"Telegram resolved @{chat} (ID {getattr(chat_entity, 'id', 'unknown')}), "
+                f"but neither direct lookup nor history lookup returned message {message_id}. "
+                "This does not by itself mean the group is private or that you are not a member. "
+                "Confirm that the exact message still opens in Telegram and that the deployed "
+                "TELEGRAM_USER_SESSION_STRING belongs to the account you expect. The lookup may also "
+                "fail if Telegram no longer exposes that message through the API."
             )
 
         source_file = getattr(source_message, "file", None)
