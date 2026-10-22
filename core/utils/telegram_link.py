@@ -9,6 +9,7 @@ from typing import Any
 from urllib.parse import SplitResult, urlsplit
 
 from core.config import BASE_DIR
+from core.utils import env as env_config
 from core.utils.env import TELEGRAM_API_HASH, TELEGRAM_API_ID
 
 TELEGRAM_PROCESSING_BOT: str = "PremiumFiletoLink_Bot"
@@ -133,6 +134,7 @@ async def _resolve_telegram_message_link(link: str) -> tuple[str, str]:
 
     from telethon import TelegramClient, events
     from telethon.errors import RPCError
+    from telethon.sessions import StringSession
 
     if not TELEGRAM_API_ID or not TELEGRAM_API_HASH:
         raise RuntimeError("Telegram API_ID/API_HASH are missing from core.utils.env")
@@ -142,7 +144,9 @@ async def _resolve_telegram_message_link(link: str) -> tuple[str, str]:
     except ValueError as error:
         raise ValueError(str(error)) from error
 
-    client = TelegramClient(str(TELEGRAM_USER_SESSION), TELEGRAM_API_ID, TELEGRAM_API_HASH)
+    session_string: str = str(getattr(env_config, "TELEGRAM_USER_SESSION_STRING", "") or "").strip()
+    session = StringSession(session_string) if session_string else str(TELEGRAM_USER_SESSION)
+    client = TelegramClient(session, TELEGRAM_API_ID, TELEGRAM_API_HASH)
     responses: Queue[Any] = Queue()
 
     async def receive_bot_message(event: Any) -> None:
@@ -305,11 +309,14 @@ async def login_telegram_user_session() -> None:
     """Interactively authenticate the separate Telegram user session."""
 
     from telethon import TelegramClient
+    from telethon.sessions import StringSession
 
     if not TELEGRAM_API_ID or not TELEGRAM_API_HASH:
         raise RuntimeError("Telegram API_ID/API_HASH are missing from core.utils.env")
 
-    client = TelegramClient(str(TELEGRAM_USER_SESSION), TELEGRAM_API_ID, TELEGRAM_API_HASH)
+    session_string: str = str(getattr(env_config, "TELEGRAM_USER_SESSION_STRING", "") or "").strip()
+    session = StringSession(session_string) if session_string else str(TELEGRAM_USER_SESSION)
+    client = TelegramClient(session, TELEGRAM_API_ID, TELEGRAM_API_HASH)
 
     try:
         await client.start()
@@ -319,7 +326,14 @@ async def login_telegram_user_session() -> None:
             raise RuntimeError("Telegram returned no account after login")
 
         print(f"Telegram user session authenticated as @{account.username or account.id}.")
-        print(f"Session stored at: {TELEGRAM_USER_SESSION}")
+
+        if session_string:
+            print("Persistent Telegram session loaded from TELEGRAM_USER_SESSION_STRING in core.utils.env.")
+        else:
+            print(f"Session stored at: {TELEGRAM_USER_SESSION}")
+            exported_session: str = StringSession.save(client.session)
+            print("Copy this line into your private core/utils/env.py file to persist the login across redeployments:")
+            print(f'TELEGRAM_USER_SESSION_STRING: str = "{exported_session}"')
 
     finally:
         await client.disconnect()
