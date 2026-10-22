@@ -284,9 +284,21 @@ def start_cloudflare_tunnel(service_url: str, label: str) -> tuple[Popen[str], s
         cloudflared = str(cloudflared_path)
         write_log("INFO", Binaries, "START_CLOUDFLARE_TUNNEL", "server", f"Cloudflare Tunnel installed at: {cloudflared_path}")
 
+    protocol: str = os.environ.get("STORELIMITLESS_CLOUDFLARE_PROTOCOL", "http2").strip().lower()
+
+    if protocol not in {"auto", "http2", "quic"}:
+        raise ValueError("STORELIMITLESS_CLOUDFLARE_PROTOCOL must be one of: auto, http2, quic")
+
+    write_log(
+        "INFO",
+        Binaries,
+        "START_CLOUDFLARE_TUNNEL",
+        "server",
+        f"Using Cloudflare edge protocol: {protocol}",
+    )
     output: Queue[str] = Queue(maxsize=1)
     process: Popen[str] = Popen(
-        [cloudflared, "tunnel", "--no-autoupdate", "--url", service_url],
+        [cloudflared, "tunnel", "--no-autoupdate", "--protocol", protocol, "--url", service_url],
         stdout=PIPE,
         stderr=STDOUT,
         text=True,
