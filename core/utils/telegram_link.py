@@ -164,18 +164,44 @@ async def _resolve_telegram_message_link(link: str) -> tuple[str, str]:
 
         if not await client.is_user_authorized():
             raise RuntimeError(
-                "Telegram user session is not authenticated. Run "
-                "'python -m core.utils.telegram_link --login' once and complete the Telegram login prompts."
+                "Telegram link processing is not configured yet: the Telegram user session is not authenticated. "
+                "Run 'telegram-login' at the StoreLimitless terminal prompt (or "
+                "'python -m core.utils.telegram_link --login') once and complete the Telegram login prompts."
             )
 
         try:
             source_message = await wait_for(client.get_messages(chat, ids=message_id), timeout=20)
         except (RPCError, AsyncTimeoutError) as error:
-            raise RuntimeError(f"Could not access Telegram message: {type(error).__name__}") from error
+            error_name: str = type(error).__name__
+            if error_name in {"ChannelPrivateError", "ChannelInvalidError", "UsernameInvalidError", "UsernameNotOccupiedError"}:
+                raise ValueError(
+                    "Telegram could not access this message publicly. The channel may be private, deleted, or unavailable. "
+                    "Use a public t.me/<channel-username>/<message-id> link."
+                ) from error
+            if error_name == "MessageIdInvalidError":
+                raise ValueError(
+                    "Telegram could not find that public message. Check the message ID and make sure the post is still available."
+                ) from error
+            if isinstance(error, AsyncTimeoutError):
+                raise TimeoutError(
+                    "Timed out while checking the public Telegram message. Check the link and try again."
+                ) from error
+            raise RuntimeError(
+                f"Could not access the public Telegram message ({error_name}). "
+                "Check that the channel and attached post are still publicly accessible."
+            ) from error
 
-        source_file = getattr(source_message, "file", None) if source_message is not None else None
-        if source_message is None or not getattr(source_message, "media", None) or source_file is None:
-            raise ValueError("Telegram message was not found or does not contain a downloadable file attachment")
+        if source_message is None:
+            raise ValueError(
+                "Telegram could not find this public message. It may have been deleted or the link may be incorrect."
+            )
+
+        source_file = getattr(source_message, "file", None)
+        if not getattr(source_message, "media", None) or source_file is None:
+            raise ValueError(
+                "The public Telegram message was found, but it does not contain a downloadable file attachment. "
+                "Paste a link to the message that contains the actual file."
+            )
 
         client.add_event_handler(receive_bot_message, events.NewMessage(incoming=True))
         client.add_event_handler(receive_bot_message, events.MessageEdited())
