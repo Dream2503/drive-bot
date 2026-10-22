@@ -42,6 +42,7 @@ function VideoPlayer({file, streamUrl, heightClass = "h-[70vh]"}) {
     const wrapRef = useRef(null);
     const videoRef = useRef(null);
     const hideTimer = useRef(null);
+    const stallTimerRef = useRef(null);
     const menuRef = useRef(null);
 
     const [playing, setPlaying] = useState(false);
@@ -58,8 +59,24 @@ function VideoPlayer({file, streamUrl, heightClass = "h-[70vh]"}) {
     const [menu, setMenu] = useState(null);
     /** @type {[string | null, import("react").Dispatch<import("react").SetStateAction<string | null>>]} */
     const [error, setError] = useState(null);
+    const [streamRetryNonce, setStreamRetryNonce] = useState(0);
+    const retryCountRef = useRef(0);
+    const resumeTimeRef = useRef(0);
+    const retryCheckpointRef = useRef(0);
 
     menuRef.current = menu;
+
+    // A media request can be interrupted by a transient tunnel/proxy reset.
+    // Add a unique cache-busting query for each retry and resume at the last position.
+    const playbackUrl = streamRetryNonce > 0 ? `${streamUrl}${streamUrl.includes("?") ? "&" : "?"}_sl_stream_retry=${streamRetryNonce}` : streamUrl;
+
+    useEffect(() => {
+        retryCountRef.current = 0;
+        resumeTimeRef.current = 0;
+        retryCheckpointRef.current = 0;
+        if (stallTimerRef.current !== null) window.clearTimeout(stallTimerRef.current);
+        stallTimerRef.current = null;
+    }, [streamUrl]);
 
     useEffect(() => {
         const video = videoRef.current;
@@ -73,7 +90,37 @@ function VideoPlayer({file, streamUrl, heightClass = "h-[70vh]"}) {
         return () => {
             video.pause();
         };
-    }, [streamUrl]);
+    }, [playbackUrl]);
+
+    const recoverStream = useCallback((video) => {
+        if (!video) return;
+        if (retryCountRef.current >= 3) {
+            setBuffering(false);
+            setError("The stream connection kept interrupting and could not recover after three retries. Reopen the stream to try again.");
+            return;
+        }
+
+        resumeTimeRef.current = Number.isFinite(video.currentTime) ? video.currentTime : 0;
+        retryCheckpointRef.current = resumeTimeRef.current;
+        retryCountRef.current += 1;
+        if (stallTimerRef.current !== null) window.clearTimeout(stallTimerRef.current);
+        stallTimerRef.current = null;
+        setError(null);
+        setBuffering(true);
+        setStreamRetryNonce((nonce) => nonce + 1);
+    }, []);
+
+    const handleMediaError = useCallback((event) => {
+        const video = event.currentTarget;
+
+        // MEDIA_ERR_NETWORK is recoverable; codec/decode errors usually are not.
+        if (video.error?.code === 2) {
+            recoverStream(video);
+            return;
+        }
+
+        setError("This browser can't play this video format. Copy the stream link and open it in a compatible media player.");
+    }, [recoverStream]);
 
     const togglePlay = useCallback(() => {
         const video = videoRef.current;
@@ -134,7 +181,10 @@ function VideoPlayer({file, streamUrl, heightClass = "h-[70vh]"}) {
         hideTimer.current = setTimeout(() => setShowUi(false), 2800);
     }, []);
 
-    useEffect(() => () => clearTimeout(hideTimer.current), []);
+    useEffect(() => () => {
+        clearTimeout(hideTimer.current);
+        if (stallTimerRef.current !== null) window.clearTimeout(stallTimerRef.current);
+    }, []);
 
     useEffect(() => {
         const onFullscreenChange = () => setIsFs(document.fullscreenElement === wrapRef.current);
@@ -230,7 +280,7 @@ function VideoPlayer({file, streamUrl, heightClass = "h-[70vh]"}) {
     >
         <video
             ref={videoRef}
-            src={streamUrl}
+            src={playbackUrl}
             autoPlay
             playsInline
             className="h-full w-full object-contain"
@@ -241,11 +291,43 @@ function VideoPlayer({file, streamUrl, heightClass = "h-[70vh]"}) {
             onDoubleClick={toggleFs}
             onPlay={() => setPlaying(true)}
             onPause={() => setPlaying(false)}
-            onPlaying={() => setBuffering(false)}
-            onCanPlay={() => setBuffering(false)}
-            onWaiting={() => setBuffering(true)}
+            onPlaying={() => {
+                setPlaying(true);
+                setBuffering(false);
+                if (stallTimerRef.current !== null) window.clearTimeout(stallTimerRef.current);
+                stallTimerRef.current = null;
+            }}
+            onCanPlay={() => {
+                setBuffering(false);
+                if (stallTimerRef.current !== null) window.clearTimeout(stallTimerRef.current);
+                stallTimerRef.current = null;
+            }}
+            onLoadedMetadata={(event) => {
+                const video = event.currentTarget;
+                const resumeAt = resumeTimeRef.current;
+                if (resumeAt > 0 && Number.isFinite(video.duration)) {
+                    video.currentTime = Math.min(resumeAt, Math.max(0, video.duration - 0.25));
+                    resumeTimeRef.current = 0;
+                }
+            }}
+            onWaiting={(event) => {
+                setBuffering(true);
+                const video = event.currentTarget;
+                if (video.paused || stallTimerRef.current !== null) return;
+                // Recover from a silent stall too; browsers do not always emit `error`
+                // when a long-lived proxy/tunnel stream stops delivering bytes.
+                stallTimerRef.current = window.setTimeout(() => {
+                    stallTimerRef.current = null;
+                    const currentVideo = videoRef.current;
+                    if (currentVideo && !currentVideo.paused && currentVideo.readyState < 3) recoverStream(currentVideo);
+                }, 20000);
+            }}
             onTimeUpdate={(event) => {
-                setCurrent(event.currentTarget.currentTime);
+                const video = event.currentTarget;
+                setCurrent(video.currentTime);
+                if (retryCountRef.current > 0 && video.currentTime >= retryCheckpointRef.current + 10) {
+                    retryCountRef.current = 0;
+                }
                 updateBuffered();
             }}
             onProgress={updateBuffered}
@@ -255,7 +337,7 @@ function VideoPlayer({file, streamUrl, heightClass = "h-[70vh]"}) {
                 setMuted(event.currentTarget.muted || event.currentTarget.volume === 0);
             }}
             onRateChange={(event) => setRate(event.currentTarget.playbackRate)}
-            onError={() => setError("This browser can't play this video format. Copy the stream link and open it in a compatible media player.")}
+            onError={handleMediaError}
         />
 
         {buffering && !error && (<div className="pointer-events-none absolute inset-0 flex items-center justify-center">

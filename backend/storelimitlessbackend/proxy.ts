@@ -27,6 +27,15 @@ export async function proxy(request: NextRequest) {
         },);
     }
     const destination = new URL(`${request.nextUrl.pathname}${request.nextUrl.search}`, `${upstream}/`,);
+    const isMediaStream = pathname.startsWith("/public/stream/") || pathname.startsWith("/public/download/");
+
+    if (isMediaStream) {
+        const redirect = NextResponse.redirect(destination, 307);
+        redirect.headers.set("Cache-Control", "no-store, no-cache, must-revalidate");
+        redirect.headers.set("Referrer-Policy", "no-referrer");
+        return redirect;
+    }
+
     return NextResponse.rewrite(destination);
 }
 
