@@ -182,14 +182,18 @@ function useTransferMetrics(transfer, total, metricKey) {
     return {speed, eta, remaining};
 }
 
-function TransferDetails({transfer, total, status, compact = false, speed = 0, eta = null}) {
+function TransferDetails({transfer, total, status, compact = false, inline = false, speed = 0, eta = null}) {
     if (num(total) <= 0) return null;
 
     const transferLabel = status === "downloading" ? "Downloaded" : "Transferred";
     const done = status === "completed" || num(transfer) >= num(total);
+    const layoutClass = inline
+        ? "min-w-0 flex-nowrap gap-x-1.5 whitespace-nowrap text-[9px] leading-tight"
+        : compact
+            ? "ml-[23px] mt-1 flex-wrap gap-x-2 gap-y-0.5 text-[9px]"
+            : "mt-1 flex-wrap gap-x-2 gap-y-0.5 text-[10px]";
 
-    return <div
-        className={`flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 font-mono tabular-nums text-[#789083] ${compact ? "ml-[23px] mt-1 text-[9px]" : "mt-1 text-[10px]"}`}>
+    return <div className={`flex min-w-0 items-center font-mono tabular-nums text-[#789083] ${layoutClass}`}>
         <span>{transferLabel} {formatFileSize(Math.min(num(transfer), num(total)))} / {formatFileSize(total)}</span>
         {!done && <>
             <span className="text-[#3b5144]">·</span>
@@ -204,7 +208,7 @@ function TransferDetails({transfer, total, status, compact = false, speed = 0, e
 function ItemRow({item, status, metricKey}) {
     const meta = ITEM_STATUS[status] || ITEM_STATUS.queued;
     const {size, percent} = getItemProgress(item, status);
-    const transfer = status === "completed" ? size : num(item.transfer);
+    const transfer = status === "completed" || status === "downloaded" ? size : num(item.transfer);
     const name = getFileName(item);
     const {speed, eta} = useTransferMetrics(transfer, size, metricKey || `item:${normalizePath(item?.path || name)}`);
     const showPercent = meta.transferring && size > 0;
@@ -214,14 +218,15 @@ function ItemRow({item, status, metricKey}) {
             <Icon name={meta.icon}
                   className={`text-[15px] ${meta.tone === "muted" ? "text-[#5f7567]" : meta.tone === "danger" ? TEXT.danger : TEXT.success}`}/>
             <span className="min-w-0 flex-1 truncate text-[11px] text-[#c6d2ca]" title={name}>{name}</span>
-            <span className={`shrink-0 text-[10px] tabular-nums ${TEXT[meta.tone]}`}>
-                {meta.label}{showPercent ? ` · ${percent.toFixed(0)}%` : ""}
-            </span>
+            <span className={`shrink-0 text-[10px] tabular-nums ${TEXT[meta.tone]}`}>{meta.label}</span>
         </div>
-        {showPercent && <>
-            <ProgressBar percent={percent} className="ml-[23px] mt-1.5"/>
-            <TransferDetails transfer={transfer} total={size} status={status} compact speed={speed} eta={eta}/>
-        </>}
+        {showPercent && <div className="ml-[23px] mt-1.5 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+            <TransferDetails transfer={transfer} total={size} status={status} inline speed={speed} eta={eta}/>
+            <div className="min-w-[3rem] flex-1">
+                <ProgressBar percent={percent}/>
+            </div>
+            <span className="shrink-0 text-[9px] font-mono tabular-nums text-[#789083]">{percent.toFixed(0)}%</span>
+        </div>}
     </div>;
 }
 
@@ -236,8 +241,8 @@ function TorrentLinkPanel({torrent, items, parentStatus, index}) {
     const files = torrentItems.length ? torrentItems : previewFiles;
     const selectedCount = torrentItems.length;
     const has = (status) => torrentItems.some((item) => item.status === status);
-    const completeCount = torrentItems.filter((item) => item.status === "completed").length;
-    const allComplete = selectedCount > 0 && completeCount === selectedCount;
+    const downloadedCount = torrentItems.filter((item) => ["downloaded", "uploading", "completed"].includes(item.status)).length;
+    const allComplete = selectedCount > 0 && torrentItems.every((item) => item.status === "completed");
     const hasError = has("error");
 
     const totalBytes = torrentItems.reduce((sum, item) => sum + getItemSize(item), 0);
@@ -256,7 +261,7 @@ function TorrentLinkPanel({torrent, items, parentStatus, index}) {
             <div className="min-w-0 flex-1">
                 <p className="truncate text-xs font-medium text-[#dce9e0]" title={title}>{title}</p>
                 <p className={`mt-0.5 text-[11px] ${statusTone}`} title={String(torrent?.link || "")}>
-                    {status}{selectedCount ? `, ${completeCount} of ${selectedCount} files done` : ""}
+                    {status}{selectedCount ? `, ${downloadedCount} of ${selectedCount} files downloaded` : ""}
                 </p>
             </div>
             {selectedCount > 0 && <span className="shrink-0 font-mono text-[11px] tabular-nums text-[#718477]">{percent.toFixed(0)}%</span>}
@@ -589,11 +594,14 @@ function describeJob(job) {
     const usableItem = singleName && !isUnresolvedName(rawItemName, sourceIsYouTube) ? singleName : "";
     const torrentName = String(torrents[0]?.name || "").trim();
     const firstItemName = items.length ? getFileName(items[0]) : "";
-    const title = singleItem
-        ? usableCurrent || usableItem || (sourceIsYouTube ? "YouTube video" : singleName || job.name || "Upload task")
-        : job.kind === "link"
-            ? usableCurrent || torrentName || firstItemName || job.name || "Upload task"
-            : job.name || "Upload task";
+    // Use the torrent's root name as the parent heading. The current child filename
+    // belongs in its per-file row, not in the task title.
+    const title = torrentName
+        || (singleItem
+            ? usableCurrent || usableItem || (sourceIsYouTube ? "YouTube video" : singleName || job.name || "Upload task")
+            : job.kind === "link"
+                ? usableCurrent || firstItemName || job.name || "Upload task"
+                : job.name || "Upload task");
 
     /*
      * Prefer item-level byte counts when available. This gives multi-file tasks a
@@ -630,19 +638,26 @@ function describeJob(job) {
     const stage = job.kind === "link" ? formatLinkStage(job.message) : "";
     const stagePercent = total > 0 ? Math.max(0, Math.min(99, transfer * 100 / total)) : null;
     const stageText = stage ? `${stage}${stagePercent !== null && STAGES_WITH_PERCENT.has(stage) ? ` · ${stagePercent.toFixed(0)}%` : ""}` : "";
-    const finishedFromItems = hasTorrentItems ? items.filter((item) => item.status === "completed").length : Number(job.completedItems) || 0;
-    const finished = Math.min(itemCount, finishedFromItems);
+    // "Downloaded" means the torrent file is fully present locally. It may still
+    // be uploading to storage, so count downloaded, uploading, and completed rows.
+    const downloadedFromItems = hasTorrentItems
+        ? items.filter((item) => ["downloaded", "uploading", "completed"].includes(item.status)).length
+        : Number(job.completedItems) || 0;
+    const downloadedCount = Math.min(itemCount, downloadedFromItems);
+    const finished = Math.min(itemCount, hasTorrentItems
+        ? items.filter((item) => item.status === "completed").length
+        : Number(job.completedItems) || 0);
     const itemsLabel = `${itemCount} items`;
 
     let statusText;
-    if (isComplete) statusText = singleItem ? "Completed" : `Completed · ${itemsLabel}`; else if (isError) statusText = job.message || "Some items failed"; else if (isCancelled) statusText = "Cancelled"; else if (isQueued) statusText = singleItem ? "Queued" : `Queued · ${itemsLabel}`; else if (stageText) statusText = stageText; else if (singleItem) statusText = sourceIsYouTube ? "Processing video" : "Uploading"; else {
-        const headingName = String(title || "").trim().toLocaleLowerCase();
-        const currentNameKey = String(currentName || "").trim().toLocaleLowerCase();
-        const leafNameKey = leafOf(title).toLocaleLowerCase();
-        const repeatedCurrentName = currentNameKey && (currentNameKey === headingName || currentNameKey === leafNameKey);
-        const currentNameSuffix = currentName && !repeatedCurrentName && !isHttpUrl(rawCurrentName) ? ` · ${currentName}` : "";
-        statusText = `${finished} of ${itemCount} complete${currentNameSuffix}`;
-    }
+    if (isComplete) statusText = singleItem ? "Completed" : `Completed · ${itemsLabel}`;
+    else if (isError) statusText = job.message || "Some items failed";
+    else if (isCancelled) statusText = "Cancelled";
+    else if (isQueued) statusText = singleItem ? "Queued" : `Queued · ${itemsLabel}`;
+    else if (stageText) statusText = stageText;
+    else if (hasTorrentItems) statusText = `${downloadedCount} of ${itemCount} downloaded`;
+    else if (singleItem) statusText = sourceIsYouTube ? "Processing video" : "Uploading";
+    else statusText = `${finished} of ${itemCount} complete`;
 
     const tone = isError || isCancelled ? "danger" : isComplete ? "success" : "muted";
     const icon = isError ? "error" : isCancelled ? "cancel" : isComplete ? "check_circle" : isQueued ? "schedule" : "upload_file";
@@ -673,14 +688,16 @@ function UploadJobCard({job, onSelectFiles, onCancel, onDismiss}) {
                     Select files and start
                 </button>}
 
-                {isActive && <div className="mt-2.5">
-                    <ProgressBar percent={isQueued ? 0 : percent} muted={isQueued}/>
-                    <p className="mt-1 text-right font-mono text-[10px] tabular-nums text-[#718477]">
-                        {isQueued ? "Waiting" : `${percent.toFixed(1)}%`}
-                    </p>
+                {isActive && <div className="mt-2.5 flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1">
                     {!isQueued && <TransferDetails transfer={transfer} total={total}
                                                    status={job.status === "completed" ? "completed" : (/download/i.test(String(job.message || "")) ? "downloading" : "uploading")}
-                                                   speed={speed} eta={eta}/>}
+                                                   inline speed={speed} eta={eta}/>}
+                    <div className="min-w-[3rem] flex-1">
+                        <ProgressBar percent={isQueued ? 0 : percent} muted={isQueued}/>
+                    </div>
+                    <span className="shrink-0 text-right font-mono text-[10px] tabular-nums text-[#718477]">
+                        {isQueued ? "Waiting" : `${percent.toFixed(1)}%`}
+                    </span>
                 </div>}
 
 
