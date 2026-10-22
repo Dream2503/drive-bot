@@ -174,7 +174,8 @@ async def _resolve_telegram_message_link(link: str) -> tuple[str, str]:
             )
 
         try:
-            source_message = await wait_for(client.get_messages(chat, ids=message_id), timeout=20)
+            chat_entity = await wait_for(client.get_entity(chat), timeout=20)
+            source_message = await wait_for(client.get_messages(chat_entity, ids=message_id), timeout=20)
         except (RPCError, AsyncTimeoutError) as error:
             error_name: str = type(error).__name__
             if error_name in {"ChannelPrivateError", "ChannelInvalidError", "UsernameInvalidError", "UsernameNotOccupiedError"}:
@@ -196,8 +197,20 @@ async def _resolve_telegram_message_link(link: str) -> tuple[str, str]:
             ) from error
 
         if source_message is None:
+            if getattr(chat_entity, "megagroup", False):
+                raise ValueError(
+                    f"Telegram resolved @{chat} as a public group, but did not return message {message_id} "
+                    "to the StoreLimitless Telegram session. A public group link can still be inaccessible "
+                    "to API lookups when that Telegram account has not joined the group. Open "
+                    f"https://t.me/{chat} using the same Telegram account configured for StoreLimitless, "
+                    "join the group if prompted, and retry. If that account is already a member, the message "
+                    "may have been deleted or may no longer be available."
+                )
+
             raise ValueError(
-                "Telegram could not find this public message. It may have been deleted or the link may be incorrect."
+                f"Telegram resolved @{chat}, but message {message_id} was not returned. "
+                "The message may have been deleted, the ID may be incorrect, or the message may not be "
+                "available to the StoreLimitless Telegram account."
             )
 
         source_file = getattr(source_message, "file", None)
