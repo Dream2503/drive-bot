@@ -63,39 +63,59 @@ def _fast_download_target(message: Any) -> str | None:
 
 
 def _message_location(link: str) -> tuple[str, int]:
-    """Parse public, preview, and private Telegram message links into chat and ID."""
+    """Parse a publicly accessible Telegram message link into its chat and message ID."""
 
     parsed: SplitResult = urlsplit(link)
     hostname: str = (parsed.hostname or "").lower()
 
-    if hostname not in {"t.me", "www.t.me", "telegram.me", "www.telegram.me"}:
-        raise ValueError("Expected a Telegram message link from t.me or telegram.me")
+    if parsed.scheme.lower() not in {"http", "https"} or hostname not in {
+        "t.me", "www.t.me", "telegram.me", "www.telegram.me"
+    }:
+        raise ValueError("Paste a public Telegram message URL beginning with https://t.me/ or https://telegram.me/")
 
     parts: list[str] = [part for part in parsed.path.split("/") if part]
 
-    if parts and parts[0] == "s":
+    if parts and parts[0].casefold() == "s":
         parts = parts[1:]
 
     if not parts:
-        raise ValueError("Telegram link does not identify a message")
+        raise ValueError("Telegram link does not identify a message. Use a public link to the actual file message.")
 
-    if parts[0] == "c":
-        if len(parts) < 3 or not parts[1].isdigit() or not parts[2].isdigit():
-            raise ValueError("Invalid private Telegram message link")
-
-        return f"-100{parts[1]}", int(parts[2])
+    if parts[0].casefold() == "c":
+        raise ValueError(
+            "This is a private Telegram /c/ message link. StoreLimitless can only process publicly accessible "
+            "Telegram messages. Open the post through its public channel username and use that t.me/<username>/<message-id> link."
+        )
 
     if parts[0].isdigit():
-        if len(parts) < 2 or not parts[1].isdigit():
-            raise ValueError("Invalid Telegram message link")
+        raise ValueError(
+            "This Telegram link uses an internal chat ID and is not publicly accessible. "
+            "Use the public t.me/<channel-username>/<message-id> link instead."
+        )
 
-        return f"-100{parts[0]}", int(parts[1])
+    username: str = parts[0]
+    if (
+        not 5 <= len(username) <= 32
+        or not all(character.isascii() and (character.isalnum() or character == "_") for character in username)
+        or not username[0].isalpha()
+    ):
+        raise ValueError(
+            "This Telegram link does not contain a public channel or group username. "
+            "Use a publicly accessible t.me/<username>/<message-id> link."
+        )
 
-    if len(parts) < 2 or not parts[1].isdigit():
-        raise ValueError("Telegram link does not identify a supported message")
+    message_segments: list[str] = parts[1:]
+    if not message_segments or not all(segment.isdigit() for segment in message_segments):
+        raise ValueError(
+            "Telegram link does not identify a public message. Use a t.me/<username>/<message-id> link to a post with a file attached."
+        )
 
-    return parts[0], int(parts[1])
+    # Topic links can include a thread ID before the actual message ID.
+    message_id: int = int(message_segments[-1])
+    if message_id <= 0:
+        raise ValueError("Telegram message ID must be a positive number")
 
+    return username, message_id
 
 async def resolve_telegram_message_link(link: str) -> tuple[str, str]:
     """Forward the attached Telegram message and return its verified FAST DOWNLOAD URL and name.
