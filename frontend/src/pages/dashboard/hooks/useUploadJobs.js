@@ -80,10 +80,10 @@ export default function useUploadJobs(refreshDirectory) {
                 const payload = await response.json();
                 if (!Array.isArray(payload.batches)) return;
 
-                const batches = payload.batches.map((batch) => {
+                const batches = await Promise.all(payload.batches.map(async (batch) => {
                     const status = ["queued", "uploading", "completed", "error", "cancelled"].includes(batch.status) ? batch.status : "queued";
                     const totalItems = Math.max(0, Number(batch.total_items) || 0);
-                    return {
+                    const normalized = {
                         jobId: String(batch.batch_id),
                         name: String(batch.name || "Upload task"),
                         kind: String(batch.kind || "file"),
@@ -103,7 +103,106 @@ export default function useUploadJobs(refreshDirectory) {
                         message: String(batch.message || status),
                         createdAt: Number(batch.created_at) || 0,
                     };
-                });
+
+                    // Torrent transfers run on the server. Re-read their child status
+                    // directly instead of depending on the upload-picker component's
+                    // polling promise, which can disappear during HMR/navigation.
+                    if (
+                        normalized.kind !== "link"
+                        || !normalized.currentJobId
+                        || !["queued", "uploading"].includes(normalized.status)
+                        || !normalized.items.some((item) => item.file_index != null)
+                    ) {
+                        return normalized;
+                    }
+
+                    try {
+                        const childResponse = await authenticatedFetch(
+                            `${API_URL}/public/upload/${encodeURIComponent(normalized.currentJobId)}/status`
+                        );
+                        if (!childResponse?.ok) return normalized;
+
+                        const child = await childResponse.json();
+                        const childItems = Array.isArray(child.torrent_items) ? child.torrent_items : [];
+                        if (!childItems.length) {
+                            if (["completed", "error", "cancelled"].includes(child.status)) {
+                                return {
+                                    ...normalized,
+                                    status: child.status,
+                                    progress: child.status === "completed" ? 100 : normalized.progress,
+                                    message: String(child.message || normalized.message),
+                                };
+                            }
+                            return normalized;
+                        }
+
+                        const childByIndex = new Map(childItems
+                            .filter((item) => item.file_index != null)
+                            .map((item) => [Number(item.file_index), item]));
+                        const items = normalized.items.map((item) => {
+                            if (item.file_index == null) return item;
+                            const latest = childByIndex.get(Number(item.file_index));
+                            if (!latest) return item;
+                            return {
+                                ...item,
+                                name: String(latest.name || item.name || "Unnamed file"),
+                                status: String(latest.status || item.status || "queued"),
+                                message: String(latest.message || item.message || ""),
+                                transfer: Math.max(0, Number(latest.transfer) || 0),
+                                total: Math.max(0, Number(latest.total) || Number(item.size) || 0),
+                                size: Math.max(0, Number(latest.total) || Number(item.size) || 0),
+                            };
+                        });
+
+                        let childBatchStatus = normalized.status;
+                        if (["completed", "error", "cancelled"].includes(child.status)) {
+                            childBatchStatus = child.status;
+                        }
+
+                        if (childBatchStatus === "completed") {
+                            for (const item of items) {
+                                item.status = "completed";
+                                item.message = "Completed";
+                                const size = Math.max(0, Number(item.size) || Number(item.total) || 0);
+                                item.transfer = size;
+                                item.total = size;
+                                item.size = size;
+                            }
+                        } else if (childBatchStatus === "error" || childBatchStatus === "cancelled") {
+                            let markedActive = false;
+                            for (const item of items) {
+                                if (["completed", "error", "cancelled", "skipped"].includes(item.status)) continue;
+                                if (childBatchStatus === "cancelled") {
+                                    item.status = "cancelled";
+                                    item.message = "Cancelled";
+                                } else if (!markedActive && ["downloading", "uploading"].includes(item.status)) {
+                                    item.status = "error";
+                                    item.message = String(child.message || "Upload failed");
+                                    markedActive = true;
+                                } else {
+                                    item.status = "skipped";
+                                    item.message = "Not started after failure";
+                                }
+                            }
+                        }
+
+                        const activeItem = items.find((item) => ["downloading", "uploading"].includes(item.status));
+                        const completedItems = items.filter((item) => item.status === "completed").length;
+                        return {
+                            ...normalized,
+                            items,
+                            status: childBatchStatus,
+                            progress: childBatchStatus === "completed" ? 100 : normalized.progress,
+                            completedItems,
+                            currentName: String(activeItem?.name || child.name || normalized.currentName),
+                            message: String(activeItem?.message || child.message || normalized.message),
+                        };
+                    } catch {
+                        // A temporary status-fetch failure must not discard the last
+                        // known batch state or interrupt the underlying server transfer.
+                        return normalized;
+                    }
+                }));
                 // Refresh frequently only while work is active. Idle trays poll less often,
                 // reducing unnecessary API and Redis reads.
                 hasActiveUploads.current = batches.some((batch) => batch.status === "queued" || batch.status === "uploading");
