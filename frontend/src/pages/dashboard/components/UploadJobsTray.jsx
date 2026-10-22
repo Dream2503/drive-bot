@@ -445,10 +445,6 @@ async function runTorrentImport(job, selection, onStarted) {
 
 /* -------------------------------------------------------------------------- */
 
-function Kbd({children}) {
-    return <kbd className="rounded border border-[#2f4237] bg-[#1a251e] px-1.5 py-0.5 font-sans text-[10px] text-[#9bbba7]">{children}</kbd>;
-}
-
 function TorrentSelectionDialog({job, torrentIndex, selection, starting, error, onToggle, onSetAll, onClose, onNext, onStart}) {
     const dialogRef = useRef(null);
     const startRef = useRef(null);
@@ -550,9 +546,6 @@ function TorrentSelectionDialog({job, torrentIndex, selection, starting, error, 
             {error && <p role="alert" className="border-t border-[#29362e] px-5 py-3 text-xs text-[#ff7278]">{error}</p>}
 
             <footer className="flex items-center justify-between gap-3 border-t border-[#29362e] px-5 py-3.5">
-                <div className="hidden items-center gap-1.5 text-[11px] text-[#7f9586] sm:flex">
-                    <Kbd>↑</Kbd><Kbd>↓</Kbd> move <Kbd>Space</Kbd> toggle <Kbd>Enter</Kbd> {isLast ? "start" : "next"} <Kbd>Esc</Kbd> cancel
-                </div>
                 <div className="ml-auto flex items-center gap-2">
                     <button type="button" disabled={starting} onClick={onClose}
                             className="rounded-md border border-[#713b3d] bg-[#3a1c20] px-3.5 py-2 text-xs font-medium text-[#ff9298] transition-colors hover:border-[#a94a50] hover:bg-[#512329] disabled:cursor-not-allowed disabled:opacity-50">
