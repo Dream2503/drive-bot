@@ -2,7 +2,7 @@ import {useCallback, useEffect, useRef, useState} from "react";
 import {useNavigate, useParams, useSearchParams} from "react-router-dom";
 import FileContentPreview, {MediaPreview} from "./FileContentPreview.jsx";
 import DownloadJobsTray from "./DownloadJobsTray.jsx";
-import {getFileKind} from "../utils.js";
+import {createUniqueId, getFileKind} from "../utils.js";
 
 /**
  * @typedef {{name: string}} PreviewFile
@@ -645,7 +645,7 @@ export default function ViewFile() {
             }
 
             root = await navigator.storage.getDirectory();
-            tempName = `storelimitless-view-${crypto.randomUUID()}.download`;
+            tempName = `storelimitless-view-${createUniqueId()}.download`;
             const handle = await root.getFileHandle(tempName, {create: true});
             const initialWriter = await handle.createWritable();
             await initialWriter.truncate(0);
