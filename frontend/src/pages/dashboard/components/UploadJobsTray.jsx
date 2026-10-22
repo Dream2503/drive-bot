@@ -50,6 +50,7 @@ const LINK_STAGES = {
     "finalizing upload": "Finalizing upload",
 };
 const STAGES_WITH_PERCENT = new Set(["Downloading video", "Downloading audio", "Uploading"]);
+const TORRENT_STATUS_POLL_MS = 500;
 
 function formatLinkStage(message) {
     const stage = String(message ?? "").trim().toLowerCase();
@@ -106,7 +107,7 @@ function Icon({name, className = "", style}) {
 function ProgressBar({percent, muted = false, className = ""}) {
     return <div role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(percent)}
                 className={`h-1 overflow-hidden rounded-full bg-[#29372e] ${className}`}>
-        <div className={`h-full rounded-full transition-[width] duration-300 motion-reduce:transition-none ${muted ? "bg-[#7f8f84]" : FILL}`}
+        <div className={`h-full rounded-full transition-[width] duration-500 ease-linear motion-reduce:transition-none ${muted ? "bg-[#7f8f84]" : FILL}`}
              style={{width: `${percent}%`}}/>
     </div>;
 }
@@ -359,7 +360,6 @@ async function runTorrentImport(job, selection, onStarted) {
         // leaving an orphaned, terminal-looking batch in the tray.
         onStarted();
 
-        let delay = 500;
         while (true) {
             const statusResponse = await fetch(`${API_URL}/public/upload/${encodeURIComponent(importJobId)}/status`, {
                 headers: {Authorization: `Bearer ${token}`}, cache: "no-store",
@@ -392,8 +392,7 @@ async function runTorrentImport(job, selection, onStarted) {
                 failure.terminalStatus = jobStatus.status;
                 throw failure;
             }
-            await new Promise((resolve) => window.setTimeout(resolve, delay));
-            delay = Math.min(2000, delay + 250);
+            await new Promise((resolve) => window.setTimeout(resolve, TORRENT_STATUS_POLL_MS));
         }
 
         updateOwn((item) => {
