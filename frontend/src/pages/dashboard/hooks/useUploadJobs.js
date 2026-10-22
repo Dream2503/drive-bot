@@ -7,6 +7,8 @@ export default function useUploadJobs(refreshDirectory) {
     const [uploadJobs, setUploadJobs] = useState([]);
     const refreshedTerminalIds = useRef(new Set());
     const hasActiveUploads = useRef(false);
+    const refreshDirectoryRef = useRef(refreshDirectory);
+    refreshDirectoryRef.current = refreshDirectory;
 
     useEffect(() => {
         let cancelled = false;
@@ -93,7 +95,7 @@ export default function useUploadJobs(refreshDirectory) {
                     if (!["completed", "error", "cancelled"].includes(batch.status) || refreshedTerminalIds.current.has(batch.jobId)) continue;
                     refreshedTerminalIds.current.add(batch.jobId);
                     try {
-                        await refreshDirectory(batch.directory || "/home");
+                        await refreshDirectoryRef.current(batch.directory || "/home");
                     } catch (error) {
                         console.error("Failed to refresh the directory after an upload task finished:", error);
                     }
@@ -111,7 +113,7 @@ export default function useUploadJobs(refreshDirectory) {
             cancelled = true;
             if (pollTimer !== null) window.clearTimeout(pollTimer);
         };
-    }, [refreshDirectory]);
+    }, []);
 
     /** Remove one terminal task from the shared tray. */
     const dismissUploadJob = (jobId) => {
