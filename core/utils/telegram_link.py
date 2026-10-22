@@ -173,24 +173,38 @@ async def _resolve_telegram_message_link(link: str) -> tuple[str, str]:
 
             deadline: float = monotonic() + TELEGRAM_PROCESSING_TIMEOUT
             fast_url: str | None = None
+            received_bot_response: bool = False
 
             while fast_url is None:
                 remaining: float = deadline - monotonic()
 
                 if remaining <= 0:
+                    if received_bot_response:
+                        raise ValueError(
+                            f"@{TELEGRAM_PROCESSING_BOT} responded, but no FAST DOWNLOAD hyperlink "
+                            f"arrived within {int(TELEGRAM_PROCESSING_TIMEOUT)} seconds"
+                        )
+
                     raise TimeoutError(
-                        f"@{TELEGRAM_PROCESSING_BOT} did not return FAST DOWNLOAD within "
+                        f"@{TELEGRAM_PROCESSING_BOT} did not respond within "
                         f"{int(TELEGRAM_PROCESSING_TIMEOUT)} seconds"
                     )
 
                 try:
                     response = await wait_for(responses.get(), timeout=remaining)
                 except AsyncTimeoutError as error:
+                    if received_bot_response:
+                        raise ValueError(
+                            f"@{TELEGRAM_PROCESSING_BOT} responded, but no FAST DOWNLOAD hyperlink "
+                            f"arrived within {int(TELEGRAM_PROCESSING_TIMEOUT)} seconds"
+                        ) from error
+
                     raise TimeoutError(
-                        f"@{TELEGRAM_PROCESSING_BOT} did not return FAST DOWNLOAD within "
+                        f"@{TELEGRAM_PROCESSING_BOT} did not respond within "
                         f"{int(TELEGRAM_PROCESSING_TIMEOUT)} seconds"
                     ) from error
 
+                received_bot_response = True
                 fast_url = _fast_download_target(response)
 
             parsed_url = urlsplit(fast_url)
