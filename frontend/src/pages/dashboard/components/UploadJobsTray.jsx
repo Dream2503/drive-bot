@@ -829,7 +829,7 @@ export default function UploadJobsTray({uploadJobs, cancelUploadJob, dismissUplo
         `}</style>
 
         <aside aria-label="Uploads"
-               className={`min-w-0 overflow-hidden bg-[#111713] ${fullscreen ? "flex h-[100dvh] w-full flex-col" : "fixed bottom-4 right-4 z-[120] w-[min(25rem,calc(100vw-2rem))] rounded-xl border border-[#303b34] shadow-2xl shadow-black/40"}`}>
+               className={`min-w-0 overflow-hidden bg-[#111713] ${fullscreen ? "flex h-[100dvh] w-full flex-col" : "fixed bottom-4 right-4 z-[120] w-[min(32rem,calc(100vw-2rem))] rounded-xl border border-[#303b34] shadow-2xl shadow-black/40"}`}>
 
             <header className="flex items-center justify-between gap-3 border-b border-[#29362e] bg-[#151d18] px-4 py-3">
                 <div className="flex min-w-0 items-center gap-2.5">
@@ -859,7 +859,7 @@ export default function UploadJobsTray({uploadJobs, cancelUploadJob, dismissUplo
                 </div>
             </header>
 
-            <div className={`upload-tray-scrollbar min-h-0 flex-1 space-y-1.5 overflow-y-auto p-2 ${fullscreen ? "" : "max-h-80"}`}>
+            <div className={`upload-tray-scrollbar min-h-0 flex-1 space-y-1.5 overflow-y-auto p-2 ${fullscreen ? "" : "max-h-[min(62dvh,36rem)]"}`}>
                 {!uploadJobs.length && <div className="flex min-h-48 flex-col items-center justify-center px-4 py-10 text-center">
                     <Icon name="cloud_upload" className="text-3xl text-[#3b5144]"/>
                     <p className="mt-3 text-sm text-[#c6d2ca]">No upload tasks yet</p>
