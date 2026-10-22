@@ -13,18 +13,20 @@ function formatBytes(value) {
     return `${size.toFixed(1)} ${units[index]}`;
 }
 
-export default function DownloadJobsTray({jobs, onPause, onResume, onRemove, onClearCompleted, readOnly = false}) {
+export default function DownloadJobsTray({jobs, onPause, onResume, onRemove, onClearCompleted, readOnly = false, embedded = false}) {
     if (!jobs.length) return null;
     const activeCount = jobs.filter((job) => job.status === "downloading").length;
     return <section
-        className="fixed bottom-4 left-4 z-[120] w-[min(25rem,calc(100vw-2rem))] overflow-hidden rounded-xl border border-[#303b34] bg-[#111713] text-[#e7eee9] shadow-2xl shadow-black/40">
-        <header className="flex items-center gap-2 border-b border-[#29352d] px-4 py-3">
+        className={embedded
+            ? "overflow-hidden rounded-lg border border-[#29362e] bg-black/10 text-[#e7eee9]"
+            : "fixed bottom-4 left-4 z-[120] w-[min(25rem,calc(100vw-2rem))] overflow-hidden rounded-xl border border-[#303b34] bg-[#111713] text-[#e7eee9] shadow-2xl shadow-black/40"}>
+        <header className={`flex items-center gap-2 border-b border-[#29352d] ${embedded ? "px-3 py-2" : "px-4 py-3"}`}>
             <span className="material-symbols-outlined text-[18px] text-[#3ecf8e]" aria-hidden="true">download</span>
-            <span className="text-sm font-medium">Downloads</span>
+            <span className={embedded ? "text-xs font-medium" : "text-sm font-medium"}>Downloads</span>
             <span className="rounded-full border border-[#315642] bg-[#1a2a20] px-2 py-0.5 text-[10px] text-[#a5d9b8]">{activeCount} active</span>
             {!readOnly && <button type="button" onClick={onClearCompleted} className="ml-auto text-xs text-[#a8b7ad] hover:text-white">Clear completed</button>}
         </header>
-        <div className="max-h-72 space-y-2 overflow-y-auto p-2">
+        <div className={embedded ? "space-y-2 p-2" : "max-h-72 space-y-2 overflow-y-auto p-2"}>
             {jobs.map((job) => {
                 const percent = job.total > 0 ? Math.min(100, Math.floor((job.transferred / job.total) * 100)) : 0;
                 const terminal = job.status === "completed" || job.status === "error";
