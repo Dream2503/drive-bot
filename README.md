@@ -444,6 +444,17 @@ HTTP (S) URL or supported magnet URI per line** and
 validates the complete selection before creating a single batch with `POST /auth/upload-batches`. Each link is then imported sequentially as a child
 job. The one tray task shows every link up front and records its own status, while child jobs provide backend progress.
 
+Telegram message links are processed before the normal link-import job is created. For a `t.me` message URL, StoreLimitless uses a separate Telethon **user** session to open the original message, require a file/media attachment, forward that original message to `@PremiumFiletoLink_Bot`, and wait up to 90 seconds for a response containing the actual URL behind a **FAST DOWNLOAD** button or inline hyperlink. The resolver follows HTTP redirects without buffering the download and passes the resulting URL into the existing `link_upload()` workflow. It never falls back to the Telegram message URL. Missing messages, failed forwarding, missing links, unauthenticated sessions, and timeouts return explicit errors before an upload job is registered.
+
+To enable this workflow:
+
+1. Configure the existing `TELEGRAM_API_ID` and `TELEGRAM_API_HASH` application credentials used by the Telegram integration.
+2. Open `@PremiumFiletoLink_Bot` in Telegram and press **Start** once, if this account has not started it before.
+3. From the repository root, run `python -m core.utils.telegram_link --login` and complete the phone-number, login-code, and (if enabled) two-step-verification prompts.
+4. Keep the generated `telegram_user.session` file private. It authenticates your Telegram user account and is separate from the existing Telegram storage-bot session. Do not commit or share it.
+
+The Telegram account must have access to the linked channel/group and permission to forward its file message. Public message links and private `t.me/c/…/…` links are supported when that account can access the message. This feature requires Telethon to be able to connect to Telegram at import time.
+
 The server chooses the downloader from the URL host:
 
 - **Direct HTTP (S) file URLs** use a streamed HTTP download. The response should contain the file bytes, not an ordinary website page. The downloader
