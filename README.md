@@ -1135,6 +1135,7 @@ with the StoreLimitless runtime.
 - `BACKUP_DIR`: CSV backup output directory under `backend/database/backup`.
 - `LOG_PATH` / `LOG_LOCK_PATH`: application log and file lock (`data/logs.log` and `data/logs.lock` in source mode).
 - `TELEGRAM_SESSION`: Telethon session file path, normally under the base data directory.
+- `TELEGRAM_USER_SESSION`: separate user-account session file at `BASE_DIR/telegram_user.session`, used only for forwarding source messages to the processing bot.
 - `FRONTEND_DIST`: built frontend assets used by packaged execution.
 
 When frozen, the base data directory is under `%LOCALAPPDATA%/StoreLimitless` on Windows, or `$XDG_DATA_HOME/storeLimitless` /
