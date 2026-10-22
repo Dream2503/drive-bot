@@ -480,7 +480,6 @@ export default function ViewFile() {
     const [publicFileError, setPublicFileError] = useState("");
     const name = searchParams.get("name") || publicFile?.name || "Untitled";
     const kind = searchParams.get("kind") || getFileKind(publicFile?.name || name);
-    const publicToken = searchParams.get("public_token");
 
     useEffect(() => {
         if (!publicToken) {
