@@ -13,6 +13,11 @@ import UploadTrayPage from "./pages/dashboard/components/UploadTrayPage.jsx";
  * of the entire scroll chain, including nested scroll areas.
  */
 function installTopEdgeRefresh() {
+    // Pull-to-refresh is a phone gesture, not a desktop trackpad/mouse interaction.
+    // Keep the listener entirely off desktop and coarse-pointer devices with a
+    // viewport wider than a typical phone.
+    const mobilePhoneQuery = window.matchMedia("(max-width: 767px) and (pointer: coarse)");
+    let listenersInstalled = false;
     let touchStartY = 0;
     let touchDistance = 0;
     let touchEligible = false;
@@ -71,16 +76,38 @@ function installTopEdgeRefresh() {
         touchDistance = 0;
     };
 
-    window.addEventListener("touchstart", handleTouchStart, {passive: true});
-    window.addEventListener("touchmove", handleTouchMove, {passive: true});
-    window.addEventListener("touchend", handleTouchEnd, {passive: true});
-    window.addEventListener("touchcancel", handleTouchEnd, {passive: true});
+    const addTouchListeners = () => {
+        if (listenersInstalled) return;
+        listenersInstalled = true;
+        window.addEventListener("touchstart", handleTouchStart, {passive: true});
+        window.addEventListener("touchmove", handleTouchMove, {passive: true});
+        window.addEventListener("touchend", handleTouchEnd, {passive: true});
+        window.addEventListener("touchcancel", handleTouchEnd, {passive: true});
+    };
 
-    return () => {
+    const removeTouchListeners = () => {
+        if (!listenersInstalled) return;
+        listenersInstalled = false;
         window.removeEventListener("touchstart", handleTouchStart);
         window.removeEventListener("touchmove", handleTouchMove);
         window.removeEventListener("touchend", handleTouchEnd);
         window.removeEventListener("touchcancel", handleTouchEnd);
+        touchEligible = false;
+        touchTriggered = false;
+        touchDistance = 0;
+    };
+
+    const syncDeviceListeners = () => {
+        if (mobilePhoneQuery.matches) addTouchListeners();
+        else removeTouchListeners();
+    };
+
+    syncDeviceListeners();
+    mobilePhoneQuery.addEventListener("change", syncDeviceListeners);
+
+    return () => {
+        mobilePhoneQuery.removeEventListener("change", syncDeviceListeners);
+        removeTouchListeners();
     };
 }
 
