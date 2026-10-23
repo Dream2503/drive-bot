@@ -1053,7 +1053,21 @@ async def public_zip_download(
             raise OSError(f'Cannot read "{file.name}": {error}') from error
 
     entries: list[ZipStreamEntry] = []
+    archive_identity: list[dict[str, object]] = []
     used_root_names: set[str] = set()
+
+    def record_file_identity(entry_name: str, file: File) -> None:
+        """Track metadata that must stay stable across byte-range resume requests."""
+
+        archive_identity.append({
+            "kind": "file",
+            "name": entry_name,
+            "id": file.id,
+            "size": max(0, int(file.size or 0)),
+            "modified_at": file.modified_at.isoformat(),
+            "data_center": file.data_center,
+            "links": file.links,
+        })
 
     def unique_root_name(value: str) -> str:
         base = str(value or "").strip().strip(". ") or "folder"
@@ -1069,6 +1083,13 @@ async def public_zip_download(
         root_path = Path(folder.path)
         root_name = unique_root_name(root_path.name)
         entries.append(ZipStreamEntry(name=f"{root_name}/", source=None, size=0))
+        archive_identity.append({
+            "kind": "directory",
+            "id": folder.id,
+            "path": str(root_path),
+            "modified_at": folder.modified_at.isoformat(),
+            "entry_name": f"{root_name}/",
+        })
 
         descendant_directories = sorted(
             (
@@ -1081,11 +1102,19 @@ async def public_zip_download(
         for directory in descendant_directories:
             relative = Path(directory.path).relative_to(root_path)
             if relative.parts:
+                directory_entry_name = f"{root_name}/{relative.as_posix().rstrip('/')}/"
                 entries.append(ZipStreamEntry(
-                    name=f"{root_name}/{relative.as_posix().rstrip('/')}/",
+                    name=directory_entry_name,
                     source=None,
                     size=0,
                 ))
+                archive_identity.append({
+                    "kind": "directory",
+                    "id": directory.id,
+                    "path": str(directory.path),
+                    "modified_at": directory.modified_at.isoformat(),
+                    "entry_name": directory_entry_name,
+                })
 
         for file in all_files:
             parent_path = directory_path_by_id.get(int(file.directory_id))
@@ -1096,6 +1125,7 @@ async def public_zip_download(
             file_name = Path(str(file.name).replace("\\", "/")).name or "download"
             relative_parts = [root_name, *relative_parent.parts, file_name]
             entry_name = "/".join(relative_parts)
+            record_file_identity(entry_name, file)
             if not file.links and int(file.size or 0) == 0:
                 entries.append(ZipStreamEntry(name=entry_name, source=None, size=0))
             else:
@@ -1113,6 +1143,7 @@ async def public_zip_download(
         # Explicit file selections live at the archive root. Stored file names are
         # leaf names; the ZIP writer additionally rejects unsafe relative paths.
         file_name = Path(str(file.name).replace("\\", "/")).name or "download"
+        record_file_identity(file_name, file)
         if not file.links and int(file.size or 0) == 0:
             entries.append(ZipStreamEntry(name=file_name, source=None, size=0))
         else:
@@ -1135,16 +1166,100 @@ async def public_zip_download(
             headers=_public_cors_headers(request),
         )
 
+    archive_length = zip64_stored_content_length(entries)
+    archive_etag = '"' + sha256(
+        json.dumps(archive_identity, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest() + '"'
+
+    range_header = request.headers.get("range")
+    if_range = request.headers.get("if-range")
+    if range_header and if_range and if_range.strip() != archive_etag:
+        # If the selected archive changed while paused, ignore Range and let the client
+        # safely truncate and replace the old partial archive from byte zero.
+        range_header = None
+
+    range_start = 0
+    range_end = archive_length - 1
+    partial = False
+    if range_header:
+        match = re.fullmatch(r"bytes=(\d*)-(\d*)", range_header.strip())
+        if not match or "," in range_header:
+            return Response(status_code=416, headers={
+                "Content-Range": f"bytes */{archive_length}",
+                "Accept-Ranges": "bytes",
+                "ETag": archive_etag,
+                "Content-Length": "0",
+                **_public_cors_headers(request),
+            })
+
+        first, last = match.groups()
+        if first:
+            range_start = int(first)
+            range_end = int(last) if last else archive_length - 1
+        else:
+            suffix_length = int(last or 0)
+            if suffix_length <= 0:
+                return Response(status_code=416, headers={
+                    "Content-Range": f"bytes */{archive_length}",
+                    "Accept-Ranges": "bytes",
+                    "ETag": archive_etag,
+                    "Content-Length": "0",
+                    **_public_cors_headers(request),
+                })
+            range_start = max(0, archive_length - suffix_length)
+            range_end = archive_length - 1
+
+        if range_start >= archive_length or range_end < range_start:
+            return Response(status_code=416, headers={
+                "Content-Range": f"bytes */{archive_length}",
+                "Accept-Ranges": "bytes",
+                "ETag": archive_etag,
+                "Content-Length": "0",
+                **_public_cors_headers(request),
+            })
+
+        range_end = min(range_end, archive_length - 1)
+        partial = True
+
     archive_filename = _safe_zip_download_filename(filename)
+    response_length = range_end - range_start + 1
     headers = {
         "Content-Disposition": _content_disposition(archive_filename, attachment=True),
         "Cache-Control": "private, no-store, no-cache, must-revalidate, no-transform",
+        "Accept-Ranges": "bytes",
+        "ETag": archive_etag,
         "X-Content-Type-Options": "nosniff",
         "X-Accel-Buffering": "no",
         "Referrer-Policy": "no-referrer",
-        # STORE-mode ZIP output has a predictable exact size, so browser download
-        # managers can show the total without buffering or pre-compressing the files.
-        "Content-Length": str(zip64_stored_content_length(entries)),
+        "Content-Length": str(response_length),
         **_public_cors_headers(request),
     }
-    return StreamingResponse(stream_zip64(entries), status_code=200, headers=headers, media_type="application/zip")
+    if partial:
+        headers["Content-Range"] = f"bytes {range_start}-{range_end}/{archive_length}"
+
+    async def stream_zip_range():
+        """Replay the deterministic archive and emit only the requested byte range."""
+
+        position = 0
+        async for chunk in stream_zip64(entries):
+            chunk_end = position + len(chunk)
+            if chunk_end <= range_start:
+                position = chunk_end
+                continue
+
+            local_start = max(0, range_start - position)
+            local_end = min(len(chunk), range_end - position + 1)
+            if local_start < local_end:
+                yield chunk[local_start:local_end]
+
+            position = chunk_end
+            if position > range_end:
+                return
+
+    body = stream_zip_range() if partial else stream_zip64(entries)
+    return StreamingResponse(
+        body,
+        status_code=206 if partial else 200,
+        headers=headers,
+        media_type="application/zip",
+    )
