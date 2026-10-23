@@ -1338,6 +1338,7 @@ async def download_torrent(file: File, link: str, selected_indices: set[int] | N
     torrent_session: Any | None = None
     handle: Any | None = None
     active_uploads: dict[int, Task[File]] = {}
+    pending_uploads: dict[int, tuple[File, Path, dict[str, Any], str, int, int, IngestionUploadTicket]] = {}
     max_concurrent_file_uploads: int = max(1, min(2, int(data_center.MAX_PARALLEL_UPLOADS)))
     tray_items: list[dict[str, Any]] = []
 
@@ -1411,6 +1412,32 @@ async def download_torrent(file: File, link: str, selected_indices: set[int] | N
         finally:
             if not ticket.claimed:
                 await cancel_ingestion_upload(ticket)
+
+    def start_pending_uploads() -> None:
+        """Start only a bounded number of upload coroutines for already-enqueued FIFO tickets."""
+
+        while pending_uploads and len(active_uploads) < max_concurrent_file_uploads:
+            index = next(iter(pending_uploads))
+            (
+                torrent_file,
+                local_path,
+                item,
+                relative_name,
+                local_size,
+                sequence,
+                ticket,
+            ) = pending_uploads.pop(index)
+            active_uploads[index] = create_task(
+                upload_completed_file(
+                    torrent_file,
+                    local_path,
+                    item,
+                    relative_name,
+                    local_size,
+                    sequence,
+                    ticket,
+                )
+            )
 
     try:
         write_log("INFO", data_center, "TORRENT", file.username, f"Starting magnet download: {safe_link}")
@@ -1505,6 +1532,7 @@ async def download_torrent(file: File, link: str, selected_indices: set[int] | N
                 if first_saved_id is None and saved_file is file:
                     first_saved_id = saved_file.id
 
+            start_pending_uploads()
             status: Any = handle.status()
             raise_torrent_error(status)
             raw_file_progress = handle.file_progress()
@@ -1525,7 +1553,7 @@ async def download_torrent(file: File, link: str, selected_indices: set[int] | N
                     })
                     continue
 
-                if index in active_uploads:
+                if index in active_uploads or index in pending_uploads:
                     continue
 
                 downloaded = min(size, file_progress[index]) if index < len(file_progress) else 0
@@ -1541,10 +1569,7 @@ async def download_torrent(file: File, link: str, selected_indices: set[int] | N
             # local file immediately after its upload succeeds, rather than waiting for
             # the whole torrent to finish downloading.
             for index in selected_order:
-                if len(active_uploads) >= max_concurrent_file_uploads:
-                    break
-
-                if index in processed_indices or index in active_uploads:
+                if index in processed_indices or index in active_uploads or index in pending_uploads:
                     continue
 
                 size = file_sizes[index]
@@ -1589,7 +1614,7 @@ async def download_torrent(file: File, link: str, selected_indices: set[int] | N
                 relative_display_path: str = "/".join(target_parts)
                 local_size: int = candidate_path.stat().st_size
 
-                if first_saved_id is None and saved_count == 0 and not active_uploads:
+                if first_saved_id is None and saved_count == 0 and not active_uploads and not pending_uploads:
                     torrent_file: File = file
                     torrent_file.directory_id = cast(int, target_directory.id)
                     torrent_file.name = target_name
@@ -1629,18 +1654,20 @@ async def download_torrent(file: File, link: str, selected_indices: set[int] | N
                     file.username,
                     f"Uploading completed torrent file {scheduled_count}/{len(selected_order)}: {relative_display_path}",
                 )
+                # Enter the global FIFO immediately after the on-disk file is verified.
+                # Only a bounded number of local coroutines wait for/acquire upload slots.
                 ticket = await enqueue_ingestion_upload()
-                active_uploads[index] = create_task(
-                    upload_completed_file(
-                        torrent_file,
-                        candidate_path,
-                        item,
-                        relative_display_path,
-                        local_size,
-                        scheduled_count,
-                        ticket,
-                    )
+                pending_uploads[index] = (
+                    torrent_file,
+                    candidate_path,
+                    item,
+                    relative_display_path,
+                    local_size,
+                    scheduled_count,
+                    ticket,
                 )
+
+            start_pending_uploads()
 
             # Persist download and storage-upload bytes independently; item-level metrics
             # are computed by the backend and survive Redis status polling and page refreshes.
@@ -1751,12 +1778,17 @@ async def download_torrent(file: File, link: str, selected_indices: set[int] | N
         raise
 
     finally:
-        pending_uploads: list[Task[File]] = list(active_uploads.values())
-        for task in pending_uploads:
+        active_tasks: list[Task[File]] = list(active_uploads.values())
+        for task in active_tasks:
             task.cancel()
 
-        if pending_uploads:
-            await gather(*pending_uploads, return_exceptions=True)
+        if active_tasks:
+            await gather(*active_tasks, return_exceptions=True)
+
+        await gather(
+            *(cancel_ingestion_upload(work[-1]) for work in pending_uploads.values()),
+            return_exceptions=True,
+        )
 
         if torrent_session is not None and handle is not None:
             try:
