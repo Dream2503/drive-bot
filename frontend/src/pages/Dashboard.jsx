@@ -10,7 +10,7 @@ import ItemDetailsModal from "./dashboard/components/ItemDetailsModal.jsx";
 import DashboardContextMenu from "./dashboard/components/DashboardContextMenu.jsx";
 import DashboardWorkspace from "./dashboard/components/DashboardWorkspace.jsx";
 import UploadJobsTray from "./dashboard/components/UploadJobsTray.jsx";
-import {listResumableDownloads, listResumableDownloadChunks, removeResumableDownload, removeResumableDownloadChunks, saveResumableDownload, saveResumableDownloadChunk} from "./dashboard/utils/resumableDownloads.js";
+import {listResumableDownloads, listResumableDownloadChunks, removeResumableDownload, removeResumableDownloadChunks, removeResumableDownloadChunksFrom, saveResumableDownload, saveResumableDownloadChunk} from "./dashboard/utils/resumableDownloads.js";
 import BulkActionConfirmModal from "./dashboard/components/BulkActionConfirmModal.jsx";
 import useDashboardData, {clearDashboardTreeCache} from "./dashboard/hooks/useDashboardData.js";
 import useGlobalFileSearch from "./dashboard/hooks/useGlobalFileSearch.js";
@@ -205,9 +205,8 @@ export default function DashboardPage() {
                 // Discard any non-contiguous suffix. A range is only considered
                 // complete after its entire response has been saved atomically.
                 if (savedChunks.some((chunk) => Number(chunk.offset) >= transferred)) {
-                    await removeResumableDownloadChunks(job.id);
-                    savedChunks = [];
-                    transferred = 0;
+                    await removeResumableDownloadChunksFrom(job.id, transferred);
+                    savedChunks = savedChunks.filter((chunk) => Number(chunk.offset) < transferred);
                 }
 
                 updateDownloadJob(job.id, {
