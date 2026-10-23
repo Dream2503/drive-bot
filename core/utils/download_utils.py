@@ -831,7 +831,7 @@ async def download_torrent(file: File, link: str, selected_indices: set[int] | N
     torrent_session: Any | None = None
     handle: Any | None = None
     active_uploads: dict[int, Task[File]] = {}
-    max_concurrent_file_uploads: int = 2
+    max_concurrent_file_uploads: int = max(1, min(2, int(data_center.MAX_PARALLEL_UPLOADS)))
     tray_items: list[dict[str, Any]] = []
 
     async def upload_completed_file(
