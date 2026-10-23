@@ -1,4 +1,5 @@
 import {useCallback, useEffect, useRef, useState} from "react";
+import Hls from "hls.js";
 import {useNavigate, useParams, useSearchParams} from "react-router-dom";
 import FileContentPreview, {MediaPreview} from "./FileContentPreview.jsx";
 import UploadJobsTray from "./UploadJobsTray.jsx";
@@ -12,9 +13,10 @@ import {listResumableDownloadChunks, removeResumableDownloadChunks, removeResuma
  * @typedef {Object} VideoPlayerProps
  * @property {PreviewFile} file
  * @property {string} streamUrl
+ * @property {string} publicToken
  * @property {string} [heightClass]
  */
-/** @typedef {{streamUrl: string}} VideoSource */
+/** @typedef {{streamUrl: string, publicToken: string}} VideoSource */
 
 
 /** @type {string | undefined} */
@@ -41,9 +43,10 @@ const fmtTime = (seconds) => {
  * @param {VideoPlayerProps} props
  * @returns {import("react").ReactElement}
  */
-function VideoPlayer({file, streamUrl, heightClass = "h-[70vh]"}) {
+function VideoPlayer({file, streamUrl, publicToken, heightClass = "h-[70vh]"}) {
     const wrapRef = useRef(null);
     const videoRef = useRef(null);
+    const hlsRef = useRef(null);
     const hideTimer = useRef(null);
     const stallTimerRef = useRef(null);
     const menuRef = useRef(null);
@@ -56,9 +59,13 @@ function VideoPlayer({file, streamUrl, heightClass = "h-[70vh]"}) {
     const [volume, setVolume] = useState(1);
     const [muted, setMuted] = useState(false);
     const [rate, setRate] = useState(1);
+    const [audioTracks, setAudioTracks] = useState([]);
+    const [selectedAudioTrack, setSelectedAudioTrack] = useState(-1);
+    const [subtitleTracks, setSubtitleTracks] = useState([]);
+    const [selectedSubtitleTrack, setSelectedSubtitleTrack] = useState(-1);
     const [isFs, setIsFs] = useState(false);
     const [showUi, setShowUi] = useState(true);
-    /** @type {["speed" | null, import("react").Dispatch<import("react").SetStateAction<"speed" | null>>]} */
+    /** @type {["speed" | "audio" | "subtitles" | null, import("react").Dispatch<import("react").SetStateAction<"speed" | "audio" | "subtitles" | null>>]} */
     const [menu, setMenu] = useState(null);
     /** @type {[string | null, import("react").Dispatch<import("react").SetStateAction<string | null>>]} */
     const [error, setError] = useState(null);
