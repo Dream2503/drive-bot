@@ -225,9 +225,17 @@ function VideoPlayer({file, streamUrl, publicToken, heightClass = "h-[70vh]"}) {
                         enableWorker: true,
                         maxBufferLength: 30,
                         backBufferLength: 30,
-                        manifestLoadingMaxRetry: 2,
-                        levelLoadingMaxRetry: 2,
-                        fragLoadingMaxRetry: 3,
+                        // StoreLimitless generates each HLS segment on demand using FFmpeg.
+                        // A 1080p60 HEVC segment can take longer than the HLS.js default
+                        // 20-second fragment timeout on a cold remote-storage cache.
+                        manifestLoadingTimeOut: 30000,
+                        levelLoadingTimeOut: 30000,
+                        fragLoadingTimeOut: 90000,
+                        fragLoadingMaxRetry: 5,
+                        fragLoadingRetryDelay: 1000,
+                        fragLoadingMaxRetryTimeout: 15000,
+                        manifestLoadingMaxRetry: 3,
+                        levelLoadingMaxRetry: 3,
                     });
                     hlsRef.current = hlsInstance;
 
