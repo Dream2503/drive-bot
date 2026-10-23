@@ -417,9 +417,11 @@ def _hls_media_playlist(token: str, media_info: dict[str, Any], *, kind: str, st
             lines.append("#EXT-X-DISCONTINUITY")
 
         segment_duration = min(_MEDIA_SEGMENT_SECONDS, duration - segment_index * _MEDIA_SEGMENT_SECONDS)
-        url = f"{base}/segment/{kind}?index={segment_index}"
         if kind == "audio":
-            url += f"&track={int(stream_index or 0)}"
+            url = f"{base}/segment/audio/{int(stream_index or 0)}/{segment_index}"
+        else:
+            video_index = int(media_info["video"]["index"])
+            url = f"{base}/segment/video/{video_index}/{segment_index}"
         lines.extend([f"#EXTINF:{segment_duration:.3f},", url])
 
     lines.append("#EXT-X-ENDLIST")
@@ -463,7 +465,7 @@ async def public_hls_master(token: str, request: Request) -> Response:
     if audio_tracks:
         default_index = next((index for index, track in enumerate(audio_tracks) if track["default"]), 0)
         for index, track in enumerate(audio_tracks):
-            audio_playlist_url = f"{base}/audio.m3u8?track={track['index']}"
+            audio_playlist_url = f"{base}/audio/{track['index']}.m3u8"
             attributes = [
                 'TYPE=AUDIO',
                 'GROUP-ID="audio"',
@@ -499,11 +501,11 @@ async def public_hls_video_playlist(token: str, request: Request) -> Response:
     )
 
 
-@router.get("/hls/{token}/audio.m3u8")
+@router.get("/hls/{token}/audio/{track}.m3u8")
 async def public_hls_audio_playlist(
     token: str,
+    track: int,
     request: Request,
-    track: int = Query(ge=0),
 ) -> Response:
     """Create a separate audio rendition playlist for the selected embedded stream."""
 
@@ -519,13 +521,13 @@ async def public_hls_audio_playlist(
     )
 
 
-@router.get("/hls/{token}/segment/{kind}")
+@router.get("/hls/{token}/segment/{kind}/{track}/{index}")
 async def public_hls_segment(
     token: str,
     kind: str,
+    track: int,
+    index: int,
     request: Request,
-    index: int = Query(ge=0),
-    track: int | None = Query(default=None, ge=0),
 ) -> Response:
     """Generate one MPEG-TS transport segment on demand and return it directly from memory."""
 
@@ -541,6 +543,8 @@ async def public_hls_segment(
 
     if kind == "video":
         stream_index = int(media_info["video"]["index"])
+        if track != stream_index:
+            raise HTTPException(status_code=404, detail="Video track not found.")
     else:
         audio_track = next((item for item in media_info["audio"] if int(item["index"]) == track), None)
         if audio_track is None:
