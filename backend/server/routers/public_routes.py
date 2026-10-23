@@ -974,7 +974,7 @@ async def public_zip_download(
         request: Request,
         filename: str = Query(default="StoreLimitless-files.zip", max_length=180),
 ) -> Response:
-    """Stream a multi-file ZIP directly from remote storage with no server-side archive staging."""
+    """Stream selected files and folder trees into a ZIP without server-side archive staging."""
 
     try:
         payload = verify_public_zip_token(token)
@@ -986,7 +986,12 @@ async def public_zip_download(
     folder_ids = cast(list[int], payload.get("folder_ids", []))
 
     all_directories = await Directory.get_all(username)
-    all_files = await File.get_all(username)
+    # The UI intentionally hides these internal marker records; ZIP archives must
+    # not expose them either when a whole directory tree is downloaded.
+    all_files = [
+        file for file in await File.get_all(username)
+        if file.name != ".__folder__"
+    ]
     directories_by_id = {
         int(directory.id): directory
         for directory in all_directories
@@ -1001,7 +1006,7 @@ async def public_zip_download(
     selected_files: list[File] = []
     for file_id in file_ids:
         file = await File.get(username, fid=file_id)
-        if file is None or file.username != username:
+        if file is None or file.username != username or file.name == ".__folder__":
             raise HTTPException(
                 status_code=404,
                 detail="One or more selected files are no longer available",
