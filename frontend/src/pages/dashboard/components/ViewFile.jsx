@@ -79,6 +79,8 @@ function VideoPlayer({file, streamUrl, publicToken, heightClass = "h-[70vh]"}) {
     // A media request can be interrupted by a transient tunnel/proxy reset.
     // Add a unique cache-busting query for each retry and resume at the last position.
     const playbackUrl = streamRetryNonce > 0 ? `${streamUrl}${streamUrl.includes("?") ? "&" : "?"}_sl_stream_retry=${streamRetryNonce}` : streamUrl;
+    const hlsUrl = publicToken ? API_URL + "/public/hls/" + encodeURIComponent(publicToken) + "/master.m3u8" : "";
+    const tracksUrl = publicToken ? API_URL + "/public/tracks/" + encodeURIComponent(publicToken) : "";
 
     useEffect(() => {
         retryCountRef.current = 0;
@@ -91,16 +93,150 @@ function VideoPlayer({file, streamUrl, publicToken, heightClass = "h-[70vh]"}) {
     useEffect(() => {
         const video = videoRef.current;
         if (!video) return;
+
+        let cancelled = false;
+        let hlsInstance = null;
+
         setError(null);
         setBuffering(true);
+        setAudioTracks([]);
+        setSelectedAudioTrack(-1);
+        setSubtitleTracks([]);
+        setSelectedSubtitleTrack(-1);
+        video.removeAttribute("src");
         video.load();
-        video.play().catch(() => {
-            // Some browsers require a user gesture before playback.
-        });
-        return () => {
-            video.pause();
+
+        const useOriginalStream = () => {
+            if (cancelled) return;
+            video.src = playbackUrl;
+            video.load();
+            video.play().catch(() => {
+                // Some browsers require a user gesture before playback.
+            });
         };
-    }, [playbackUrl]);
+
+        const setupPlayback = async () => {
+            if (!publicToken) {
+                useOriginalStream();
+                return;
+            }
+
+            try {
+                const response = await fetch(tracksUrl, {cache: "no-store"});
+                if (!response.ok) throw new Error("Track metadata is unavailable.");
+                const trackInfo = await response.json();
+                if (cancelled) return;
+
+                setSubtitleTracks((trackInfo.subtitles || []).filter((track) => track.selectable));
+                setAudioTracks((trackInfo.audio || []).map((track, index) => ({
+                    index,
+                    label: track.label || track.language || ("Audio " + (index + 1)),
+                    language: track.language || "",
+                    default: Boolean(track.default),
+                })));
+
+                if (Hls.isSupported()) {
+                    hlsInstance = new Hls({
+                        enableWorker: true,
+                        maxBufferLength: 30,
+                        backBufferLength: 30,
+                        manifestLoadingMaxRetry: 2,
+                        levelLoadingMaxRetry: 2,
+                        fragLoadingMaxRetry: 3,
+                    });
+                    hlsRef.current = hlsInstance;
+
+                    const syncAudioTracks = () => {
+                        if (cancelled || !hlsInstance) return;
+                        const available = hlsInstance.audioTracks.map((track, index) => ({
+                            index,
+                            label: track.name || track.lang || ("Audio " + (index + 1)),
+                            language: track.lang || "",
+                            default: Boolean(track.default),
+                        }));
+                        setAudioTracks(available);
+
+                        if (available.length) {
+                            const currentIndex = hlsInstance.audioTrack;
+                            const defaultIndex = available.findIndex((track) => track.default);
+                            const selectedIndex = currentIndex >= 0
+                                ? currentIndex
+                                : defaultIndex >= 0 ? defaultIndex : 0;
+                            hlsInstance.audioTrack = selectedIndex;
+                            setSelectedAudioTrack(selectedIndex);
+                        }
+                    };
+
+                    hlsInstance.on(Hls.Events.MEDIA_ATTACHED, () => {
+                        if (!cancelled) hlsInstance.loadSource(hlsUrl);
+                    });
+                    hlsInstance.on(Hls.Events.MANIFEST_PARSED, () => {
+                        syncAudioTracks();
+                        setBuffering(false);
+                        video.play().catch(() => {
+                            // Some browsers require a user gesture before playback.
+                        });
+                    });
+                    hlsInstance.on(Hls.Events.AUDIO_TRACKS_UPDATED, syncAudioTracks);
+                    hlsInstance.on(Hls.Events.AUDIO_TRACK_SWITCHED, (_event, data) => {
+                        setSelectedAudioTrack(data.id);
+                    });
+                    hlsInstance.on(Hls.Events.ERROR, (_event, data) => {
+                        if (!data.fatal) return;
+
+                        if (data.type === Hls.ErrorTypes.NETWORK_ERROR && retryCountRef.current < 3) {
+                            retryCountRef.current += 1;
+                            hlsInstance.startLoad();
+                        } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
+                            hlsInstance.recoverMediaError();
+                        } else {
+                            setBuffering(false);
+                            setError("Track-aware streaming could not load a video or audio segment. Reopen the stream to try again.");
+                        }
+                    });
+                    hlsInstance.attachMedia(video);
+                    return;
+                }
+
+                if (video.canPlayType("application/vnd.apple.mpegurl")) {
+                    video.src = hlsUrl;
+                    video.load();
+                    video.play().catch(() => {
+                        // Some browsers require a user gesture before playback.
+                    });
+                    return;
+                }
+
+                useOriginalStream();
+            } catch {
+                // Keep existing direct streaming working if track-aware playback is unavailable.
+                useOriginalStream();
+            }
+        };
+
+        void setupPlayback();
+
+        return () => {
+            cancelled = true;
+            if (hlsInstance) hlsInstance.destroy();
+            if (hlsRef.current === hlsInstance) hlsRef.current = null;
+            video.pause();
+            video.removeAttribute("src");
+            video.load();
+        };
+    }, [hlsUrl, playbackUrl, publicToken, tracksUrl]);
+
+    useEffect(() => {
+        const video = videoRef.current;
+        if (!video?.textTracks) return;
+
+        for (let index = 0; index < video.textTracks.length; index += 1) {
+            const descriptor = subtitleTracks[index];
+            video.textTracks[index].mode = descriptor && descriptor.index === selectedSubtitleTrack
+                ? "showing"
+                : "disabled";
+        }
+    }, [selectedSubtitleTrack, subtitleTracks]);
 
     const recoverStream = useCallback((video) => {
         if (!video) return;
@@ -122,6 +258,7 @@ function VideoPlayer({file, streamUrl, publicToken, heightClass = "h-[70vh]"}) {
 
     const handleMediaError = useCallback((event) => {
         const video = event.currentTarget;
+        if (hlsRef.current) return;
 
         // MEDIA_ERR_NETWORK is recoverable; codec/decode errors usually are not.
         if (video.error?.code === 2) {
@@ -182,6 +319,23 @@ function VideoPlayer({file, streamUrl, publicToken, heightClass = "h-[70vh]"}) {
      */
     const changeRate = (playbackRate) => {
         if (videoRef.current) videoRef.current.playbackRate = playbackRate;
+        setMenu(null);
+    };
+
+    const selectAudioTrack = (index) => {
+        if (hlsRef.current) {
+            hlsRef.current.audioTrack = index;
+        } else if (videoRef.current?.audioTracks && videoRef.current.audioTracks[index]) {
+            for (let trackIndex = 0; trackIndex < videoRef.current.audioTracks.length; trackIndex += 1) {
+                videoRef.current.audioTracks[trackIndex].enabled = trackIndex === index;
+            }
+        }
+        setSelectedAudioTrack(index);
+        setMenu(null);
+    };
+
+    const selectSubtitleTrack = (index) => {
+        setSelectedSubtitleTrack(index);
         setMenu(null);
     };
 
