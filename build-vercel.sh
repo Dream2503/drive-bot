@@ -225,8 +225,31 @@ deploy_and_alias() {
     fi
 }
 
-# Deploy the Next.js API proxy first, then ship the static frontend pointed at it.
-deploy_and_alias "$BACKEND_DIR" "StoreLimitless backend" "$BACKEND_DOMAIN" deploy --prod --yes
+# The backend Vercel project has a repository-relative Root Directory
+# (backend/storelimitlessbackend). Deploying from BACKEND_DIR uploads only that
+# subdirectory, so Vercel then incorrectly looks for the same path inside it.
+# Temporarily use the backend project link at the repository root so the CLI
+# uploads the monorepo and Vercel can resolve the configured Root Directory.
+ROOT_PROJECT_LINK="$ROOT_VERCEL_DIR/project.json"
+BACKEND_PROJECT_LINK="$BACKEND_VERCEL_DIR/project.json"
+FRONTEND_LINK_BACKUP="$(mktemp)"
+cp "$ROOT_PROJECT_LINK" "$FRONTEND_LINK_BACKUP"
+
+restore_frontend_project_link() {
+    if [[ -f "$FRONTEND_LINK_BACKUP" ]]; then
+        cp "$FRONTEND_LINK_BACKUP" "$ROOT_PROJECT_LINK"
+        rm -f "$FRONTEND_LINK_BACKUP"
+    fi
+}
+trap restore_frontend_project_link EXIT
+
+cp "$BACKEND_PROJECT_LINK" "$ROOT_PROJECT_LINK"
+deploy_and_alias "$REPO_ROOT" "StoreLimitless backend" "$BACKEND_DOMAIN" deploy --prod --yes
+
+# Restore the frontend link before its prebuilt deployment. The EXIT trap above
+# also restores it if the backend deployment or alias assignment fails.
+restore_frontend_project_link
+trap - EXIT
 deploy_and_alias "$REPO_ROOT" "StoreLimitless frontend" "$FRONTEND_DOMAIN" deploy --prebuilt --prod --yes
 
 cat <<MESSAGE
