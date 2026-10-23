@@ -1056,13 +1056,13 @@ async def download_google_drive_folder(file: File, link: str) -> AsyncGenerator[
                 return
 
             index, file_id, relative_parts, target_directory, item = entry
-            staging_dir = temp_dir / "payload" / f"{index:06d}"
-            staging_dir.mkdir(parents=True, exist_ok=True)
-            proposed_path = staging_dir / relative_parts[-1]
-            item["_staging_dir"] = str(staging_dir)
-            item["status"] = "downloading"
-            item["message"] = "Downloading file"
             try:
+                staging_dir = temp_dir / "payload" / f"{index:06d}"
+                staging_dir.mkdir(parents=True, exist_ok=True)
+                proposed_path = staging_dir / relative_parts[-1]
+                item["_staging_dir"] = str(staging_dir)
+                item["status"] = "downloading"
+                item["message"] = "Downloading file"
                 actual_path = await to_thread(_download_google_drive_entry, file_id, proposed_path, item)
                 actual_size = actual_path.stat().st_size
                 item.update({
@@ -1104,19 +1104,19 @@ async def download_google_drive_folder(file: File, link: str) -> AsyncGenerator[
                 return
 
             index, local_path, target_directory, item, ticket = work
-            name = local_path.name
-            remote_file = File(
-                directory_id=cast(int, target_directory.id),
-                name=name,
-                type=guess_type(name)[0] or "application/octet-stream",
-                size=max(0, local_path.stat().st_size),
-                modified_at=datetime.now(timezone.utc),
-                links=[],
-                data_center=file.data_center,
-                username=file.username,
-            )
-            local_size = remote_file.size
             try:
+                name = local_path.name
+                remote_file = File(
+                    directory_id=cast(int, target_directory.id),
+                    name=name,
+                    type=guess_type(name)[0] or "application/octet-stream",
+                    size=max(0, local_path.stat().st_size),
+                    modified_at=datetime.now(timezone.utc),
+                    links=[],
+                    data_center=file.data_center,
+                    username=file.username,
+                )
+                local_size = remote_file.size
                 async with ingestion_upload_slot(ticket):
                     item.update({
                         "status": "uploading",
@@ -1171,8 +1171,10 @@ async def download_google_drive_folder(file: File, link: str) -> AsyncGenerator[
                     f"Failed to upload folder entry {item.get('path')}: {sanitize_sensitive_urls(str(error))}",
                 )
             finally:
-                await cancel_ingestion_upload(ticket)
-                ready_queue.task_done()
+                try:
+                    await cancel_ingestion_upload(ticket)
+                finally:
+                    ready_queue.task_done()
 
     try:
         try:
@@ -1207,7 +1209,13 @@ async def download_google_drive_folder(file: File, link: str) -> AsyncGenerator[
                 raise OSError("Google Drive returned a file without an ID")
             try:
                 raw_parts = torrent_relative_parts(raw_path)
+                # Some folder listings include the root prefix, while gdown's current
+                # public API normally returns paths relative to the selected folder.
+                if len(raw_parts) > 1 and raw_parts[0].casefold() == root_name.casefold():
+                    raw_parts = raw_parts[1:]
                 relative_parts = tuple(safe_torrent_component(part) for part in raw_parts)
+                if not relative_parts:
+                    raise ValueError("Google Drive returned an empty file path")
             except ValueError as error:
                 raise OSError(f"Google Drive returned an unsafe path: {raw_path!r}") from error
 
@@ -1291,8 +1299,10 @@ async def download_google_drive_folder(file: File, link: str) -> AsyncGenerator[
             f"Folder import finished for {root_name}: {len(items) - failures} succeeded, {failures} failed",
         )
     finally:
-        for ticket in tickets.values():
-            await cancel_ingestion_upload(ticket)
+        await gather(
+            *(cancel_ingestion_upload(ticket) for ticket in tickets.values()),
+            return_exceptions=True,
+        )
         for task in download_workers:
             if not task.done():
                 task.cancel()
