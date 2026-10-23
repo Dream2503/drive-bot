@@ -752,7 +752,7 @@ async def public_hls_segment(
 
 @router.get("/hls/{token}/subtitles/{stream_index}.srt")
 async def public_hls_subtitles(token: str, stream_index: int, request: Request) -> Response:
-    """Extract one text subtitle track to WebVTT in memory; no sidecar file is stored."""
+    """Stream one extracted WebVTT track as FFmpeg produces cues; no sidecar file is stored."""
 
     file = await _owned_public_file(token, request)
     media_info = await _public_media_info(file, token, request)
@@ -768,36 +768,87 @@ async def public_hls_subtitles(token: str, stream_index: int, request: Request) 
         raise HTTPException(status_code=415, detail="This bitmap subtitle format cannot be converted to selectable text captions.")
 
     ffmpeg_path, _ = _media_tool_paths()
-    output = await _run_media_tool(
-        [
-            ffmpeg_path,
-            "-hide_banner", "-loglevel", "error", "-nostdin",
-            "-rw_timeout", "300000000",
-            "-i", _media_source_url(token),
-            "-map", f"0:{stream_index}",
-            "-vn", "-an", "-dn",
-            "-c:s", "webvtt",
-            "-f", "webvtt",
-            "pipe:1",
-        ],
-        timeout=300,
-        output_limit=32 * 1024 * 1024,
-        request=request,
-    )
-    if output is None:
-        return Response(status_code=204, headers=_media_response_headers(request))
-    if not output.lstrip().startswith(b"WEBVTT"):
-        raise HTTPException(
-            status_code=502,
-            detail="FFmpeg could not extract WebVTT captions from this subtitle track. It may be empty or an unsupported bitmap format.",
-        )
+    command = [
+        ffmpeg_path,
+        "-hide_banner", "-loglevel", "error", "-nostdin",
+        "-rw_timeout", "300000000",
+        "-i", _media_source_url(token),
+        "-map", f"0:{stream_index}",
+        "-vn", "-an", "-dn",
+        "-c:s", "webvtt",
+        "-flush_packets", "1",
+        "-f", "webvtt",
+        "pipe:1",
+    ]
 
-    return Response(
-        content=output,
+    try:
+        process = await asyncio.create_subprocess_exec(
+            *command,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+    except OSError as error:
+        raise HTTPException(
+            status_code=503,
+            detail="The subtitle processor could not be started. Check the FFmpeg installation.",
+            headers=_public_cors_headers(request),
+        ) from error
+
+    if process.stdout is None or process.stderr is None:
+        if process.returncode is None:
+            process.kill()
+        await process.wait()
+        raise HTTPException(status_code=503, detail="The subtitle processor did not expose its output stream.")
+
+    started_at = monotonic()
+    output_limit = 32 * 1024 * 1024
+
+    async def stream_subtitles() -> AsyncGenerator[bytes, None]:
+        """Forward WebVTT bytes promptly and stop FFmpeg on timeout or disconnect."""
+
+        stderr_task = asyncio.create_task(process.stderr.read())
+        total_bytes = 0
+        try:
+            while True:
+                if await request.is_disconnected():
+                    return
+
+                remaining = 300.0 - (monotonic() - started_at)
+                if remaining <= 0:
+                    raise TimeoutError("Subtitle extraction timed out after 300 seconds.")
+
+                try:
+                    chunk = await asyncio.wait_for(process.stdout.read(64 * 1024), timeout=remaining)
+                except asyncio.TimeoutError as error:
+                    raise TimeoutError("Subtitle extraction timed out after 300 seconds.") from error
+
+                if not chunk:
+                    break
+
+                total_bytes += len(chunk)
+                if total_bytes > output_limit:
+                    raise RuntimeError("Subtitle output exceeded the 32 MiB safety limit.")
+
+                yield chunk
+
+            remaining = max(1.0, 300.0 - (monotonic() - started_at))
+            return_code = await asyncio.wait_for(process.wait(), timeout=remaining)
+            await asyncio.wait_for(stderr_task, timeout=5.0)
+            if return_code != 0:
+                raise RuntimeError("FFmpeg could not finish extracting the selected subtitle track.")
+        finally:
+            if process.returncode is None:
+                process.kill()
+            await asyncio.gather(process.wait(), return_exceptions=True)
+            if not stderr_task.done():
+                stderr_task.cancel()
+            await asyncio.gather(stderr_task, return_exceptions=True)
+
+    return StreamingResponse(
+        stream_subtitles(),
         media_type="text/vtt; charset=utf-8",
         headers=_media_response_headers(request),
     )
-
 
 @router.get("/metadata/{token}")
 async def public_file_metadata(token: str, request: Request) -> JSONResponse:
