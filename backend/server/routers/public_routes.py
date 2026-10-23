@@ -13,7 +13,7 @@ from hashlib import sha256
 from pathlib import Path
 from time import monotonic
 from mimetypes import guess_type
-from typing import cast, Any
+from typing import AsyncGenerator, cast, Any
 from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -117,7 +117,7 @@ def _content_disposition(filename: str, attachment: bool) -> str:
 
 
 
-async def _stream_while_connected(stream: Stream, request: Request):
+async def _stream_while_connected(stream: Stream, request: Request) -> AsyncGenerator[bytes, None]:
     """Stop reading remote storage chunks when the HTTP client disconnects."""
 
     iterator = stream.stream()
