@@ -803,7 +803,7 @@ function UploadJobCard({job, onSelectFiles, onCancel, onDismiss}) {
                             <span className="font-mono tabular-nums text-[#c5d8cc]">{(isQueued ? 0 : torrentDownloadPercent).toFixed(1)}%</span>
                         </div>
                         <ProgressBar percent={isQueued ? 0 : torrentDownloadPercent} muted={isQueued}/>
-                                                {total > 0
+                        {total > 0
                             ? <TransferDetails
                                 transfer={isQueued ? 0 : torrentDownloadTransfer}
                                 total={total}
@@ -826,7 +826,7 @@ function UploadJobCard({job, onSelectFiles, onCancel, onDismiss}) {
                             muted={isQueued}
                             fillClassName="bg-gradient-to-r from-[#3387c7] to-[#56c7db]"
                         />
-                                                {total > 0
+                        {total > 0
                             ? <TransferDetails
                                 transfer={isQueued ? 0 : torrentUploadTransfer}
                                 total={total}
