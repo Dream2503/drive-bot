@@ -538,7 +538,7 @@ async def public_hls_segment(
     media_info = await _public_media_info(file, token)
     duration = float(media_info["duration"])
     segment_count = math.ceil(duration / _MEDIA_SEGMENT_SECONDS)
-    if index >= segment_count:
+    if index < 0 or index >= segment_count:
         raise HTTPException(status_code=404, detail="Media segment not found.")
 
     if kind == "video":
