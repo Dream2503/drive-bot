@@ -7,7 +7,7 @@ from asyncio import CancelledError, Task, create_task, gather, get_running_loop,
 from os import environ, execv, kill
 from pathlib import Path
 from shutil import rmtree, which
-from signal import SIGKILL, SIGTERM
+from signal import SIGTERM
 from subprocess import DEVNULL, STDOUT, Popen, run as subprocess_run
 from tempfile import gettempdir
 from threading import Thread
@@ -100,7 +100,7 @@ def _read_startup_log(path: Path, line_count: int = 30) -> str:
     """Return the last startup-log lines for a process that failed to start."""
 
     try:
-        return "\\n".join(path.read_text(encoding="utf-8", errors="replace").splitlines()[-line_count:])
+        return "\n".join(path.read_text(encoding="utf-8", errors="replace").splitlines()[-line_count:])
     except OSError:
         return "No startup log was available."
 
