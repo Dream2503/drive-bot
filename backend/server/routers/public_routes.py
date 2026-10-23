@@ -32,6 +32,7 @@ from core.utils.discord_ import Discord
 from core.utils.progress import Progress
 from .upload_state import get_upload_job_metadata
 from backend.server.video_processing import (
+    ensure_gpu_video_pipeline,
     get_processed_video,
     get_video_processing_status,
     read_processed_segment,
@@ -942,32 +943,48 @@ async def _generate_hls_media_segment(
     """Encode one HLS video/audio segment, optionally aborting when its requester disconnects."""
 
     ffmpeg_path, _ = _media_tool_paths()
+    if kind == "video":
+        try:
+            await ensure_gpu_video_pipeline(ffmpeg_path)
+        except RuntimeError as error:
+            raise HTTPException(
+                status_code=503,
+                detail=str(error),
+                headers=_public_cors_headers(request),
+            ) from error
+
     command = [
         ffmpeg_path,
         "-hide_banner", "-loglevel", "error", "-nostdin",
         "-rw_timeout", "300000000",
+    ]
+    if kind == "video":
+        # On-demand legacy playback must use the same CUDA/NVENC path as stored HLS jobs.
+        command.extend(["-hwaccel", "cuda", "-hwaccel_output_format", "cuda"])
+    command.extend([
         "-ss", f"{start:.6f}",
         "-i", _media_source_url(token),
         "-t", f"{segment_duration:.6f}",
         "-map", f"0:{stream_index}",
         "-sn", "-dn",
-    ]
+    ])
 
     if kind == "video":
-        # A standalone encode ensures every generated segment starts on a keyframe,
+        # A standalone GPU encode ensures every generated segment starts on a keyframe,
         # even when the source's keyframe positions do not line up with 6-second boundaries.
         command.extend([
             "-an",
-            "-c:v", "libx264",
-            "-preset", "ultrafast",
-            "-tune", "zerolatency",
-            "-crf", "22",
-            "-pix_fmt", "yuv420p",
+            "-vf", "scale_cuda=w=trunc(iw/2)*2:h=trunc(ih/2)*2:format=nv12",
+            "-c:v", "h264_nvenc",
+            "-preset", "p5",
+            "-tune", "hq",
+            "-rc", "vbr",
+            "-cq", "22",
+            "-b:v", "0",
             "-g", "48",
             "-keyint_min", "48",
             "-sc_threshold", "0",
             "-force_key_frames", f"expr:gte(t,n_forced*{_MEDIA_SEGMENT_SECONDS})",
-            "-threads", "2",
         ])
     else:
         command.extend([
