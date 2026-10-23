@@ -740,6 +740,7 @@ export default function UploadJobsTray({
     cancelUploadJob,
     dismissUploadJob,
     clearAllUploadJobs,
+    clearAllTasks,
     downloadJobs = [],
     pauseDownload,
     resumeDownload,
@@ -761,6 +762,7 @@ export default function UploadJobsTray({
     const [selectionIndex, setSelectionIndex] = useState(0);
     const [starting, setStarting] = useState(false);
     const [error, setError] = useState("");
+    const clearTasks = clearAllTasks || clearAllUploadJobs;
     // Batches that have already prompted automatically, so the 1-second polling refresh
     // can't reopen a picker the user deliberately closed.
     const promptedRef = useRef(new Set());
@@ -924,11 +926,11 @@ export default function UploadJobsTray({
                                 aria-label="Minimize task tray">
                             <Icon name={minimized ? "expand_less" : "minimize"} className="text-[17px]"/>
                         </button>
-                        <button type="button" onClick={() => clearAllUploadJobs?.()}
+                        {!readOnlyDownloads && typeof clearTasks === "function" && <button type="button" onClick={() => clearTasks()}
                                 className="rounded-md px-2 py-1 text-[12px] text-[#b0c8b9] transition-colors hover:bg-white/5 hover:text-[#f3f7f4]"
-                                title="Cancel active uploads and clear upload history">
-                            Clear uploads
-                        </button>
+                                title="Cancel active tasks and clear task history">
+                            Clear tasks
+                        </button>}
                     </div>
                 </header>
 
