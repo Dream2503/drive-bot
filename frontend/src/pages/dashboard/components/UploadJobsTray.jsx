@@ -170,17 +170,28 @@ function TransferDetails({transfer, total, status, compact = false, inline = fal
 }
 
 /** A single file/item line, shared by torrent panels and plain multi-item batches. */
-function ItemRow({item, status}) {
+function ItemRow({
+    item,
+    status,
+    defaultDownloadSpeed = 0,
+    defaultUploadSpeed = 0,
+    defaultDownloadEta = null,
+    defaultUploadEta = null,
+}) {
     const meta = ITEM_STATUS[status] || ITEM_STATUS.queued;
     const {size, percent, transfer} = getItemProgress(item, status);
     const name = getFileName(item);
     const downloading = status === "downloading";
     const speed = downloading
-        ? num(item.download_speed)
-        : status === "uploading" ? num(item.upload_speed) : 0;
+        ? item.download_speed == null ? num(defaultDownloadSpeed) : num(item.download_speed)
+        : status === "uploading"
+            ? item.upload_speed == null ? num(defaultUploadSpeed) : num(item.upload_speed)
+            : 0;
     const eta = downloading
-        ? item.download_eta == null ? null : num(item.download_eta)
-        : status === "uploading" && item.upload_eta != null ? num(item.upload_eta) : null;
+        ? item.download_eta == null ? defaultDownloadEta : num(item.download_eta)
+        : status === "uploading"
+            ? item.upload_eta == null ? defaultUploadEta : num(item.upload_eta)
+            : null;
     const showPercent = Boolean(meta.transferring);
 
     return <div className="min-w-0 rounded-md px-2 py-2 transition-colors hover:bg-white/[0.03]">
@@ -739,7 +750,11 @@ function UploadJobCard({job, onSelectFiles, onCancel, onDismiss}) {
                             <span className="font-mono tabular-nums text-[#c5d8cc]">{(isQueued ? 0 : torrentDownloadPercent).toFixed(1)}%</span>
                         </div>
                         <ProgressBar percent={isQueued ? 0 : torrentDownloadPercent} muted={isQueued}/>
-                        <p className="text-[11px] tabular-nums text-[#789083]">{formatFileSize(isQueued ? 0 : torrentDownloadTransfer)} / {formatFileSize(total)} downloaded</p>
+                        <p className="text-[11px] tabular-nums text-[#789083]">
+                            {total > 0
+                                ? `${formatFileSize(isQueued ? 0 : torrentDownloadTransfer)} / ${formatFileSize(total)} downloaded`
+                                : `${downloadedCount} of ${itemCount} files downloaded`}
+                        </p>
                     </div>
                     <div className="space-y-1">
                         <div className="flex items-center justify-between gap-2 text-[11px]">
@@ -751,7 +766,11 @@ function UploadJobCard({job, onSelectFiles, onCancel, onDismiss}) {
                             muted={isQueued}
                             fillClassName="bg-gradient-to-r from-[#3387c7] to-[#56c7db]"
                         />
-                        <p className="text-[11px] tabular-nums text-[#789083]">{formatFileSize(isQueued ? 0 : torrentUploadTransfer)} / {formatFileSize(total)} uploaded</p>
+                        <p className="text-[11px] tabular-nums text-[#789083]">
+                            {total > 0
+                                ? `${formatFileSize(isQueued ? 0 : torrentUploadTransfer)} / ${formatFileSize(total)} uploaded`
+                                : `${finished} of ${itemCount} files uploaded`}
+                        </p>
                     </div>
                 </div> : showConcurrentProgress ? <div className="mt-2.5 min-w-0 space-y-3">
                     <div className="min-w-0 space-y-1">
@@ -782,6 +801,7 @@ function UploadJobCard({job, onSelectFiles, onCancel, onDismiss}) {
                         <ProgressBar
                             percent={storagePercent}
                             muted={isQueued}
+                            indeterminate={storageTotal <= 0}
                             fillClassName="bg-gradient-to-r from-[#3387c7] to-[#56c7db]"
                         />
                         {storageTotal > 0
@@ -802,7 +822,15 @@ function UploadJobCard({job, onSelectFiles, onCancel, onDismiss}) {
 
 
                 {itemCount > 1 && items.length > 0 && <div className="mt-2.5 space-y-0.5 rounded-lg border border-[#29362e] bg-black/10 p-1.5">
-                    {items.map((item, i) => <ItemRow key={`${getFileName(item)}-${i}`} item={item} status={String(item.status || "queued")}/>)}
+                    {items.map((item, i) => <ItemRow
+                        key={`${getFileName(item)}-${i}`}
+                        item={item}
+                        status={String(item.status || "queued")}
+                        defaultDownloadSpeed={i === Number(job.currentIndex) ? downloadSpeed : 0}
+                        defaultUploadSpeed={i === Number(job.currentIndex) ? uploadSpeed : 0}
+                        defaultDownloadEta={i === Number(job.currentIndex) ? downloadEta : null}
+                        defaultUploadEta={i === Number(job.currentIndex) ? uploadEta : null}
+                    />)}
                 </div>}
             </div>
 
