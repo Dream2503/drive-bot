@@ -116,6 +116,31 @@ def _content_disposition(filename: str, attachment: bool) -> str:
     return f"{disposition}; filename=\"{fallback}\"; filename*=UTF-8''{quote(filename, safe='')}"
 
 
+
+async def _stream_while_connected(stream: Stream, request: Request):
+    """Stop reading remote storage chunks when the HTTP client disconnects."""
+
+    iterator = stream.stream()
+    try:
+        while True:
+            if await request.is_disconnected():
+                return
+
+            try:
+                chunk = await anext(iterator)
+            except StopAsyncIteration:
+                return
+
+            # A disconnect may occur while the next remote storage chunk is loading.
+            # Do not send that chunk after the consumer has already left.
+            if await request.is_disconnected():
+                return
+            if chunk:
+                yield chunk
+    finally:
+        await iterator.aclose()
+
+
 async def _file_response(file: File, request: Request, *, attachment: bool, head_only: bool = False) -> Response:
     """Build a byte-range response with validators suitable for interrupted downloads."""
 
@@ -182,7 +207,7 @@ async def _file_response(file: File, request: Request, *, attachment: bool, head
     if head_only:
         return Response(status_code=206 if partial else 200, headers=headers, media_type=content_type)
 
-    return StreamingResponse(stream.stream(), status_code=206 if partial else 200, headers=headers, media_type=content_type)
+    return StreamingResponse(_stream_while_connected(stream, request), status_code=206 if partial else 200, headers=headers, media_type=content_type)
 
 
 async def _owned_public_file(token: str, request: Request) -> File:
@@ -671,9 +696,9 @@ async def public_hls_segment(
     return Response(content=segment, media_type="video/mp2t", headers=_media_response_headers(request))
 
 
-@router.get("/hls/{token}/subtitles/{stream_index}.vtt")
+@router.get("/hls/{token}/subtitles/{stream_index}.srt")
 async def public_hls_subtitles(token: str, stream_index: int, request: Request) -> Response:
-    """Extract one text subtitle track to WebVTT in memory; no sidecar file is stored."""
+    """Extract one text subtitle track to SubRip in memory; no sidecar file is stored."""
 
     file = await _owned_public_file(token, request)
     media_info = await _public_media_info(file, token, request)
@@ -694,11 +719,12 @@ async def public_hls_subtitles(token: str, stream_index: int, request: Request) 
             ffmpeg_path,
             "-hide_banner", "-loglevel", "error", "-nostdin",
             "-rw_timeout", "300000000",
+            "-fix_sub_duration",
             "-i", _media_source_url(token),
             "-map", f"0:{stream_index}",
             "-vn", "-an", "-dn",
-            "-c:s", "webvtt",
-            "-f", "webvtt",
+            "-c:s", "srt",
+            "-f", "srt",
             "pipe:1",
         ],
         timeout=300,
@@ -707,12 +733,15 @@ async def public_hls_subtitles(token: str, stream_index: int, request: Request) 
     )
     if output is None:
         return Response(status_code=204, headers=_media_response_headers(request))
-    if not output.startswith(b"WEBVTT"):
-        raise HTTPException(status_code=502, detail="Could not extract this subtitle track.")
+    if not re.search(rb"\d+:\d{2}:\d{2}[,.]\d{3}\s+-->\s+\d+:\d{2}:\d{2}[,.]\d{3}", output):
+        raise HTTPException(
+            status_code=502,
+            detail="FFmpeg could not extract timed text from this subtitle track. It may be empty or an unsupported bitmap format.",
+        )
 
     return Response(
         content=output,
-        media_type="text/vtt",
+        media_type="application/x-subrip; charset=utf-8",
         headers=_media_response_headers(request),
     )
 
