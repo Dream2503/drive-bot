@@ -816,9 +816,13 @@ async def _process_job(file_id: int) -> None:
 
 async def run_video_processing_worker() -> None:
     """Poll the persistent queue and process one video at a time with bounded resource use."""
-    _recover_interrupted_jobs()
+    recovered = False
     while True:
         try:
+            if not recovered:
+                _recover_interrupted_jobs()
+                recovered = True
+
             _requeue_stale_jobs()
             file_id = _claim_next_job()
             if file_id is None:
@@ -828,6 +832,8 @@ async def run_video_processing_worker() -> None:
         except asyncio.CancelledError:
             raise
         except Exception as error:
+            # Keep the worker alive if the database or storage provider is briefly
+            # unavailable during startup or queue polling.
             print(f"Video processing worker encountered an error: {error}")
             await asyncio.sleep(2)
 
