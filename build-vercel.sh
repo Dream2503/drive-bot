@@ -89,15 +89,6 @@ project_name_from_link() {
     node -e 'try { process.stdout.write(String(require(process.argv[1]).projectName || "")); } catch {}' "$project_json"
 }
 
-# Reuse each directory's existing link by default. Internal Vercel project slugs
-# need not match production aliases (the frontend is linked to "drive-bot").
-FRONTEND_LINKED_PROJECT="$(project_name_from_link "$ROOT_VERCEL_DIR/project.json" 2>/dev/null || true)"
-BACKEND_LINKED_PROJECT="$(project_name_from_link "$BACKEND_VERCEL_DIR/project.json" 2>/dev/null || true)"
-FRONTEND_PROJECT="${VERCEL_FRONTEND_PROJECT:-$FRONTEND_LINKED_PROJECT}"
-BACKEND_PROJECT="${VERCEL_BACKEND_PROJECT:-$BACKEND_LINKED_PROJECT}"
-printf 'Frontend Vercel project: %s (domain %s)\n' "${FRONTEND_PROJECT:-select existing project}" "$FRONTEND_DOMAIN"
-printf 'Backend Vercel project:  %s (domain %s)\n' "${BACKEND_PROJECT:-select existing project}" "$BACKEND_DOMAIN"
-
 # Link each local directory to the intended EXISTING Vercel project. Inspect first
 # so a typo or wrong team cannot silently create a third project under --yes.
 ensure_project_link() {
@@ -205,61 +196,12 @@ deploy_and_alias() {
         printf '%s\n' "$deployment_output" >&2
         fail "$label deployment failed. Check the Vercel build output above."
     fi
-    printf '%s\n' "$deployment_output"
-
-    # Vercel output may include both a deployment URL and domain aliases. Filter
-    # both target aliases so alias set receives the unique deployment URL.
-    deployment_url="$(printf '%s\n' "$deployment_output" \
-        | grep -Eo 'https://[A-Za-z0-9.-]+\.vercel\.app' \
-        | grep -Fvx "https://${FRONTEND_DOMAIN}" \
-        | grep -Fvx "https://${BACKEND_DOMAIN}" \
-        | tail -n 1 || true)"
-    [[ -n "$deployment_url" ]] || fail "Could not extract the unique Vercel deployment URL for $label from the deploy output."
+    deployment_url="$(printf '%s\n' "$deployment_url" | tail -n 1 | tr -d '\r')"
+    [[ "$deployment_url" == https://* ]] || fail "Could not determine the Vercel deployment URL for $label: '$deployment_url'"
     printf 'Deployment URL: %s\n' "$deployment_url"
 
     log "Assigning $domain to $label"
-    if [[ -n "$VERCEL_SCOPE" ]]; then
-        (cd "$project_dir" && vercel_cli alias set "$deployment_url" "$domain" --scope "$VERCEL_SCOPE")
-    else
-        (cd "$project_dir" && vercel_cli alias set "$deployment_url" "$domain")
-    fi
-}
-
-# Vercel monorepo deployments must be launched from the repository root so each
-# project's configured Root Directory (frontend or backend/storelimitlessbackend)
-# is resolved relative to the repository, not appended to an already-nested upload.
-# Keep the root .vercel/project.json linked to the frontend; select the backend via
-# its project ID environment variables instead of swapping the root link.
-BACKEND_PROJECT_LINK="$BACKEND_VERCEL_DIR/project.json"
-
-project_field_from_link() {
-    local project_json="$1" field="$2"
-    node -e 'try { process.stdout.write(String(require(process.argv[1])[process.argv[2]] || "")); } catch {}' "$project_json" "$field"
-}
-
-BACKEND_ORG_ID="$(project_field_from_link "$BACKEND_PROJECT_LINK" "orgId")"
-BACKEND_PROJECT_ID="$(project_field_from_link "$BACKEND_PROJECT_LINK" "projectId")"
-[[ -n "$BACKEND_ORG_ID" ]] || fail "Could not read orgId from $BACKEND_PROJECT_LINK"
-[[ -n "$BACKEND_PROJECT_ID" ]] || fail "Could not read projectId from $BACKEND_PROJECT_LINK"
-
-# Exclude every unrelated repository file during the backend upload. This keeps
-# large frontend dependencies and build artifacts out of the Next.js deployment.
-# Preserve and restore a user-provided .vercelignore, even if deployment fails.
-BACKEND_IGNORE_FILE="$REPO_ROOT/.vercelignore"
-BACKEND_IGNORE_BACKUP="$(mktemp)"
-BACKEND_IGNORE_EXISTED=0
-if [[ -f "$BACKEND_IGNORE_FILE" ]]; then
-    cp "$BACKEND_IGNORE_FILE" "$BACKEND_IGNORE_BACKUP"
-    BACKEND_IGNORE_EXISTED=1
-fi
-
-restore_backend_vercelignore() {
-    if [[ "$BACKEND_IGNORE_EXISTED" == "1" ]]; then
-        cp "$BACKEND_IGNORE_BACKUP" "$BACKEND_IGNORE_FILE"
-    else
-        rm -f "$BACKEND_IGNORE_FILE"
-    fi
-    rm -f "$BACKEND_IGNORE_BACKUP"
+    (cd "$project_dir" && vercel_cli alias set "$deployment_url" "$domain")
 }
 trap restore_backend_vercelignore EXIT
 
