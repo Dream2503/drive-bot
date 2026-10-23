@@ -776,7 +776,7 @@ async def public_hls_segment(
     index: int,
     request: Request,
 ) -> Response:
-    """Generate one MPEG-TS transport segment on demand and return it directly from memory."""
+    """Serve a cached or freshly generated MPEG-TS segment and prefetch upcoming fragments."""
 
     if kind not in {"video", "audio", "subtitle"}:
         raise HTTPException(status_code=404, detail="Media segment not found.")
