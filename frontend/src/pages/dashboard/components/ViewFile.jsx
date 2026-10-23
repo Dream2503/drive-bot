@@ -66,7 +66,7 @@ function subtitleTimeToSeconds(value) {
 }
 
 /** Parse complete or progressively received WebVTT/SRT subtitle cues. */
-function parseSubtitleText(source, timeOffset = 0) {
+function parseSubtitleText(source) {
     const lines = String(source || "").replace(/^\uFEFF/, "").replace(/\r\n?/g, "\n").split("\n");
     const cues = [];
 
@@ -97,7 +97,7 @@ function parseSubtitleText(source, timeOffset = 0) {
             .replace(/&nbsp;/gi, "\u00a0")
             .trim();
 
-        if (body) cues.push({start: start + timeOffset, end: end + timeOffset, text: body});
+        if (body) cues.push({start, end, text: body});
     }
 
     return cues.sort((left, right) => left.start - right.start);
@@ -364,7 +364,7 @@ function VideoPlayer({file, streamUrl, publicToken, heightClass = "h-[70vh]"}) {
                     if (!text.trimStart().startsWith("WEBVTT")) {
                         throw new Error("The server response is not valid WebVTT subtitle data.");
                     }
-                    if (!cancelled) setSubtitleCues(parseSubtitleText(text, subtitleWindowStart));
+                    if (!cancelled) setSubtitleCues(parseSubtitleText(text));
                     return;
                 }
 
@@ -390,7 +390,7 @@ function VideoPlayer({file, streamUrl, publicToken, heightClass = "h-[70vh]"}) {
                     // Parse received bytes immediately so captions can appear while
                     // FFmpeg continues scanning the source video for later cues.
                     if (trimmed.startsWith("WEBVTT")) {
-                        setSubtitleCues(parseSubtitleText(subtitleText, subtitleWindowStart));
+                        setSubtitleCues(parseSubtitleText(subtitleText));
                     }
                 }
 
@@ -402,7 +402,7 @@ function VideoPlayer({file, streamUrl, publicToken, heightClass = "h-[70vh]"}) {
 
                 // An interval without dialogue is valid. Later playback windows will
                 // request their own cues as the timeline advances.
-                setSubtitleCues(parseSubtitleText(subtitleText, subtitleWindowStart));
+                setSubtitleCues(parseSubtitleText(subtitleText));
             } catch (loadError) {
                 if (!cancelled && loadError?.name !== "AbortError") {
                     setSubtitleLoadError(loadError instanceof Error ? loadError.message : "Could not load this subtitle track.");
