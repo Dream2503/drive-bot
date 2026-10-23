@@ -776,7 +776,7 @@ async def public_hls_subtitles(
     media_duration = float(media_info["duration"])
     if start_seconds >= media_duration:
         return Response(
-            content="WEBVTT\\n\\n",
+            content="WEBVTT\n\n",
             media_type="text/vtt; charset=utf-8",
             headers=_media_response_headers(request),
         )
