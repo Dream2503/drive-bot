@@ -268,6 +268,13 @@ async def _run_media_tool(command: list[str], *, timeout: float, output_limit: i
             process.kill()
             await process.communicate()
             raise HTTPException(status_code=504, detail="Preparing this media track timed out. Try again.") from error
+        except asyncio.CancelledError:
+            # A viewer may close or seek away while FFmpeg is generating a segment.
+            # Stop the subprocess immediately instead of leaving it writing to a closed client.
+            if process.returncode is None:
+                process.kill()
+            await process.communicate()
+            raise
 
         if process.returncode != 0:
             # Do not return raw FFmpeg stderr because it can contain internal URLs or storage details.
