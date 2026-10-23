@@ -9,6 +9,8 @@ import platform
 import re
 import shutil
 import unicodedata
+from collections import OrderedDict
+from collections.abc import Awaitable, Callable
 from hashlib import sha256
 from pathlib import Path
 from time import monotonic
@@ -242,13 +244,24 @@ async def _owned_public_file(token: str, request: Request) -> File:
 
 
 # Track-aware playback is generated from the existing stored byte-range stream.
-# Segment payloads are returned from FFmpeg stdout; no HLS or media files are written to disk.
+# Encoded segments stay in a bounded memory cache; no HLS or media files are written to disk.
 _MEDIA_INFO_CACHE: dict[str, tuple[float, dict[str, Any]]] = {}
 _MEDIA_INFO_TTL: float = 300.0
 _MEDIA_SEGMENT_SECONDS: int = 6
 _MEDIA_MAX_SEGMENTS: int = 50000
 _MEDIA_MAX_OUTPUT_BYTES: int = 128 * 1024 * 1024
 _MEDIA_PROCESS_LIMIT = asyncio.Semaphore(3)
+_MEDIA_SEGMENT_CACHE_TTL: float = 900.0
+_MEDIA_SEGMENT_CACHE_MAX_BYTES: int = 128 * 1024 * 1024
+_MEDIA_SEGMENT_CACHE_MAX_ENTRY_BYTES: int = 32 * 1024 * 1024
+_MEDIA_SEGMENT_CACHE_MAX_ITEMS: int = 48
+_MEDIA_SEGMENT_PREFETCH_COUNT: int = 2
+_MEDIA_SEGMENT_CACHE: OrderedDict[tuple[str, str, int, int], tuple[float, bytes]] = OrderedDict()
+_MEDIA_SEGMENT_CACHE_BYTES: int = 0
+_MEDIA_SEGMENT_CACHE_LOCK = asyncio.Lock()
+_MEDIA_SEGMENT_IN_FLIGHT: dict[tuple[str, str, int, int], asyncio.Task[bytes | None]] = {}
+_MEDIA_SEGMENT_PREFETCH_TASKS: dict[tuple[str, str, int, int], asyncio.Task[None]] = {}
+_MEDIA_PREFETCH_LIMIT = asyncio.Semaphore(1)
 _BITMAP_SUBTITLE_CODECS = {
     "dvd_subtitle",
     "dvb_subtitle",
@@ -259,6 +272,85 @@ _BITMAP_SUBTITLE_CODECS = {
     "eia_608",
     "eia_708",
 }
+
+
+def _media_segment_cache_key(file: File, kind: str, stream_index: int, index: int) -> tuple[str, str, int, int]:
+    """Identify a generated segment by source version, track, encoding window, and index."""
+
+    source_signature = sha256("\\0".join(file.links).encode("utf-8")).hexdigest()
+    file_identity = (
+        f"{file.username}:{file.id}:{_file_etag(file)}:{file.data_center}:"
+        f"{source_signature}:{_MEDIA_SEGMENT_SECONDS}"
+    )
+    return file_identity, kind, stream_index, index
+
+
+def _purge_media_segment_cache_locked() -> None:
+    """Remove expired in-memory HLS segments while the cache lock is held."""
+
+    global _MEDIA_SEGMENT_CACHE_BYTES
+
+    now = monotonic()
+    for key, (expires_at, segment) in list(_MEDIA_SEGMENT_CACHE.items()):
+        if expires_at <= now:
+            _MEDIA_SEGMENT_CACHE.pop(key, None)
+            _MEDIA_SEGMENT_CACHE_BYTES = max(0, _MEDIA_SEGMENT_CACHE_BYTES - len(segment))
+
+
+async def _get_or_generate_media_segment(
+    cache_key: tuple[str, str, int, int],
+    producer: Callable[[], Awaitable[bytes | None]],
+) -> bytes | None:
+    """Return a cached segment or share one in-flight generation among all requesters."""
+
+    global _MEDIA_SEGMENT_CACHE_BYTES
+
+    async with _MEDIA_SEGMENT_CACHE_LOCK:
+        _purge_media_segment_cache_locked()
+        cached = _MEDIA_SEGMENT_CACHE.get(cache_key)
+        if cached is not None:
+            _MEDIA_SEGMENT_CACHE.move_to_end(cache_key)
+            return cached[1]
+
+        task = _MEDIA_SEGMENT_IN_FLIGHT.get(cache_key)
+        if task is None:
+            async def generate_and_cache() -> bytes | None:
+                nonlocal cache_key
+                try:
+                    segment = await producer()
+                    if segment and len(segment) <= _MEDIA_SEGMENT_CACHE_MAX_ENTRY_BYTES:
+                        async with _MEDIA_SEGMENT_CACHE_LOCK:
+                            _purge_media_segment_cache_locked()
+                            previous = _MEDIA_SEGMENT_CACHE.pop(cache_key, None)
+                            if previous is not None:
+                                _MEDIA_SEGMENT_CACHE_BYTES = max(
+                                    0, _MEDIA_SEGMENT_CACHE_BYTES - len(previous[1])
+                                )
+                            _MEDIA_SEGMENT_CACHE[cache_key] = (
+                                monotonic() + _MEDIA_SEGMENT_CACHE_TTL,
+                                segment,
+                            )
+                            _MEDIA_SEGMENT_CACHE_BYTES += len(segment)
+
+                            while (
+                                _MEDIA_SEGMENT_CACHE_BYTES > _MEDIA_SEGMENT_CACHE_MAX_BYTES
+                                or len(_MEDIA_SEGMENT_CACHE) > _MEDIA_SEGMENT_CACHE_MAX_ITEMS
+                            ):
+                                _, (_, evicted_segment) = _MEDIA_SEGMENT_CACHE.popitem(last=False)
+                                _MEDIA_SEGMENT_CACHE_BYTES = max(
+                                    0, _MEDIA_SEGMENT_CACHE_BYTES - len(evicted_segment)
+                                )
+                    return segment
+                finally:
+                    current_task = asyncio.current_task()
+                    async with _MEDIA_SEGMENT_CACHE_LOCK:
+                        if _MEDIA_SEGMENT_IN_FLIGHT.get(cache_key) is current_task:
+                            _MEDIA_SEGMENT_IN_FLIGHT.pop(cache_key, None)
+
+            task = asyncio.create_task(generate_and_cache())
+            _MEDIA_SEGMENT_IN_FLIGHT[cache_key] = task
+
+    return await asyncio.shield(task)
 
 
 def _media_tool_paths() -> tuple[str, str]:
@@ -725,6 +817,47 @@ async def public_hls_segment(
             duration_seconds=segment_duration,
         )
 
+    cache_key = _media_segment_cache_key(file, kind, stream_index, index)
+    segment = await _get_or_generate_media_segment(
+        cache_key,
+        lambda: _generate_hls_media_segment(
+            token,
+            kind,
+            stream_index,
+            start,
+            segment_duration,
+            request=request,
+        ),
+    )
+    if segment is None:
+        return Response(status_code=204, headers=_media_response_headers(request))
+    if not segment:
+        raise HTTPException(status_code=502, detail="FFmpeg produced an empty media segment.")
+
+    # Start generating upcoming segments in the background so their FFmpeg work can
+    # overlap playback of the segment the browser is consuming now.
+    _schedule_media_segment_prefetch(
+        file,
+        token,
+        kind,
+        stream_index,
+        index,
+        duration,
+    )
+    return Response(content=segment, media_type="video/mp2t", headers=_media_response_headers(request))
+
+
+async def _generate_hls_media_segment(
+    token: str,
+    kind: str,
+    stream_index: int,
+    start: float,
+    segment_duration: float,
+    *,
+    request: Request | None,
+) -> bytes | None:
+    """Encode one HLS video/audio segment, optionally aborting when its requester disconnects."""
+
     ffmpeg_path, _ = _media_tool_paths()
     command = [
         ffmpeg_path,
@@ -769,18 +902,93 @@ async def public_hls_segment(
         "pipe:1",
     ])
 
-    segment = await _run_media_tool(
+    return await _run_media_tool(
         command,
         timeout=max(120.0, segment_duration * 30.0),
         output_limit=_MEDIA_MAX_OUTPUT_BYTES,
         request=request,
     )
-    if segment is None:
-        return Response(status_code=204, headers=_media_response_headers(request))
-    if not segment:
-        raise HTTPException(status_code=502, detail="FFmpeg produced an empty media segment.")
 
-    return Response(content=segment, media_type="video/mp2t", headers=_media_response_headers(request))
+
+async def _prefetch_media_segment(
+    file: File,
+    token: str,
+    kind: str,
+    stream_index: int,
+    index: int,
+    duration: float,
+) -> None:
+    """Generate one upcoming audio/video segment in the background, best-effort."""
+
+    start = index * _MEDIA_SEGMENT_SECONDS
+    segment_duration = min(_MEDIA_SEGMENT_SECONDS, duration - start)
+    if segment_duration <= 0:
+        return
+
+    cache_key = _media_segment_cache_key(file, kind, stream_index, index)
+    try:
+        # Limit background work to one encoder so the active playback requests retain
+        # most of the shared FFmpeg/process capacity.
+        async with _MEDIA_PREFETCH_LIMIT:
+            await _get_or_generate_media_segment(
+                cache_key,
+                lambda: _generate_hls_media_segment(
+                    token,
+                    kind,
+                    stream_index,
+                    start,
+                    segment_duration,
+                    request=None,
+                ),
+            )
+    except Exception:
+        # Prefetch is opportunistic. A failed speculative request must never break playback.
+        return
+
+
+def _forget_media_prefetch_task(
+    cache_key: tuple[str, str, int, int],
+    task: asyncio.Task[None],
+) -> None:
+    """Release a completed task reference without affecting a replacement task."""
+
+    if _MEDIA_SEGMENT_PREFETCH_TASKS.get(cache_key) is task:
+        _MEDIA_SEGMENT_PREFETCH_TASKS.pop(cache_key, None)
+
+
+def _schedule_media_segment_prefetch(
+    file: File,
+    token: str,
+    kind: str,
+    stream_index: int,
+    index: int,
+    duration: float,
+) -> None:
+    """Queue the next few segments without blocking the current response."""
+
+    if kind not in {"video", "audio"}:
+        return
+
+    segment_count = math.ceil(duration / _MEDIA_SEGMENT_SECONDS)
+    for next_index in range(index + 1, min(segment_count, index + 1 + _MEDIA_SEGMENT_PREFETCH_COUNT)):
+        cache_key = _media_segment_cache_key(file, kind, stream_index, next_index)
+        if cache_key in _MEDIA_SEGMENT_PREFETCH_TASKS:
+            continue
+
+        task = asyncio.create_task(
+            _prefetch_media_segment(
+                file,
+                token,
+                kind,
+                stream_index,
+                next_index,
+                duration,
+            )
+        )
+        _MEDIA_SEGMENT_PREFETCH_TASKS[cache_key] = task
+        task.add_done_callback(
+            lambda finished, key=cache_key: _forget_media_prefetch_task(key, finished)
+        )
 
 
 @router.get("/hls/{token}/subtitles/{stream_index}.srt")
