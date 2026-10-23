@@ -535,6 +535,29 @@ async def _recover_interrupted_jobs(startup_time: float) -> None:
             await Redis.redis.zadd(_JOB_QUEUE, {str(file_id): sequence})
 
 
+async def _recover_nvenc_smoke_test_failures() -> None:
+    """Retry jobs rejected by the previous undersized NVENC startup-test frame."""
+
+    for value in await Redis.redis.smembers(_JOB_INDEX):
+        file_id = int(value)
+        key = _video_job_key(file_id)
+        job = await Redis.redis.hgetall(key)
+        if job.get("status") != "failed":
+            continue
+        error = str(job.get("error") or "")
+        if "Frame Dimension less than the minimum supported value" not in error:
+            continue
+        if get_processed_video(file_id) is not None:
+            continue
+
+        await Redis.redis.hset(key, mapping={"attempts": "0"})
+        if await retry_video_processing(file_id):
+            write_log(
+                "WARNING", Database, "VIDEO PROCESSING", str(file_id),
+                "Automatically requeued after fixing the undersized NVENC startup-test frame.",
+            )
+
+
 async def _claim_next_job() -> int | None:
     """Atomically claim the next queued video job from Redis."""
 
@@ -1613,6 +1636,7 @@ async def run_video_processing_worker() -> None:
             if not recovered:
                 await _migrate_legacy_video_jobs()
                 await _recover_interrupted_jobs(startup_time)
+                await _recover_nvenc_smoke_test_failures()
                 recovered = True
             now = time()
             if now >= next_stale_check:
