@@ -627,7 +627,6 @@ export default function ViewFile() {
         downloadControllerRef.current = controller;
         let root = null;
         let tempName = "";
-        let completed = false;
         let totalForTask = 0;
         let offsetForTask = 0;
         const session = downloadSessionRef.current;
@@ -635,7 +634,7 @@ export default function ViewFile() {
             if (downloadMountedRef.current && !downloadDismissedRef.current) setDownloadState(next);
         };
 
-        updateState({status: "downloading", transferred: 0, total: 0, message: "Preparing StoreLimitless download"});
+        updateState({status: "downloading", transferred: session.transferred || 0, total: session.total || 0, message: "Preparing StoreLimitless download"});
         try {
             if (typeof navigator.storage?.getDirectory !== "function") {
                 // Stage verified ranges in IndexedDB when OPFS is unavailable. Keep
@@ -780,147 +779,10 @@ export default function ViewFile() {
                 await removeResumableDownloadChunks(stagedDownloadId).catch((error) => {
                     console.warn("Could not clear completed public-download chunks:", error);
                 });
-                completed = true;
                 session.transferred = total;
                 updateState({status: "completed", transferred: total, total, message: "Download complete · browser download started"});
                 return;
             }
-            const head = await fetch(downloadUrl, {method: "HEAD", signal: controller.signal, cache: "no-store"});
-                    if (!head.ok) throw new Error(`Could not prepare download (${head.status}).`);
-
-                    const sizeHeader = head.headers.get("content-length");
-                    const total = sizeHeader !== null ? Number(sizeHeader) : Number(publicFile?.size);
-                    if (!Number.isSafeInteger(total) || total < 0 || (sizeHeader === null && publicFile?.size == null)) {
-                        throw new Error("The server did not provide a valid file size for staging this download.");
-                    }
-
-                    const etag = head.headers.get("etag") || "";
-                    const contentType = head.headers.get("content-type") || "application/octet-stream";
-                    const chunkSize = 8 * 1024 * 1024;
-                    let offset = 0;
-                    updateState({status: "downloading", transferred: 0, total, message: "Downloading · staging in browser storage"});
-
-                    while (offset < total) {
-                        if (controller.signal.aborted) throw new DOMException("Download cancelled", "AbortError");
-                        const end = Math.min(offset + chunkSize, total) - 1;
-                        let chunk = null;
-                        let lastError = null;
-
-                        for (let attempt = 0; attempt < 5; attempt += 1) {
-                            try {
-                                // Keep this a CORS-safelisted single-range request. If-Range
-                                // forces a preflight, and some browsers reject the API's
-                                // redirect to the active public file server after preflight.
-                                const headers = {Range: `bytes=${offset}-${end}`};
-                                const requestSignal = typeof AbortSignal.any === "function" && typeof AbortSignal.timeout === "function"
-                                    ? AbortSignal.any([controller.signal, AbortSignal.timeout(180000)])
-                                    : controller.signal;
-                                const response = await fetch(downloadUrl, {headers, signal: requestSignal, cache: "no-store"});
-
-                                if (response.status !== 206) {
-                                    await response.body?.cancel();
-                                    throw new Error(response.status === 200
-                                        ? "The server did not honor the byte-range request; refusing an unsafe staged download."
-                                        : `Download range failed (${response.status}).`);
-                                }
-
-                                const responseEtag = response.headers.get("etag") || "";
-                                if (etag && responseEtag && responseEtag !== etag) {
-                                    await response.body?.cancel();
-                                    throw new Error("The file changed during download. Retry to fetch a consistent copy.");
-                                }
-                                const expectedRange = `bytes ${offset}-${end}/${total}`;
-                                const receivedRange = response.headers.get("content-range") || "";
-                                if (receivedRange !== expectedRange) {
-                                    await response.body?.cancel();
-                                    throw new Error(`Unexpected Content-Range: ${receivedRange || "missing"}`);
-                                }
-
-                                const bytes = await response.arrayBuffer();
-                                if (bytes.byteLength !== end - offset + 1) {
-                                    throw new Error(`Incomplete range: received ${bytes.byteLength} bytes.`);
-                                }
-                                chunk = bytes;
-                                break;
-                            } catch (error) {
-                                if (controller.signal.aborted || error?.name === "AbortError") throw error;
-                                lastError = error;
-                                if (attempt < 4) {
-                                    await new Promise((resolve, reject) => {
-                                        let timeout;
-                                        const onAbort = () => {
-                                            window.clearTimeout(timeout);
-                                            reject(new DOMException("Download cancelled", "AbortError"));
-                                        };
-                                        timeout = window.setTimeout(() => {
-                                            controller.signal.removeEventListener("abort", onAbort);
-                                            resolve();
-                                        }, Math.min(1000 * (2 ** attempt), 8000));
-                                        controller.signal.addEventListener("abort", onAbort, {once: true});
-                                    });
-                                }
-                            }
-                        }
-
-                        if (!chunk) throw lastError || new Error("Download failed after repeated attempts.");
-                        await saveResumableDownloadChunk(stagedDownloadId, offset, chunk);
-                        offset += chunk.byteLength;
-                        updateState({
-                            status: "downloading",
-                            transferred: offset,
-                            total,
-                            message: "Downloading · staging in browser storage",
-                        });
-                    }
-
-                    const savedChunks = await listResumableDownloadChunks(stagedDownloadId);
-                    const blobParts = [];
-                    let verifiedOffset = 0;
-                    for (const savedChunk of savedChunks) {
-                        if (Number(savedChunk.offset) !== verifiedOffset) {
-                            throw new Error("The staged download has a gap. Retry the download to repair it.");
-                        }
-                        const bytes = savedChunk.bytes;
-                        const length = bytes?.byteLength ?? bytes?.length ?? 0;
-                        const expectedLength = Math.min(chunkSize, total - verifiedOffset);
-                        if (length !== expectedLength) {
-                            throw new Error("A staged download range is incomplete. Retry the download to repair it.");
-                        }
-                        blobParts.push(bytes);
-                        verifiedOffset += length;
-                        if (verifiedOffset === total) break;
-                    }
-                    if (verifiedOffset !== total) {
-                        throw new Error(`Incomplete download: received ${verifiedOffset} of ${total} bytes.`);
-                    }
-
-                    const blob = new Blob(blobParts, {type: contentType});
-                    const objectUrl = URL.createObjectURL(blob);
-                    const anchor = document.createElement("a");
-                    anchor.href = objectUrl;
-                    anchor.download = name || "download";
-                    anchor.rel = "noreferrer";
-                    document.body.appendChild(anchor);
-                    anchor.click();
-                    anchor.remove();
-                    window.setTimeout(() => URL.revokeObjectURL(objectUrl), 5 * 60 * 1000);
-                    await removeResumableDownloadChunks(stagedDownloadId).catch((error) => {
-                        console.warn("Could not clear completed public-download chunks:", error);
-                    });
-                    completed = true;
-                    updateState({
-                        status: "completed",
-                        transferred: total,
-                        total,
-                        message: "Download complete · browser download started",
-                    });
-                } catch (error) {
-                    await removeResumableDownloadChunks(stagedDownloadId).catch(() => {});
-                    throw error;
-                }
-                return;
-            }
-
             const head = await fetch(downloadUrl, {method: "HEAD", signal: controller.signal, cache: "no-store"});
             if (!head.ok) throw new Error(`Could not prepare download (${head.status}).`);
 
@@ -1049,7 +911,6 @@ export default function ViewFile() {
             document.body.appendChild(anchor);
             anchor.click();
             anchor.remove();
-            completed = true;
             window.setTimeout(() => {
                 URL.revokeObjectURL(objectUrl);
                 root?.removeEntry(tempName).catch(() => {});
