@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
-from asyncio import Task, create_task, gather, sleep
+from asyncio import CancelledError, Queue, Task, create_task, gather, sleep, to_thread
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from functools import partial
+from html import unescape
+import inspect
+import os
 from mimetypes import guess_type
 from pathlib import Path, PurePosixPath
 from shutil import rmtree
@@ -13,6 +16,7 @@ from re import fullmatch
 from time import monotonic, sleep as thread_sleep
 from traceback import format_exc
 from typing import Any, AsyncGenerator, Callable, cast
+from urllib.parse import urlparse
 from uuid import uuid4
 
 import gdown
