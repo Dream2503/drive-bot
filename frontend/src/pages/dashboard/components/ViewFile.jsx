@@ -226,16 +226,26 @@ function VideoPlayer({file, streamUrl, publicToken, heightClass = "h-[70vh]"}) {
                         maxBufferLength: 30,
                         backBufferLength: 30,
                         // StoreLimitless generates each HLS segment on demand using FFmpeg.
-                        // A 1080p60 HEVC segment can take longer than the HLS.js default
-                        // 20-second fragment timeout on a cold remote-storage cache.
-                        manifestLoadingTimeOut: 30000,
-                        levelLoadingTimeOut: 30000,
-                        fragLoadingTimeOut: 90000,
-                        fragLoadingMaxRetry: 5,
-                        fragLoadingRetryDelay: 1000,
-                        fragLoadingMaxRetryTimeout: 15000,
-                        manifestLoadingMaxRetry: 3,
-                        levelLoadingMaxRetry: 3,
+                        // The segment endpoint buffers the encoded segment before responding,
+                        // so on a cold remote-storage cache the first byte can take >10 seconds.
+                        fragLoadPolicy: {
+                            default: {
+                                maxTimeToFirstByteMs: 90000,
+                                maxLoadTimeMs: 120000,
+                                timeoutRetry: {
+                                    maxNumRetry: 4,
+                                    retryDelayMs: 1000,
+                                    maxRetryDelayMs: 8000,
+                                    backoff: "linear",
+                                },
+                                errorRetry: {
+                                    maxNumRetry: 5,
+                                    retryDelayMs: 1000,
+                                    maxRetryDelayMs: 8000,
+                                    backoff: "exponential",
+                                },
+                            },
+                        },
                     });
                     hlsRef.current = hlsInstance;
 
