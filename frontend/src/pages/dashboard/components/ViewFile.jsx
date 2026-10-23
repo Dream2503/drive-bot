@@ -880,6 +880,9 @@ export default function ViewFile() {
     const publicToken = searchParams.get("public_token") || (!isNumericFileId ? routeId : null);
     const [publicFile, setPublicFile] = useState(null);
     const [publicFileError, setPublicFileError] = useState("");
+    const [privateFileMetadata, setPrivateFileMetadata] = useState(null);
+    const [privateFilePending, setPrivateFilePending] = useState(true);
+    const [privateFileError, setPrivateFileError] = useState("");
     const [downloadUrl, setDownloadUrl] = useState("");
     const [downloadPending, setDownloadPending] = useState(true);
     const [downloadError, setDownloadError] = useState("");
@@ -898,8 +901,9 @@ export default function ViewFile() {
         };
     }
     const downloadTrayJobId = `view-file-download-${fileId || publicToken || "shared"}`;
-    const name = searchParams.get("name") || publicFile?.name || "Untitled";
-    const kind = searchParams.get("kind") || getFileKind(publicFile?.name || name);
+    const privateFile = privateFileMetadata?.routeId === String(fileId) ? privateFileMetadata : null;
+    const name = searchParams.get("name") || publicFile?.name || privateFile?.name || "Untitled";
+    const kind = searchParams.get("kind") || getFileKind(publicFile?.name || privateFile?.name || name);
     const downloadTrayJobs = downloadError || downloadState.status !== "idle" ? [{
         id: downloadTrayJobId,
         name,
@@ -909,6 +913,60 @@ export default function ViewFile() {
         message: downloadError || downloadState.message || "Preparing StoreLimitless download",
         viewerDownload: true,
     }] : [];
+
+    useEffect(() => {
+        if (publicToken || !fileId) {
+            setPrivateFilePending(false);
+            setPrivateFileError("");
+            return undefined;
+        }
+
+        let cancelled = false;
+        const controller = new AbortController();
+        const sessionToken = localStorage.getItem("token");
+        setPrivateFilePending(true);
+        setPrivateFileError("");
+        setPrivateFileMetadata(null);
+
+        if (!sessionToken) {
+            setPrivateFileError("Sign in to open this file.");
+            setPrivateFilePending(false);
+            return () => controller.abort();
+        }
+
+        (async () => {
+            try {
+                const response = await fetch(
+                    `${API_URL}/auth/file/${encodeURIComponent(fileId)}/metadata`,
+                    {
+                        headers: {Authorization: `Bearer ${sessionToken}`},
+                        signal: controller.signal,
+                        cache: "no-store",
+                    },
+                );
+                const data = await response.json().catch(() => ({}));
+                if (response.status === 401) {
+                    localStorage.removeItem("token");
+                    navigate("/");
+                    return;
+                }
+                if (!response.ok) throw new Error(data.detail || "Could not load this file's metadata.");
+                if (!data.name) throw new Error("The server did not return file metadata.");
+                if (!cancelled) setPrivateFileMetadata({...data, routeId: String(fileId)});
+            } catch (error) {
+                if (!cancelled && error?.name !== "AbortError") {
+                    setPrivateFileError(error instanceof Error ? error.message : "Could not load this file's metadata.");
+                }
+            } finally {
+                if (!cancelled) setPrivateFilePending(false);
+            }
+        })();
+
+        return () => {
+            cancelled = true;
+            controller.abort();
+        };
+    }, [fileId, navigate, publicToken]);
 
     useEffect(() => {
         if (!publicToken) {
@@ -1504,7 +1562,17 @@ export default function ViewFile() {
         </header>
 
         <main className="min-h-0 flex-1 overflow-hidden p-0">
-            {publicToken && !publicFile && !publicFileError ? (
+            {fileId && !publicToken && privateFilePending ? (
+                <div className="flex h-full flex-col items-center justify-center gap-3 text-sm text-[#898989]">
+                    <span className="material-symbols-outlined animate-spin text-[32px]" aria-hidden="true">progress_activity</span>
+                    Preparing file…
+                </div>
+            ) : fileId && !publicToken && privateFileError ? (
+                <div className="flex h-full flex-col items-center justify-center gap-2 px-6 text-center">
+                    <span className="material-symbols-outlined text-[40px] text-[#ff6369]" aria-hidden="true">error</span>
+                    <p className="text-sm text-[#ff6369]">{privateFileError}</p>
+                </div>
+            ) : publicToken && !publicFile && !publicFileError ? (
                 <div className="flex h-full flex-col items-center justify-center gap-3 text-sm text-[#898989]">
                     <span className="material-symbols-outlined animate-spin text-[32px]" aria-hidden="true">progress_activity</span>
                     Preparing shared file…
