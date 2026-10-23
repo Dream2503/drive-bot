@@ -698,7 +698,7 @@ async def ensure_gpu_video_pipeline(ffmpeg_path: str) -> None:
             test_process = await asyncio.create_subprocess_exec(
                 ffmpeg_path,
                 "-hide_banner", "-loglevel", "error", "-nostdin", "-y",
-                "-f", "lavfi", "-i", "color=c=black:s=128x128:r=1",
+                "-f", "lavfi", "-i", "color=c=black:s=640x360:r=1",
                 "-vf", "format=nv12,hwupload_cuda,scale_cuda=format=nv12",
                 "-frames:v", "1",
                 "-an",
