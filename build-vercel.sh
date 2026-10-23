@@ -95,18 +95,14 @@ FRONTEND_LINKED_PROJECT="$(project_name_from_link "$ROOT_VERCEL_DIR/project.json
 BACKEND_LINKED_PROJECT="$(project_name_from_link "$BACKEND_VERCEL_DIR/project.json" 2>/dev/null || true)"
 FRONTEND_PROJECT="${VERCEL_FRONTEND_PROJECT:-$FRONTEND_LINKED_PROJECT}"
 BACKEND_PROJECT="${VERCEL_BACKEND_PROJECT:-$BACKEND_LINKED_PROJECT}"
-[[ -n "$FRONTEND_PROJECT" ]] || FRONTEND_PROJECT="storelimitless"
-[[ -n "$BACKEND_PROJECT" ]] || BACKEND_PROJECT="storelimitlessbackend"
-printf 'Frontend Vercel project: %s (domain %s)\n' "$FRONTEND_PROJECT" "$FRONTEND_DOMAIN"
-printf 'Backend Vercel project:  %s (domain %s)\n' "$BACKEND_PROJECT" "$BACKEND_DOMAIN"
+printf 'Frontend Vercel project: %s (domain %s)\n' "${FRONTEND_PROJECT:-select existing project}" "$FRONTEND_DOMAIN"
+printf 'Backend Vercel project:  %s (domain %s)\n' "${BACKEND_PROJECT:-select existing project}" "$BACKEND_DOMAIN"
 
 # Link each local directory to the intended EXISTING Vercel project. Inspect first
 # so a typo or wrong team cannot silently create a third project under --yes.
 ensure_project_link() {
-    local project_dir="$1"
-    local project_name="$2"
-    local project_json="$project_dir/.vercel/project.json"
-    local current_name=""
+    local project_dir="$1" project_name="$2"
+    local project_json="$project_dir/.vercel/project.json" current_name=""
     local -a inspect_args=(project inspect "$project_name")
     local -a link_args=(link --yes --project "$project_name")
 
@@ -117,13 +113,31 @@ ensure_project_link() {
 
     if [[ -f "$project_json" ]]; then
         current_name="$(project_name_from_link "$project_json")"
-        if [[ "${current_name,,}" == "${project_name,,}" ]]; then
+        if [[ -n "$project_name" && "${current_name,,}" == "${project_name,,}" ]]; then
             log "Verified $project_dir is linked to Vercel project '$project_name'"
             return
         fi
-        log "Local Vercel link points to '${current_name:-an unknown project}'; switching to '$project_name'"
-    else
-        log "Checking that existing Vercel project '$project_name' is available"
+        if [[ -z "$project_name" ]]; then
+            project_name="$current_name"
+        fi
+        if [[ -n "$project_name" ]]; then
+            log "Local link points to '${current_name:-an unknown project}'; switching to '$project_name'"
+        fi
+    fi
+
+    if [[ -z "$project_name" ]]; then
+        # No local link exists yet. Do not guess the project slug from its domain.
+        # Let the user select the existing Vercel project in the CLI prompt.
+        log "No existing Vercel link found for $project_dir."
+        log "Select the EXISTING project that owns $BACKEND_DOMAIN; do not create a new project."
+        local -a interactive_link_args=(link)
+        if [[ -n "$VERCEL_SCOPE" ]]; then interactive_link_args+=(--scope "$VERCEL_SCOPE"); fi
+        (cd "$project_dir" && vercel_cli "${interactive_link_args[@]}")
+        [[ -f "$project_json" ]] || fail "Vercel did not create $project_json after project selection."
+        project_name="$(project_name_from_link "$project_json")"
+        [[ -n "$project_name" ]] || fail "Could not read the selected Vercel project name from $project_json."
+        log "Selected existing Vercel project '$project_name'"
+        return
     fi
 
     if ! (cd "$project_dir" && vercel_cli "${inspect_args[@]}") >/dev/null; then
