@@ -350,81 +350,115 @@ function VideoPlayer({file, streamUrl, publicToken, heightClass = "h-[70vh]"}) {
         const subtitleUrl = API_URL + "/public/hls/" + encodeURIComponent(publicToken)
             + "/subtitles/" + selectedSubtitleTrack + ".srt?start_seconds=" + subtitleWindowStart
             + "&duration_seconds=120";
+        const maxAttempts = 3;
 
         (async () => {
-            let reader = null;
-            try {
-                const response = await fetch(subtitleUrl, {
-                    cache: "no-store",
-                    signal: controller.signal,
-                });
-                if (!response.ok) {
-                    let detail = "";
-                    try {
-                        const payload = await response.json();
-                        detail = payload?.detail ? " " + payload.detail : "";
-                    } catch {
-                        // The response body may not be JSON.
-                    }
-                    throw new Error("Subtitle request failed (HTTP " + response.status + ")." + detail);
-                }
+            for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+                let reader = null;
 
-                if (!response.body) {
-                    const text = await response.text();
-                    if (!text.trimStart().startsWith("WEBVTT")) {
-                        throw new Error("The server response is not valid WebVTT subtitle data.");
-                    }
-                    if (!cancelled) setSubtitleCues(parseSubtitleText(text));
-                    return;
-                }
+                try {
+                    const response = await fetch(subtitleUrl, {
+                        cache: "no-store",
+                        signal: controller.signal,
+                    });
 
-                reader = response.body.getReader();
-                const decoder = new TextDecoder();
-                let subtitleText = "";
-
-                while (true) {
-                    const {value, done} = await reader.read();
-                    if (done) {
-                        subtitleText += decoder.decode();
-                        break;
+                    if (response.status === 204) {
+                        // The backend may return 204 if its media probe was interrupted.
+                        // This is transient for an explicitly selected subtitle track.
+                        const error = new Error("Subtitle extraction was interrupted (HTTP 204).");
+                        error.status = 204;
+                        throw error;
                     }
 
-                    subtitleText += decoder.decode(value, {stream: true});
+                    if (!response.ok) {
+                        let detail = "";
+                        try {
+                            const payload = await response.json();
+                            detail = payload?.detail ? " " + payload.detail : "";
+                        } catch {
+                            // The response body may not be JSON.
+                        }
+                        const error = new Error("Subtitle request failed (HTTP " + response.status + ")." + detail);
+                        error.status = response.status;
+                        throw error;
+                    }
+
+                    let subtitleText = "";
+
+                    if (!response.body) {
+                        subtitleText = await response.text();
+                    } else {
+                        reader = response.body.getReader();
+                        const decoder = new TextDecoder();
+
+                        while (true) {
+                            const {value, done} = await reader.read();
+                            if (done) {
+                                subtitleText += decoder.decode();
+                                break;
+                            }
+
+                            subtitleText += decoder.decode(value, {stream: true});
+                            if (cancelled) return;
+
+                            const trimmed = subtitleText.trimStart();
+
+                            // ReadableStream chunks have arbitrary boundaries. The first read
+                            // may contain only "WE" or "WEBV", which is a valid prefix of the
+                            // WebVTT header, not a malformed response. Validate only after the
+                            // full header could have arrived.
+                            if (trimmed.length >= 6 && !trimmed.startsWith("WEBVTT")) {
+                                throw new Error("The server response is not valid WebVTT subtitle data.");
+                            }
+
+                            // Parse received bytes immediately so captions can appear while
+                            // FFmpeg continues scanning the source video for later cues.
+                            if (trimmed.startsWith("WEBVTT")) {
+                                setSubtitleCues(parseSubtitleText(subtitleText));
+                            }
+                        }
+                    }
+
                     if (cancelled) return;
-
                     const trimmed = subtitleText.trimStart();
-
-                    // ReadableStream chunks have arbitrary boundaries. The first read
-                    // may contain only "WE" or "WEBV", which is a valid prefix of the
-                    // WebVTT header, not a malformed response. Validate only after the
-                    // full header could have arrived.
-                    if (trimmed.length >= 6 && !trimmed.startsWith("WEBVTT")) {
-                        throw new Error("The server response is not valid WebVTT subtitle data.");
+                    if (!trimmed.startsWith("WEBVTT")) {
+                        throw new Error("The server returned an empty or invalid WebVTT subtitle stream.");
                     }
 
-                    // Parse received bytes immediately so captions can appear while
-                    // FFmpeg continues scanning the source video for later cues.
-                    if (trimmed.startsWith("WEBVTT")) {
-                        setSubtitleCues(parseSubtitleText(subtitleText));
+                    // An interval without dialogue is valid. Later playback windows will
+                    // request their own cues as the timeline advances.
+                    setSubtitleCues(parseSubtitleText(subtitleText));
+                    setSubtitleLoadError("");
+                    return;
+                } catch (loadError) {
+                    if (cancelled || controller.signal.aborted || loadError?.name === "AbortError") return;
+
+                    const status = Number(loadError?.status || 0);
+                    const retryable = loadError?.name === "TypeError"
+                        || status === 204
+                        || status === 408
+                        || status === 425
+                        || status === 429
+                        || status >= 500;
+
+                    if (retryable && attempt < maxAttempts - 1) {
+                        // A stream can be interrupted while FFmpeg is still writing.
+                        // Retry the same selected track twice instead of requiring the
+                        // user to toggle subtitles off and on to trigger another request.
+                        setSubtitleCues([]);
+                        await new Promise((resolve) => window.setTimeout(resolve, 300 * (attempt + 1)));
+                        if (cancelled || controller.signal.aborted) return;
+                        continue;
                     }
-                }
 
-                if (cancelled) return;
-                const trimmed = subtitleText.trimStart();
-                if (!trimmed.startsWith("WEBVTT")) {
-                    throw new Error("The server returned an empty or invalid WebVTT subtitle stream.");
-                }
-
-                // An interval without dialogue is valid. Later playback windows will
-                // request their own cues as the timeline advances.
-                setSubtitleCues(parseSubtitleText(subtitleText));
-            } catch (loadError) {
-                if (!cancelled && loadError?.name !== "AbortError") {
-                    setSubtitleLoadError(loadError instanceof Error ? loadError.message : "Could not load this subtitle track.");
-                }
-            } finally {
-                if (reader) {
-                    try { reader.releaseLock(); } catch { /* The stream may already be closed. */ }
+                    setSubtitleLoadError(
+                        loadError instanceof Error ? loadError.message : "Could not load this subtitle track."
+                    );
+                    return;
+                } finally {
+                    if (reader) {
+                        try { reader.releaseLock(); } catch { /* The stream may already be closed. */ }
+                    }
                 }
             }
         })();
