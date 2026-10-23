@@ -1695,10 +1695,15 @@ async def download_torrent(file: File, link: str, selected_indices: set[int] | N
                     downloaded = size
                 else:
                     downloaded = min(size, file_progress[index]) if index < len(file_progress) else 0
-                uploaded = size if item_status == "completed" else (
-                    min(size, max(0, int(item.get("upload_transfer", item.get("transfer", 0) or 0)))
-                    if item_status == "uploading" else 0
-                )
+                if item_status == "completed":
+                    uploaded = size
+                elif item_status == "uploading":
+                    uploaded = min(
+                        size,
+                        max(0, int(item.get("upload_transfer", item.get("transfer", 0) or 0))),
+                    )
+                else:
+                    uploaded = 0
                 item.update({
                     "download_transfer": downloaded,
                     "download_total": size,
