@@ -770,7 +770,7 @@ async def public_hls_subtitles(
     stream_index: int,
     request: Request,
     start_seconds: float = Query(default=0, ge=0),
-    duration_seconds: float = Query(default=120, gt=0, le=120),
+    duration_seconds: float = Query(default=30, gt=0, le=30),
 ) -> Response:
     """Stream one extracted WebVTT track as FFmpeg produces cues; no sidecar file is stored."""
 
@@ -801,8 +801,8 @@ async def public_hls_subtitles(
         ffmpeg_path,
         "-hide_banner", "-loglevel", "error", "-nostdin",
         # Keep subtitle packet timestamps aligned to the original media timeline
-        # while seeking to a bounded window. -start_at_zero removes any container
-        # start-time offset but retains the requested seek position (e.g. 120 seconds).
+        # while seeking to a short, bounded window. -start_at_zero removes any container
+        # start-time offset but retains the requested seek position.
         "-copyts", "-start_at_zero",
         "-rw_timeout", "300000000",
         # Input-side seek speeds up demuxing. The output-side seek below is also
