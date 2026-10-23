@@ -580,11 +580,12 @@ export default function DashboardPage() {
          * @returns {void}
          */
         const onKeyDown = (event) => {
+            if (detailsSelection || detailsTarget) return;
             if (event.key === "Escape") setSidebarOpen(false);
         };
         window.addEventListener("keydown", onKeyDown);
         return () => window.removeEventListener("keydown", onKeyDown);
-    }, [sidebarOpen]);
+    }, [detailsSelection, detailsTarget, sidebarOpen]);
 
     /* ----------------------------- download ------------------------------ */
 
