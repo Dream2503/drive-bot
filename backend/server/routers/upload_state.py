@@ -724,7 +724,17 @@ async def run_chunk_upload_job(job_id: str, file: File, file_path: Path, produce
     """Transfer received chunks and commit the database row only after a cancellation-safe final check."""
 
     try:
-        async for progress in file_upload(file, file_path, producer_task, intermediate=True):
+        session_state: Any = await Redis.get_json(upload_session_key(job_id))
+        download_total = int(session_state.get("total") or 0) if isinstance(session_state, dict) else 0
+
+        async for progress in file_upload(
+                file,
+                file_path,
+                producer_task,
+                intermediate=True,
+                track_download=True,
+                download_total=download_total,
+        ):
             latest_metadata = await get_upload_job_metadata(job_id)
 
             if latest_metadata and latest_metadata.get("cancelled"):
@@ -760,6 +770,9 @@ async def run_chunk_upload_job(job_id: str, file: File, file_path: Path, produce
             await file.save()
             complete = Progress(file.name, f"Upload Complete of id={file.id}", max(file.size, 0))
             complete.transfer = max(file.size, 0)
+            complete.download_transfer = max(file.size, 0)
+            complete.download_total = download_total or max(file.size, 0)
+            complete.download_active = True
             await Redis.set(job_id, complete)
 
     except Exception as error:
