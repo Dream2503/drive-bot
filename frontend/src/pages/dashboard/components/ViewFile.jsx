@@ -5,6 +5,7 @@ import FileContentPreview, {MediaPreview} from "./FileContentPreview.jsx";
 import UploadJobsTray from "./UploadJobsTray.jsx";
 import {createUniqueId, getFileKind} from "../utils.js";
 import {listResumableDownloadChunks, removeResumableDownloadChunks, removeResumableDownloadChunksFrom, saveResumableDownloadChunk} from "../utils/resumableDownloads.js";
+import {API_URL} from "../../../api.js";
 
 /**
  * @typedef {{name: string}} PreviewFile
@@ -19,8 +20,6 @@ import {listResumableDownloadChunks, removeResumableDownloadChunks, removeResuma
 /** @typedef {{streamUrl: string, publicToken: string}} VideoSource */
 
 
-/** @type {string | undefined} */
-const API_URL = window.STORELIMITLESS_CONFIG?.API_URL ?? import.meta.env.VITE_API_URL;
 const SPEEDS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
 
 const TRACK_LANGUAGES = [
