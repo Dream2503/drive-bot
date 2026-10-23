@@ -93,7 +93,7 @@ The application provides these user-facing capabilities:
   from saved browser-storage bytes through HTTP byte ranges when the selected archive has not changed.
 - Use dashboard keyboard shortcuts for selection, opening, renaming, trashing, permanent deletion, details, and parent-folder navigation. Mouse and touch
   users can also use context menus, drag selection, long-press selection, and drag-and-drop moves.
-- View media in a custom video player with seeking, volume, speed control, fullscreen, picture-in-picture (when supported), and keyboard shortcuts;
+- View media in a custom video player with seeking, volume, speed control, fullscreen, picture-in-picture (when supported), and keyboard shortcuts. HLS playback buffers ahead and prefetches cached audio/video segments;
   preview PDFs, audio, Markdown, and common text/source formats.
 - Use keyboard shortcuts on the upload page to return to the dashboard or trigger the upload/import action.
 - Rename and move files and folders, including bulk move operations. The move dialog supports browsing destinations and toggling an already-selected
