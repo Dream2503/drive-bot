@@ -531,6 +531,22 @@ export default function DashboardPage() {
         downloadJobsRef.current = next;
         setDownloadJobs(next);
     };
+
+    /** Cancel active transfers and clear upload/download task history together. */
+    const clearAllTasks = () => {
+        clearAllUploadJobs();
+
+        const jobs = downloadJobsRef.current;
+        for (const job of jobs) {
+            downloadControllersRef.current.get(job.id)?.abort();
+            removeStagedFile(job);
+            removeResumableDownloadChunks(job.id).catch((error) => console.warn("Could not clear saved download chunks:", error));
+            removeResumableDownload(job.id).catch((error) => console.warn("Could not clear download task:", error));
+        }
+
+        downloadJobsRef.current = [];
+        setDownloadJobs([]);
+    };
     const [showFolderModal, setShowFolderModal] = useState(false);
     const [showUploadModal, setShowUploadModal] = useState(false);
     const [shareDialog, setShareDialog] = useState(null);
@@ -2900,6 +2916,7 @@ export default function DashboardPage() {
             cancelUploadJob={cancelUploadJob}
             dismissUploadJob={dismissUploadJob}
             clearAllUploadJobs={clearAllUploadJobs}
+            clearAllTasks={clearAllTasks}
             downloadJobs={downloadJobs}
             pauseDownload={pauseDownload}
             resumeDownload={resumeDownload}
