@@ -819,6 +819,443 @@ async def download_torrent_to_disk(
                 pass
 
 
+def is_google_drive_folder_url(link: str) -> bool:
+    """Return whether a URL identifies a Google Drive folder rather than a single file."""
+
+    parsed = urlparse(str(link or "").strip())
+    return (
+        parsed.scheme.lower() in {"http", "https"}
+        and (parsed.hostname or "").lower().removeprefix("www.") == "drive.google.com"
+        and fullmatch(r"/drive/folders/[-\\w]+/?", parsed.path or "") is not None
+    )
+
+
+def _public_google_drive_folder_title(link: str) -> str:
+    """Resolve a public folder title when its public listing contains no files."""
+
+    parsed = urlparse(link)
+    folder_id = (parsed.path or "").rstrip("/").rsplit("/", 1)[-1]
+    response: Response = get(
+        f"https://drive.google.com/embeddedfolderview?id={folder_id}",
+        headers={"User-Agent": "Mozilla/5.0"},
+        timeout=(15, 30),
+    )
+
+    try:
+        response.raise_for_status()
+        title_match = fullmatch(r"(?is).*?<title[^>]*>(.*?)</title>.*", response.text)
+        if title_match is None:
+            raise OSError("Google Drive did not return a folder title for this public link")
+        title = unescape(re.sub(r"<[^>]+>", "", title_match.group(1))).strip()
+        title = re.sub(r"\\s+-\\s+Google Drive$", "", title, flags=re.IGNORECASE).strip()
+        if not title:
+            raise OSError("Google Drive returned an empty folder name")
+        return title
+    finally:
+        response.close()
+
+
+def _download_google_drive_entry(
+        file_id: str,
+        output_path: Path,
+        item: dict[str, Any],
+) -> Path:
+    """Download one public Google Drive file using gdown into a unique staging path."""
+
+    parameters = inspect.signature(gdown.download).parameters
+    output: str = str(output_path) if output_path.suffix else f"{output_path.parent}{os.sep}"
+
+    kwargs: dict[str, Any] = {
+        "id": file_id,
+        "output": output,
+        "quiet": True,
+        # The job only accepts public links; do not silently use an unrelated server login.
+        "use_cookies": False,
+    }
+    if "resume" in parameters:
+        kwargs["resume"] = True
+
+    if "progress" in parameters:
+        def report_download(downloaded: int, total: int | None) -> None:
+            item["download_transfer"] = max(0, int(downloaded or 0))
+            if total is not None:
+                item["download_total"] = max(0, int(total))
+                item["total"] = max(int(item.get("total") or 0), int(total))
+                item["size"] = max(int(item.get("size") or 0), int(total))
+            item["message"] = "Downloading file"
+
+        kwargs["progress"] = report_download
+
+    result = gdown.download(**kwargs)
+    if not result:
+        raise OSError("Google Drive did not produce a downloadable file")
+
+    actual_path = Path(result) if isinstance(result, (str, os.PathLike)) else output_path
+    if not actual_path.is_file():
+        if output_path.is_file():
+            actual_path = output_path
+        else:
+            raise OSError("Google Drive download ended without producing a complete file")
+
+    actual_size = actual_path.stat().st_size
+    expected_size = max(0, int(item.get("download_total") or 0))
+    if expected_size > 0 and actual_size != expected_size:
+        raise OSError(f"Google Drive download was incomplete ({actual_size} of {expected_size} bytes)")
+
+    item["download_transfer"] = actual_size
+    item["download_total"] = actual_size
+    item["total"] = actual_size
+    item["size"] = actual_size
+    return actual_path
+
+
+async def download_google_drive_folder(file: File, link: str) -> AsyncGenerator[Progress, None]:
+    """Download a public Drive folder concurrently and upload each ready file through the shared FIFO."""
+
+    from core.transfer import file_upload
+
+    data_center: type[DataCenter] | None = DataCenter(file.data_center)
+    if data_center is None:
+        raise ValueError(f"Unsupported data center: {file.data_center}")
+
+    base_directory: Directory | None = await Directory.get(file.username, did=file.directory_id)
+    if base_directory is None or base_directory.id is None:
+        raise ValueError("The destination directory no longer exists")
+
+    try:
+        max_downloads = max(1, min(16, int(os.environ.get("STORELIMITLESS_GOOGLE_DRIVE_DOWNLOADS", "4"))))
+    except ValueError:
+        max_downloads = 4
+
+    temp_dir: Path = (TRANSFER_PATH / file.username / "google-drive-folder" / uuid4().hex).resolve()
+    temp_dir.mkdir(parents=True, exist_ok=True)
+    progress = Progress(file.name or "Google Drive folder", "Discovering folder contents", 0)
+    progress.ingestion_type = "google_drive_folder"
+    progress.download_active = True
+    items: list[dict[str, Any]] = []
+    tickets: dict[int, IngestionUploadTicket] = {}
+    ready_queue: Queue[Any] = Queue(maxsize=max_downloads * 2)
+    download_queue: Queue[Any] = Queue()
+    download_workers: list[Task[None]] = []
+    coordinator: Task[None] | None = None
+    uploader: Task[None] | None = None
+    root_name = ""
+
+    def refresh_snapshot(message: str | None = None) -> None:
+        """Update backend-visible job and per-file progress from worker snapshots."""
+
+        total_bytes = sum(max(0, int(item.get("total") or item.get("size") or 0)) for item in items)
+        download_bytes = 0
+        upload_bytes = 0
+        known_download_total = 0
+        known_upload_total = total_bytes
+
+        for item in items:
+            size = max(0, int(item.get("total") or item.get("size") or 0))
+            status = str(item.get("status") or "queued")
+            downloaded = max(0, int(item.get("download_transfer") or 0))
+            uploaded = max(0, int(item.get("upload_transfer") or 0))
+            if status in {"waiting_upload", "uploading", "completed"}:
+                downloaded = max(downloaded, size)
+            if status == "completed":
+                uploaded = size
+            download_bytes += min(size, downloaded) if size > 0 else downloaded
+            upload_bytes += min(size, uploaded) if size > 0 else uploaded
+            known_download_total += max(0, int(item.get("download_total") or 0))
+
+        progress.name = root_name or progress.name
+        progress.ingestion_type = "google_drive_folder"
+        progress.download_active = True
+        progress.download_transfer = download_bytes
+        progress.download_total = known_download_total
+        progress.transfer = upload_bytes
+        progress.total = known_upload_total
+        progress.torrent_items = [
+            {key: value for key, value in item.items() if not key.startswith("_")}
+            for item in items
+        ]
+        progress.file_counts = {
+            "discovered": len(items),
+            "pending": sum(item.get("status") in {"queued", "pending", "available"} for item in items),
+            "downloading": sum(item.get("status") == "downloading" for item in items),
+            "downloaded": sum(item.get("status") in {"downloaded", "waiting_upload", "uploading", "completed"} for item in items),
+            "waiting_upload": sum(item.get("status") == "waiting_upload" for item in items),
+            "uploading": sum(item.get("status") == "uploading" for item in items),
+            "completed": sum(item.get("status") == "completed" for item in items),
+            "failed": sum(item.get("status") == "error" for item in items),
+            "cancelled": sum(item.get("status") in {"cancelled", "skipped"} for item in items),
+        }
+        if message:
+            progress.message = message
+
+    async def download_worker() -> None:
+        """Download entries in parallel, then register each completed file in FIFO order."""
+
+        while True:
+            entry = await download_queue.get()
+            if entry is None:
+                download_queue.task_done()
+                return
+
+            index, file_id, relative_parts, target_directory, item = entry
+            staging_dir = temp_dir / "payload" / f"{index:06d}"
+            staging_dir.mkdir(parents=True, exist_ok=True)
+            proposed_path = staging_dir / relative_parts[-1]
+            item["status"] = "downloading"
+            item["message"] = "Downloading file"
+            try:
+                actual_path = await to_thread(_download_google_drive_entry, file_id, proposed_path, item)
+                actual_size = actual_path.stat().st_size
+                item.update({
+                    "name": "/".join((root_name, *relative_parts[:-1], actual_path.name)),
+                    "path": "/".join((root_name, *relative_parts[:-1], actual_path.name)),
+                    "size": actual_size,
+                    "total": actual_size,
+                    "download_transfer": actual_size,
+                    "download_total": actual_size,
+                    "upload_transfer": 0,
+                    "upload_total": actual_size,
+                    "status": "waiting_upload",
+                    "message": "Downloaded · waiting for upload",
+                })
+                ticket = await enqueue_ingestion_upload()
+                tickets[index] = ticket
+                await ready_queue.put((index, actual_path, target_directory, item, ticket))
+            except CancelledError:
+                raise
+            except Exception as error:
+                item.update({
+                    "status": "error",
+                    "message": f"Download failed: {sanitize_sensitive_urls(str(error))[:180]}",
+                })
+                write_log(
+                    "ERROR", data_center, "GOOGLE DRIVE", file.username,
+                    f"Failed to download folder entry {item.get('path')}: {sanitize_sensitive_urls(str(error))}",
+                )
+            finally:
+                download_queue.task_done()
+
+    async def upload_worker() -> None:
+        """Store ready files one at a time; download workers continue independently."""
+
+        while True:
+            work = await ready_queue.get()
+            if work is None:
+                ready_queue.task_done()
+                return
+
+            index, local_path, target_directory, item, ticket = work
+            name = local_path.name
+            remote_file = File(
+                directory_id=cast(int, target_directory.id),
+                name=name,
+                type=guess_type(name)[0] or "application/octet-stream",
+                size=max(0, local_path.stat().st_size),
+                modified_at=datetime.now(timezone.utc),
+                links=[],
+                data_center=file.data_center,
+                username=file.username,
+            )
+            local_size = remote_file.size
+            try:
+                async with ingestion_upload_slot(ticket):
+                    item.update({
+                        "status": "uploading",
+                        "message": "Uploading file",
+                        "transfer": 0,
+                        "upload_transfer": 0,
+                        "upload_total": local_size,
+                        "total": local_size,
+                        "size": local_size,
+                        "download_transfer": local_size,
+                        "download_total": local_size,
+                    })
+                    async for upload_progress in file_upload(remote_file, local_path, intermediate=True):
+                        transferred = min(local_size, max(0, int(upload_progress.transfer or 0)))
+                        item.update({
+                            "transfer": transferred,
+                            "upload_transfer": transferred,
+                            "upload_total": local_size,
+                            "status": "uploading",
+                            "message": f"Uploading · {transferred * 100 / local_size:.1f}%" if local_size else "Uploading file",
+                        })
+                        await sleep(0)
+
+                    await remote_file.save()
+                    # Match the database conflict-resolution name if a duplicate existed.
+                    final_name = remote_file.name
+                    if final_name != name:
+                        parent_parts = tuple(str(item.get("path") or "").split("/")[1:-1])
+                        item["name"] = "/".join((root_name, *parent_parts, final_name))
+                        item["path"] = item["name"]
+                    local_path.unlink(missing_ok=True)
+                    item.update({
+                        "transfer": local_size,
+                        "total": local_size,
+                        "size": local_size,
+                        "download_transfer": local_size,
+                        "download_total": local_size,
+                        "upload_transfer": local_size,
+                        "upload_total": local_size,
+                        "status": "completed",
+                        "message": "Completed",
+                    })
+            except CancelledError:
+                raise
+            except Exception as error:
+                item.update({
+                    "status": "error",
+                    "message": f"Upload failed: {sanitize_sensitive_urls(str(error))[:180]}",
+                })
+                write_log(
+                    "ERROR", data_center, "GOOGLE DRIVE", file.username,
+                    f"Failed to upload folder entry {item.get('path')}: {sanitize_sensitive_urls(str(error))}",
+                )
+            finally:
+                await cancel_ingestion_upload(ticket)
+                ready_queue.task_done()
+
+    try:
+        progress.yield_name = "" if False else progress.name
+        try:
+            entries = await to_thread(
+                gdown.download_folder,
+                url=link,
+                output=f"{temp_dir}{os.sep}",
+                quiet=True,
+                skip_download=True,
+                use_cookies=False,
+            )
+        except TypeError as error:
+            raise RuntimeError("Google Drive folder ingestion requires gdown>=6.0.0") from error
+
+        if not isinstance(entries, list):
+            raise OSError("Google Drive did not return a folder file listing")
+
+        if entries:
+            first_local_path = Path(str(getattr(entries[0], "local_path", "")))
+            try:
+                root_name = first_local_path.resolve().relative_to(temp_dir.resolve()).parts[0]
+            except (ValueError, IndexError):
+                root_name = _public_google_drive_folder_title(link)
+        else:
+            root_name = _public_google_drive_folder_title(link)
+
+        root_name = safe_torrent_component(root_name)
+        progress.name = root_name
+        progress.message = "Creating directories"
+        base_directory = cast(Directory, await Directory.get(file.username, did=file.directory_id))
+        await ensure_torrent_directory(file.username, base_directory, (root_name,))
+
+        descriptors: list[tuple[Any, tuple[str, ...], Directory]] = []
+        for index, entry in enumerate(entries):
+            file_id = str(getattr(entry, "id", "") or "")
+            raw_path = str(getattr(entry, "path", "") or "")
+            if not file_id:
+                raise OSError("Google Drive returned a file without an ID")
+            try:
+                raw_parts = torrent_relative_parts(raw_path)
+                relative_parts = tuple(safe_torrent_component(part) for part in raw_parts)
+            except ValueError as error:
+                raise OSError(f"Google Drive returned an unsafe path: {raw_path!r}") from error
+
+            target_directory = await ensure_torrent_directory(
+                file.username,
+                base_directory,
+                (root_name, *relative_parts[:-1]),
+            )
+            item = {
+                "file_index": index,
+                "name": "/".join((root_name, *relative_parts)),
+                "path": "/".join((root_name, *relative_parts)),
+                "size": 0,
+                "total": 0,
+                "transfer": 0,
+                "download_transfer": 0,
+                "download_total": 0,
+                "download_speed": 0.0,
+                "download_eta": None,
+                "upload_transfer": 0,
+                "upload_total": 0,
+                "upload_speed": 0.0,
+                "upload_eta": None,
+                "status": "queued",
+                "message": "Queued for download",
+            }
+            items.append(item)
+            descriptors.append((entry, relative_parts, target_directory))
+
+        progress.torrent_items = [dict(item) for item in items]
+        progress.message = "Downloading files" if entries else "Google Drive folder import complete"
+        if not entries:
+            refresh_snapshot("Google Drive folder import complete")
+            yield progress
+            return
+
+        try:
+            download_concurrency = max_downloads
+        except NameError:
+            download_concurrency = 4
+
+        for index, (entry, relative_parts, target_directory) in enumerate(descriptors):
+            file_id = str(getattr(entry, "id"))
+            download_queue.put_nowait((index, file_id, relative_parts, target_directory, items[index]))
+
+        for _ in range(download_concurrency):
+            download_queue.put_nowait(None)
+
+        download_workers = [
+            create_task(download_worker(), name=f"gdrive-download-{i}")
+            for i in range(download_concurrency)
+        ]
+
+        async def finish_downloads() -> None:
+            await gather(*download_workers)
+            await ready_queue.put(None)
+
+        coordinator = create_task(finish_downloads(), name="gdrive-download-coordinator")
+        uploader = create_task(upload_worker(), name="gdrive-upload-queue")
+        while not coordinator.done() or not uploader.done():
+            if any(item.get("status") == "uploading" for item in items):
+                stage = "Uploading file"
+            elif any(item.get("status") == "downloading" for item in items):
+                stage = "Downloading files"
+            elif any(item.get("status") == "waiting_upload" for item in items):
+                stage = "Waiting for upload"
+            else:
+                stage = "Downloading files"
+            refresh_snapshot(stage)
+            yield progress
+            await sleep(0.25)
+
+        await gather(coordinator, uploader)
+        failures = sum(item.get("status") == "error" for item in items)
+        refresh_snapshot(
+            f"Upload failed: {failures} of {len(items)} Google Drive folder files failed"
+            if failures else "Google Drive folder import complete"
+        )
+        yield progress
+        write_log(
+            "INFO" if not failures else "WARNING",
+            data_center,
+            "GOOGLE DRIVE",
+            file.username,
+            f"Folder import finished for {root_name}: {len(items) - failures} succeeded, {failures} failed",
+        )
+    finally:
+        for ticket in tickets.values():
+            await cancel_ingestion_upload(ticket)
+        for task in download_workers:
+            if not task.done():
+                task.cancel()
+        if coordinator is not None and not coordinator.done():
+            coordinator.cancel()
+        if uploader is not None and not uploader.done():
+            uploader.cancel()
+        await gather(*download_workers, *(task for task in (coordinator, uploader) if task is not None), return_exceptions=True)
+        rmtree(temp_dir, ignore_errors=True)
+
+
 async def download_torrent(file: File, link: str, selected_indices: set[int] | None = None) -> AsyncGenerator[Progress, None]:
     """Upload each selected torrent file in the background as soon as it finishes downloading."""
 
