@@ -9,6 +9,7 @@ from functools import partial
 from html import unescape
 import inspect
 import os
+import re
 from mimetypes import guess_type
 from pathlib import Path, PurePosixPath
 from shutil import rmtree
@@ -927,6 +928,11 @@ async def download_google_drive_folder(file: File, link: str) -> AsyncGenerator[
     except ValueError:
         max_downloads = 4
 
+    try:
+        max_downloads = max(1, min(16, int(os.environ.get("STORELIMITLESS_GOOGLE_DRIVE_DOWNLOADS", "4"))))
+    except ValueError:
+        max_downloads = 4
+
     temp_dir: Path = (TRANSFER_PATH / file.username / "google-drive-folder" / uuid4().hex).resolve()
     temp_dir.mkdir(parents=True, exist_ok=True)
     progress = Progress(file.name or "Google Drive folder", "Discovering folder contents", 0)
@@ -1116,7 +1122,6 @@ async def download_google_drive_folder(file: File, link: str) -> AsyncGenerator[
                 ready_queue.task_done()
 
     try:
-        progress.yield_name = "" if False else progress.name
         try:
             entries = await to_thread(
                 gdown.download_folder,
@@ -1192,11 +1197,7 @@ async def download_google_drive_folder(file: File, link: str) -> AsyncGenerator[
             yield progress
             return
 
-        try:
-            download_concurrency = max_downloads
-        except NameError:
-            download_concurrency = 4
-
+        download_concurrency = max_downloads
         for index, (entry, relative_parts, target_directory) in enumerate(descriptors):
             file_id = str(getattr(entry, "id"))
             download_queue.put_nowait((index, file_id, relative_parts, target_directory, items[index]))
