@@ -88,8 +88,8 @@ The application provides these user-facing capabilities:
   completed, failed, skipped, and cancelled states where applicable.
 - Download stored files through a pause/resume tray in browsers that support the File System Access API. Byte-range requests and an IndexedDB job
   record allow supported downloads to resume after a page reload.
-- Download two or more selected active files as a named ZIP archive. The server streams the ZIP while reading source files from remote storage; it does
-  not first stage a complete archive on disk.
+- Download one folder, multiple files, multiple folders, or a mixed file/folder selection as a named ZIP archive. Folder paths are preserved, and the
+  server streams the ZIP while reading source files from remote storage instead of staging a complete archive on disk.
 - Use dashboard keyboard shortcuts for selection, opening, renaming, trashing, permanent deletion, details, and parent-folder navigation. Mouse and touch
   users can also use context menus, drag selection, long-press selection, and drag-and-drop moves.
 - View media in a custom video player with seeking, volume, speed control, fullscreen, picture-in-picture (when supported), and keyboard shortcuts;
