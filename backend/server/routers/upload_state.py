@@ -52,7 +52,12 @@ def resolve_upload_job_status(message: str, metadata: dict[str, Any]) -> str:
     if bool(metadata.get("cancelled")) or lowered.startswith("upload cancelled"):
         return "cancelled"
 
-    if lowered.startswith(("upload complete", "download and upload complete", "torrent download and sequential upload complete")):
+    if lowered.startswith((
+        "upload complete",
+        "download and upload complete",
+        "torrent download and sequential upload complete",
+        "google drive folder import complete",
+    )):
         return "completed"
 
     if bool(metadata.get("failed")) or lowered.startswith("upload failed"):
