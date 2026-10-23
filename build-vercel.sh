@@ -39,8 +39,7 @@ fi
 FRONTEND_DIR="$REPO_ROOT/frontend"
 BACKEND_DIR="$REPO_ROOT/backend/storelimitlessbackend"
 ROOT_VERCEL_DIR="$REPO_ROOT/.vercel"
-FRONTEND_PROJECT="${VERCEL_FRONTEND_PROJECT:-storelimitless}"
-BACKEND_PROJECT="${VERCEL_BACKEND_PROJECT:-storelimitlessbackend}"
+BACKEND_VERCEL_DIR="$BACKEND_DIR/.vercel"
 FRONTEND_DOMAIN="${VERCEL_FRONTEND_DOMAIN:-storelimitless.vercel.app}"
 BACKEND_DOMAIN="${VERCEL_BACKEND_DOMAIN:-storelimitlessbackend.vercel.app}"
 BACKEND_API_URL="https://${BACKEND_DOMAIN}"
@@ -86,8 +85,20 @@ fi
 
 project_name_from_link() {
     local project_json="$1"
+    [[ -f "$project_json" ]] || return 0
     node -e 'try { process.stdout.write(String(require(process.argv[1]).projectName || "")); } catch {}' "$project_json"
 }
+
+# Reuse each directory's existing link by default. Internal Vercel project slugs
+# need not match production aliases (the frontend is linked to "drive-bot").
+FRONTEND_LINKED_PROJECT="$(project_name_from_link "$ROOT_VERCEL_DIR/project.json" 2>/dev/null || true)"
+BACKEND_LINKED_PROJECT="$(project_name_from_link "$BACKEND_VERCEL_DIR/project.json" 2>/dev/null || true)"
+FRONTEND_PROJECT="${VERCEL_FRONTEND_PROJECT:-$FRONTEND_LINKED_PROJECT}"
+BACKEND_PROJECT="${VERCEL_BACKEND_PROJECT:-$BACKEND_LINKED_PROJECT}"
+[[ -n "$FRONTEND_PROJECT" ]] || FRONTEND_PROJECT="storelimitless"
+[[ -n "$BACKEND_PROJECT" ]] || BACKEND_PROJECT="storelimitlessbackend"
+printf 'Frontend Vercel project: %s (domain %s)\n' "$FRONTEND_PROJECT" "$FRONTEND_DOMAIN"
+printf 'Backend Vercel project:  %s (domain %s)\n' "$BACKEND_PROJECT" "$BACKEND_DOMAIN"
 
 # Link each local directory to the intended EXISTING Vercel project. Inspect first
 # so a typo or wrong team cannot silently create a third project under --yes.
@@ -172,18 +183,32 @@ deploy_and_alias() {
     local label="$2"
     local domain="$3"
     shift 3
+    local deployment_output=""
     local deployment_url=""
 
     log "Deploying $label to Vercel production"
-    if ! deployment_url="$(cd "$project_dir" && vercel_cli "$@")"; then
+    if ! deployment_output="$(cd "$project_dir" && vercel_cli "$@" 2>&1)"; then
+        printf '%s\n' "$deployment_output" >&2
         fail "$label deployment failed. Check the Vercel build output above."
     fi
-    deployment_url="$(printf '%s\n' "$deployment_url" | tail -n 1 | tr -d '\r')"
-    [[ "$deployment_url" == https://* ]] || fail "Could not determine the Vercel deployment URL for $label: '$deployment_url'"
+    printf '%s\n' "$deployment_output"
+
+    # Vercel output may include both a deployment URL and domain aliases. Filter
+    # both target aliases so alias set receives the unique deployment URL.
+    deployment_url="$(printf '%s\n' "$deployment_output" \
+        | grep -Eo 'https://[A-Za-z0-9.-]+\.vercel\.app' \
+        | grep -Fvx "https://${FRONTEND_DOMAIN}" \
+        | grep -Fvx "https://${BACKEND_DOMAIN}" \
+        | tail -n 1 || true)"
+    [[ -n "$deployment_url" ]] || fail "Could not extract the unique Vercel deployment URL for $label from the deploy output."
     printf 'Deployment URL: %s\n' "$deployment_url"
 
     log "Assigning $domain to $label"
-    (cd "$project_dir" && vercel_cli alias set "$deployment_url" "$domain")
+    if [[ -n "$VERCEL_SCOPE" ]]; then
+        (cd "$project_dir" && vercel_cli alias set "$deployment_url" "$domain" --scope "$VERCEL_SCOPE")
+    else
+        (cd "$project_dir" && vercel_cli alias set "$deployment_url" "$domain")
+    fi
 }
 
 # Deploy the Next.js API proxy first, then ship the static frontend pointed at it.
