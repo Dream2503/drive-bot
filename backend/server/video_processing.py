@@ -271,6 +271,7 @@ async def notify_video_file_saved(file: File) -> None:
     finally:
         context.original_saved.set()
 
+
 async def abort_local_video_preparation(file: File, reason: str) -> None:
     """Cancel local preparation only when the original never reached a durable database row."""
 
@@ -278,16 +279,35 @@ async def abort_local_video_preparation(file: File, reason: str) -> None:
     if context is None:
         return
 
-    if file.id is not None:
-        # File.save() can commit PostgreSQL before a later cache/logging operation raises.
-        # Once the original has an ID, keep local preparation alive and release its barrier
-        # instead of throwing away the source or forcing an avoidable remote re-download.
+    if file.id is not None and not context.original_saved.is_set():
+        # A caller can be cancelled after the file row commits but before Redis registration.
+        # Confirm that the row really exists, then repair the job registration before releasing
+        # the processor. An allocated ID alone does not prove the transaction committed.
+        persisted_original = await asyncio.to_thread(_load_original, int(file.id))
+        if persisted_original is not None:
+            try:
+                await enqueue_video_processing_job(
+                    int(file.id),
+                    status="preparing",
+                    message="Preparing a local streaming copy alongside the original upload.",
+                    source_size=file.size,
+                    username=file.username,
+                    name=file.name,
+                )
+                await notify_video_file_saved(file)
+            except Exception as status_error:
+                write_log(
+                    "ERROR", DataCenter(file.data_center) or DataCenter, "VIDEO PROCESSING", file.username,
+                    f"Could not register local preparation after the upload task ended file_id={file.id}: {status_error}",
+                )
+                context.original_saved.set()
+
+    if file.id is not None and context.original_saved.is_set():
         write_log(
             "WARNING", DataCenter(file.data_center) or DataCenter, "VIDEO PROCESSING", file.username,
             f"Upload task ended after original was saved file_id={file.id} name={file.name!r}; "
             f"continuing local processing: {reason}",
         )
-        context.original_saved.set()
         return
 
     if context.task is not None and not context.task.done():
@@ -300,7 +320,6 @@ async def abort_local_video_preparation(file: File, reason: str) -> None:
         f"Cancelled local preparation because original upload failed before a database row existed "
         f"name={file.name!r}: {reason}",
     )
-
 
 def get_processed_video(file_id: int) -> dict[str, Any] | None:
     """Return the durable streaming derivative metadata for one original file."""
@@ -393,6 +412,7 @@ async def retry_video_processing(file_id: int) -> bool:
     return bool(result)
 
 
+
 async def _update_for_original(original: File, fallback_file_id: int | None = None, **updates: Any) -> None:
     """Persist progress to Redis when the original has an ID and retain pre-ID snapshots locally."""
 
@@ -408,11 +428,16 @@ async def _update_for_original(original: File, fallback_file_id: int | None = No
             if key in updates:
                 setattr(context, key, updates[key])
 
+        # File.save() assigns its database ID before its awaited Redis registration.
+        # Keep progress only in this context until notify_video_file_saved publishes
+        # the initialized job hash and opens the original-upload barrier.
+        if not context.original_saved.is_set():
+            return
+
     file_id = original.id if original.id is not None else fallback_file_id
     if file_id is None:
         return
     await _update_job(int(file_id), **updates)
-
 
 async def _update_job(file_id: int, **updates: Any) -> None:
     """Persist an allow-listed video progress snapshot to a Redis hash."""
@@ -1262,7 +1287,7 @@ async def _run_local_video_preparation(context: LocalVideoPreparation) -> None:
         detail = " ".join(sanitize_sensitive_urls(str(error)).split())[:1800] or type(error).__name__
         # If the original upload is still active, wait for its terminal outcome before
         # deciding whether a durable processing job exists to mark failed.
-        if file.id is None:
+        if not context.original_saved.is_set():
             await context.original_saved.wait()
         if file.id is not None:
             try:
