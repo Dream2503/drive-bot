@@ -57,13 +57,29 @@ def safe_filename(name: str) -> str:
 
 
 def download_google_drive_file(link: str, output: Path) -> None:
-    """Download a Google Drive file to ``output`` using gdown."""
+    """Stream a Google Drive file directly into ``output`` for concurrent upload."""
 
-    downloaded: str | None = cast(str | None, gdown.download(link, output=str(output), quiet=True))
+    # Passing a path to gdown makes it write to a temporary .part file and rename
+    # it only after the download completes. The upload worker watches ``output``
+    # for growing chunks, so that behavior silently turns streaming into a
+    # download-then-upload operation. A file-like destination disables gdown's
+    # staging rename. Unbuffered writes make each received chunk visible to the
+    # concurrent reader immediately.
+    try:
+        with output.open("wb", buffering=0) as destination:
+            gdown.download(
+                url=link,
+                output=destination,
+                quiet=True,
+                use_cookies=False,
+            )
+            destination.flush()
+    except Exception:
+        output.unlink(missing_ok=True)
+        raise
 
-    if downloaded is None or not output.is_file():
+    if not output.is_file():
         raise OSError("Google Drive download failed")
-
 
 MAX_STREAM_RETRIES: int = 50
 STREAM_RETRY_MAX_DELAY: float = 5.0
