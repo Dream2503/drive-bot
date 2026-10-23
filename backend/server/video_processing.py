@@ -156,7 +156,7 @@ async def enqueue_video_processing_job(
     )
     if created:
         write_log(
-            "INFO", DataCenter, "VIDEO PROCESSING", username,
+            "INFO", Database, "VIDEO PROCESSING", username,
             f"Registered Redis video job file_id={file_id} name={name!r} status={status}.",
         )
     return bool(created)
@@ -237,7 +237,7 @@ async def start_local_video_preprocessing(file: File, source_path: Path) -> None
     context = LocalVideoPreparation(file, preserved_source, staging_root, asyncio.Event())
     _LOCAL_VIDEO_PREPARATIONS[key] = context
     write_log(
-        "INFO", DataCenter(file.data_center) or DataCenter, "VIDEO PROCESSING", file.username,
+        "INFO", DataCenter(file.data_center) or Database, "VIDEO PROCESSING", file.username,
         f"Local preparation started file_id={file.id} name={file.name!r} source={source_path.name!r}; "
         "FFmpeg can now run alongside the original upload.",
     )
@@ -255,7 +255,7 @@ async def notify_video_file_saved(file: File) -> None:
     if context is None:
         return
     write_log(
-        "INFO", DataCenter(file.data_center) or DataCenter, "VIDEO PROCESSING", file.username,
+        "INFO", DataCenter(file.data_center) or Database, "VIDEO PROCESSING", file.username,
         f"Original upload finalized file_id={file.id} name={file.name!r} size={file.size} "
         f"chunks={len(file.links)}; synchronizing locally accumulated progress.",
     )
@@ -297,14 +297,14 @@ async def abort_local_video_preparation(file: File, reason: str) -> None:
                 await notify_video_file_saved(file)
             except Exception as status_error:
                 write_log(
-                    "ERROR", DataCenter(file.data_center) or DataCenter, "VIDEO PROCESSING", file.username,
+                    "ERROR", DataCenter(file.data_center) or Database, "VIDEO PROCESSING", file.username,
                     f"Could not register local preparation after the upload task ended file_id={file.id}: {status_error}",
                 )
                 context.original_saved.set()
 
     if file.id is not None and context.original_saved.is_set():
         write_log(
-            "WARNING", DataCenter(file.data_center) or DataCenter, "VIDEO PROCESSING", file.username,
+            "WARNING", DataCenter(file.data_center) or Database, "VIDEO PROCESSING", file.username,
             f"Upload task ended after original was saved file_id={file.id} name={file.name!r}; "
             f"continuing local processing: {reason}",
         )
@@ -316,7 +316,7 @@ async def abort_local_video_preparation(file: File, reason: str) -> None:
     _LOCAL_VIDEO_PREPARATIONS.pop(id(file), None)
     shutil.rmtree(context.staging_root, ignore_errors=True)
     write_log(
-        "WARNING", DataCenter(file.data_center) or DataCenter, "VIDEO PROCESSING", file.username,
+        "WARNING", DataCenter(file.data_center) or Database, "VIDEO PROCESSING", file.username,
         f"Cancelled local preparation because original upload failed before a database row existed "
         f"name={file.name!r}: {reason}",
     )
@@ -406,7 +406,7 @@ async def retry_video_processing(file_id: int) -> bool:
     )
     if result:
         write_log(
-            "INFO", DataCenter, "VIDEO PROCESSING", str(file_id),
+            "INFO", Database, "VIDEO PROCESSING", str(file_id),
             f"Video processing retry queued file_id={file_id}.",
         )
     return bool(result)
@@ -495,7 +495,7 @@ async def _requeue_stale_jobs() -> None:
         )
         if requeued:
             write_log(
-                "WARNING", DataCenter, "VIDEO PROCESSING", str(value),
+                "WARNING", Database, "VIDEO PROCESSING", str(value),
                 f"Requeued stale Redis video job file_id={value}.",
             )
 
@@ -527,7 +527,7 @@ async def _recover_interrupted_jobs(startup_time: float) -> None:
             sequence = await Redis.redis.incr(_JOB_SEQUENCE)
             await Redis.redis.zadd(_JOB_QUEUE, {str(file_id): sequence})
             write_log(
-                "INFO", DataCenter, "VIDEO PROCESSING", str(file_id),
+                "INFO", Database, "VIDEO PROCESSING", str(file_id),
                 f"Recovered interrupted Redis video job file_id={file_id}.",
             )
         elif status == "queued" and await Redis.redis.zscore(_JOB_QUEUE, str(file_id)) is None:
@@ -858,7 +858,7 @@ async def _download_original(file: File, destination: Path) -> None:
         raise RuntimeError("The original video has no valid stored chunks.")
 
     write_log(
-        "WARNING", DataCenter(file.data_center) or DataCenter, "VIDEO PROCESSING", file.username,
+        "WARNING", DataCenter(file.data_center) or Database, "VIDEO PROCESSING", file.username,
         f"Reading original file_id={file.id} name={file.name!r} back from remote storage because no local processing source survived.",
     )
     stream = await Stream.prepare(file)
@@ -885,7 +885,7 @@ async def _download_original(file: File, destination: Path) -> None:
     if downloaded != file.size:
         raise RuntimeError(f"The downloaded original was incomplete ({downloaded} of {file.size} bytes).")
     write_log(
-        "INFO", DataCenter(file.data_center) or DataCenter, "VIDEO PROCESSING", file.username,
+        "INFO", DataCenter(file.data_center) or Database, "VIDEO PROCESSING", file.username,
         f"Recovery source read complete file_id={file.id} bytes={downloaded}.",
     )
     await _update_job(
@@ -914,7 +914,7 @@ async def _process_video(
         original = _load_original(file_id)
 
     if original is None:
-        write_log("WARNING", DataCenter, "VIDEO PROCESSING", str(file_id or "unknown"), "Original database row disappeared before processing.")
+        write_log("WARNING", Database, "VIDEO PROCESSING", str(file_id or "unknown"), "Original database row disappeared before processing.")
         return
 
     current_file_id = int(original.id) if original.id is not None else file_id
@@ -1301,11 +1301,11 @@ async def _run_local_video_preparation(context: LocalVideoPreparation) -> None:
                 )
             except Exception as status_error:
                 write_log(
-                    "ERROR", DataCenter(file.data_center) or DataCenter, "VIDEO PROCESSING", file.username,
+                    "ERROR", DataCenter(file.data_center) or Database, "VIDEO PROCESSING", file.username,
                     f"Could not persist failure file_id={file.id}: {status_error}",
                 )
         write_log(
-            "ERROR", DataCenter(file.data_center) or DataCenter, "VIDEO PROCESSING", file.username,
+            "ERROR", DataCenter(file.data_center) or Database, "VIDEO PROCESSING", file.username,
             f"Local stream preparation failed file_id={file.id} name={file.name!r}: {detail}",
         )
     finally:
@@ -1316,7 +1316,7 @@ async def _run_local_video_preparation(context: LocalVideoPreparation) -> None:
 async def _process_job(file_id: int) -> None:
     """Run one queued job and record a useful failure without damaging the original."""
     try:
-        write_log("INFO", DataCenter, "VIDEO PROCESSING", str(file_id), f"Persistent worker claimed file_id={file_id}.")
+        write_log("INFO", Database, "VIDEO PROCESSING", str(file_id), f"Persistent worker claimed file_id={file_id}.")
         await _process_video(file_id)
     except asyncio.CancelledError:
         raise
@@ -1333,7 +1333,7 @@ async def _process_job(file_id: int) -> None:
             )
         except Exception as status_error:
             print(f"Could not persist video processing failure for file {file_id}: {status_error}")
-        write_log("ERROR", DataCenter, "VIDEO PROCESSING", str(file_id), f"Persistent processing failed file_id={file_id}: {detail}")
+        write_log("ERROR", Database, "VIDEO PROCESSING", str(file_id), f"Persistent processing failed file_id={file_id}: {detail}")
 
 
 
