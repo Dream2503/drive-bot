@@ -24,7 +24,7 @@ from core.data_center import DataCenter, Database
 from core.stream import Stream
 from core.utils import sanitize_sensitive_urls, write_log
 from core.utils.binaries import get_ffmpeg_path
-from core.utils.ingestion_queue import (
+from core.utils.upload_manager import (
     IngestionUploadTicket,
     cancel_ingestion_upload,
     enqueue_ingestion_upload,
