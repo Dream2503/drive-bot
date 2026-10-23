@@ -230,12 +230,33 @@ function VideoPlayer({file, streamUrl, publicToken, heightClass = "h-[70vh]"}) {
         const video = videoRef.current;
         if (!video?.textTracks) return;
 
-        for (let index = 0; index < video.textTracks.length; index += 1) {
-            const descriptor = subtitleTracks[index];
-            video.textTracks[index].mode = descriptor && descriptor.index === selectedSubtitleTrack
-                ? "showing"
-                : "disabled";
-        }
+        const syncSubtitleMode = () => {
+            const textTracks = video.textTracks;
+            for (let index = 0; index < textTracks.length; index += 1) {
+                const descriptor = subtitleTracks[index];
+                textTracks[index].mode = descriptor && descriptor.index === selectedSubtitleTrack
+                    ? "showing"
+                    : "disabled";
+            }
+        };
+
+        // Track elements and their TextTrack objects can arrive after React renders them.
+        syncSubtitleMode();
+        video.textTracks.addEventListener("addtrack", syncSubtitleMode);
+        video.textTracks.addEventListener("change", syncSubtitleMode);
+
+        const trackElements = video.querySelectorAll("track[kind='subtitles']");
+        trackElements.forEach((trackElement) => {
+            trackElement.addEventListener("load", syncSubtitleMode);
+        });
+
+        return () => {
+            video.textTracks.removeEventListener("addtrack", syncSubtitleMode);
+            video.textTracks.removeEventListener("change", syncSubtitleMode);
+            trackElements.forEach((trackElement) => {
+                trackElement.removeEventListener("load", syncSubtitleMode);
+            });
+        };
     }, [selectedSubtitleTrack, subtitleTracks]);
 
     const recoverStream = useCallback((video) => {
@@ -509,6 +530,14 @@ function VideoPlayer({file, streamUrl, publicToken, heightClass = "h-[70vh]"}) {
                 src={API_URL + "/public/hls/" + encodeURIComponent(publicToken) + "/subtitles/" + track.index + ".vtt"}
                 srcLang={track.language || "und"}
                 label={track.label}
+                default={selectedSubtitleTrack === track.index}
+                onLoad={(event) => {
+                    const textTrack = event.currentTarget.track;
+                    textTrack.mode = selectedSubtitleTrack === track.index ? "showing" : "disabled";
+                }}
+                onError={() => {
+                    setError("Could not load this subtitle track. Check the backend subtitle response in the Network tab.");
+                }}
             />))}
         </video>
 
