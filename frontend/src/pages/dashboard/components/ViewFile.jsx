@@ -143,6 +143,7 @@ function VideoPlayer({file, streamUrl, publicToken, heightClass = "h-[70vh]"}) {
     const [selectedAudioTrack, setSelectedAudioTrack] = useState(-1);
     const [subtitleTracks, setSubtitleTracks] = useState([]);
     const [selectedSubtitleTrack, setSelectedSubtitleTrack] = useState(-1);
+    const [subtitleReloadNonce, setSubtitleReloadNonce] = useState(0);
     const [subtitleCues, setSubtitleCues] = useState([]);
     const [subtitleLoadError, setSubtitleLoadError] = useState("");
     const [isFs, setIsFs] = useState(false);
@@ -392,7 +393,12 @@ function VideoPlayer({file, streamUrl, publicToken, heightClass = "h-[70vh]"}) {
                     if (cancelled) return;
 
                     const trimmed = subtitleText.trimStart();
-                    if (trimmed && !trimmed.startsWith("WEBVTT")) {
+
+                    // ReadableStream chunks have arbitrary boundaries. The first read
+                    // may contain only "WE" or "WEBV", which is a valid prefix of the
+                    // WebVTT header, not a malformed response. Validate only after the
+                    // full header could have arrived.
+                    if (trimmed.length >= 6 && !trimmed.startsWith("WEBVTT")) {
                         throw new Error("The server response is not valid WebVTT subtitle data.");
                     }
 
@@ -427,7 +433,7 @@ function VideoPlayer({file, streamUrl, publicToken, heightClass = "h-[70vh]"}) {
             cancelled = true;
             controller.abort();
         };
-    }, [publicToken, selectedSubtitleTrack, subtitleWindowStart]);
+    }, [publicToken, selectedSubtitleTrack, subtitleWindowStart, subtitleReloadNonce]);
 
 
 
@@ -528,7 +534,12 @@ function VideoPlayer({file, streamUrl, publicToken, heightClass = "h-[70vh]"}) {
     };
 
     const selectSubtitleTrack = (index) => {
+        // Increment even when the current track is clicked again, so a failed or
+        // cancelled request can be retried without requiring a different selection.
+        setSubtitleLoadError("");
+        setSubtitleCues([]);
         setSelectedSubtitleTrack(index);
+        setSubtitleReloadNonce((nonce) => nonce + 1);
         setMenu(null);
     };
 
