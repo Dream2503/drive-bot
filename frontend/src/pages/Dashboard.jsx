@@ -1404,14 +1404,17 @@ export default function DashboardPage() {
             : payload.kind === "item" ? [payload.item] : [];
         const selectedCount = actionItems.length || 1;
         const multiSelection = selectedCount > 1;
-        const multipleFilesSelected = activeTab !== "trash" && multiSelection && actionItems.every((item) => item?.type === "file" && !item.is_deleted);
+        const canDownloadZip = activeTab !== "trash"
+            && actionItems.length > 0
+            && actionItems.every((item) => item && ["file", "folder"].includes(item.type) && !item.is_deleted)
+            && (multiSelection || actionItems.some((item) => item.type === "folder"));
         const menuHeight = payload.kind === "background" ? 80
             : payload.item?.is_deleted ? 80
-                : multipleFilesSelected ? 120
-                    : multiSelection ? 80
-                        : payload.item?.type === "folder" ? 120 : 160;
+                : multiSelection ? canDownloadZip ? 120 : 80
+                    : payload.item?.type === "folder" ? canDownloadZip ? 200 : 160 : 160;
         setContextMenu({
             ...payload,
+            canDownloadZip,
             x: Math.max(8, Math.min(x, window.innerWidth - menuWidth - 8)),
             y: Math.max(8, Math.min(y, window.innerHeight - menuHeight - 8)),
         });
@@ -1542,13 +1545,14 @@ export default function DashboardPage() {
             zipDownloadNameInputRef.current?.focus();
             return;
         }
-        const fileIds = zipDownloadPrompt?.fileIds;
-        if (!fileIds?.length) {
+        const fileIds = zipDownloadPrompt?.fileIds || [];
+        const folderIds = zipDownloadPrompt?.folderIds || [];
+        if (!fileIds.length && !folderIds.length) {
             cancelZipDownloadPrompt();
             return;
         }
         cancelZipDownloadPrompt();
-        void downloadFilesAsZip(fileIds, `${name}.zip`);
+        void downloadFilesAsZip(fileIds, `${name}.zip`, folderIds);
     };
 
     /**
@@ -1584,13 +1588,26 @@ export default function DashboardPage() {
 
         if (action === "download-zip") {
             const filesToDownload = actionItems.filter((candidate) => candidate.type === "file" && !candidate.is_deleted);
-            if (activeTab === "trash" || filesToDownload.length !== actionItems.length || filesToDownload.length < 2) {
-                alert("ZIP download is available when at least two active files are selected.");
+            const foldersToDownload = actionItems.filter((candidate) => candidate.type === "folder" && !candidate.is_deleted);
+            if (
+                activeTab === "trash"
+                || !actionItems.length
+                || actionItems.some((candidate) => candidate.is_deleted || !["file", "folder"].includes(candidate.type))
+                || (!foldersToDownload.length && filesToDownload.length < 2)
+            ) {
+                alert("Select a folder or at least two active files to download as a ZIP.");
                 return;
             }
-            setZipDownloadName("StoreLimitless-files");
+
+            const singleFolderName = actionItems.length === 1 && foldersToDownload.length === 1
+                ? String(foldersToDownload[0].name || foldersToDownload[0].path || "").split(/[\\/]/).filter(Boolean).at(-1)
+                : "";
+            setZipDownloadName(singleFolderName || "StoreLimitless-items");
             setZipDownloadNameError("");
-            setZipDownloadPrompt({fileIds: filesToDownload.map((candidate) => candidate.id)});
+            setZipDownloadPrompt({
+                fileIds: filesToDownload.map((candidate) => candidate.id),
+                folderIds: foldersToDownload.map((candidate) => candidate.id),
+            });
             return;
         }
 
@@ -2947,9 +2964,9 @@ export default function DashboardPage() {
                 <header className="flex items-start gap-3 border-b border-[#29362e] bg-[#151d18] px-5 py-4">
                     <span className="material-symbols-outlined mt-0.5 text-[22px] text-[#3ecf8e]" aria-hidden="true">folder_zip</span>
                     <div className="min-w-0 flex-1">
-                        <h2 id="zip-download-title" className="text-sm font-semibold text-[#e8f0eb]">Download selected files as ZIP</h2>
+                        <h2 id="zip-download-title" className="text-sm font-semibold text-[#e8f0eb]">Download selected items as ZIP</h2>
                         <p id="zip-download-description" className="mt-1 text-xs leading-relaxed text-[#8ca296]">Choose a name for your archive.
-                            StoreLimitless will stream the ZIP directly to your download.</p>
+                            Files and folders will be streamed into a ZIP without staging the archive on the server.</p>
                     </div>
                     <button type="button" onClick={cancelZipDownloadPrompt}
                             className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-[#9bbba7] transition-colors hover:bg-white/5 hover:text-white"
