@@ -827,7 +827,7 @@ def is_google_drive_folder_url(link: str) -> bool:
     return (
         parsed.scheme.lower() in {"http", "https"}
         and (parsed.hostname or "").lower().removeprefix("www.") == "drive.google.com"
-        and fullmatch(r"/drive/folders/[-\\w]+/?", parsed.path or "") is not None
+        and re.search(r"/drive/folders/[-\\w]+(?:/view)?/?$", parsed.path or "") is not None
     )
 
 
@@ -835,7 +835,10 @@ def _public_google_drive_folder_title(link: str) -> str:
     """Resolve a public folder title when its public listing contains no files."""
 
     parsed = urlparse(link)
-    folder_id = (parsed.path or "").rstrip("/").rsplit("/", 1)[-1]
+    folder_match = re.search(r"/drive/folders/([-\\w]+)", parsed.path or "")
+    if folder_match is None:
+        raise ValueError("Could not determine the Google Drive folder ID from the URL")
+    folder_id = folder_match.group(1)
     response: Response = get(
         f"https://drive.google.com/embeddedfolderview?id={folder_id}",
         headers={"User-Agent": "Mozilla/5.0"},
@@ -848,7 +851,7 @@ def _public_google_drive_folder_title(link: str) -> str:
         if title_match is None:
             raise OSError("Google Drive did not return a folder title for this public link")
         title = unescape(re.sub(r"<[^>]+>", "", title_match.group(1))).strip()
-        title = re.sub(r"\\s+-\\s+Google Drive$", "", title, flags=re.IGNORECASE).strip()
+        title = re.sub(r"\s+-\s+Google Drive$", "", title, flags=re.IGNORECASE).strip()
         if not title:
             raise OSError("Google Drive returned an empty folder name")
         return title
@@ -922,11 +925,6 @@ async def download_google_drive_folder(file: File, link: str) -> AsyncGenerator[
     base_directory: Directory | None = await Directory.get(file.username, did=file.directory_id)
     if base_directory is None or base_directory.id is None:
         raise ValueError("The destination directory no longer exists")
-
-    try:
-        max_downloads = max(1, min(16, int(os.environ.get("STORELIMITLESS_GOOGLE_DRIVE_DOWNLOADS", "4"))))
-    except ValueError:
-        max_downloads = 4
 
     try:
         max_downloads = max(1, min(16, int(os.environ.get("STORELIMITLESS_GOOGLE_DRIVE_DOWNLOADS", "4"))))
@@ -1137,16 +1135,10 @@ async def download_google_drive_folder(file: File, link: str) -> AsyncGenerator[
         if not isinstance(entries, list):
             raise OSError("Google Drive did not return a folder file listing")
 
-        if entries:
-            first_local_path = Path(str(getattr(entries[0], "local_path", "")))
-            try:
-                root_name = first_local_path.resolve().relative_to(temp_dir.resolve()).parts[0]
-            except (ValueError, IndexError):
-                root_name = _public_google_drive_folder_title(link)
-        else:
-            root_name = _public_google_drive_folder_title(link)
-
-        root_name = safe_torrent_component(root_name)
+        # gdown entry paths are relative to the submitted folder and generally omit
+        # the root name. Resolve the root from the public folder listing instead of
+        # accidentally treating the first file's parent directory as the root.
+        root_name = safe_torrent_component(await to_thread(_public_google_drive_folder_title, link))
         progress.name = root_name
         progress.message = "Creating directories"
         base_directory = cast(Directory, await Directory.get(file.username, did=file.directory_id))
