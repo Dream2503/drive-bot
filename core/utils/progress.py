@@ -195,6 +195,7 @@ async def upload_growing_file(
             while len(upload_tasks) >= max(1, int(data_center.MAX_PARALLEL_UPLOADS)):
                 await collect_done()
                 update_progress(size)
+                update_download_progress()
                 yield progress
                 await sleep(0.1)
 
