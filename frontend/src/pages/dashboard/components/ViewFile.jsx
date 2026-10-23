@@ -444,7 +444,7 @@ function VideoPlayer({file, streamUrl, publicToken, heightClass = "h-[70vh]"}) {
     >
         <video
             ref={videoRef}
-            src={playbackUrl}
+            crossOrigin="anonymous"
             autoPlay
             playsInline
             className="h-full w-full object-contain"
@@ -502,7 +502,15 @@ function VideoPlayer({file, streamUrl, publicToken, heightClass = "h-[70vh]"}) {
             }}
             onRateChange={(event) => setRate(event.currentTarget.playbackRate)}
             onError={handleMediaError}
-        />
+        >
+            {publicToken && subtitleTracks.map((track) => (<track
+                key={track.index}
+                kind="subtitles"
+                src={API_URL + "/public/hls/" + encodeURIComponent(publicToken) + "/subtitles/" + track.index + ".vtt"}
+                srcLang={track.language || "und"}
+                label={track.label}
+            />))}
+        </video>
 
         {buffering && !error && (<div className="pointer-events-none absolute inset-0 flex items-center justify-center">
                     <span className="material-symbols-outlined animate-spin text-[40px] text-[#3ecf8e]" aria-label="Loading">
@@ -518,6 +526,44 @@ function VideoPlayer({file, streamUrl, publicToken, heightClass = "h-[70vh]"}) {
         {isFs && (<div
             className={`pointer-events-none absolute inset-x-0 top-0 bg-gradient-to-b from-black/80 to-transparent px-5 pb-8 pt-4 transition-opacity duration-200 ${controlsVisible ? "opacity-100" : "opacity-0"}`}>
             <p className="truncate text-sm font-medium text-[#fafafa]">{file.name}</p>
+        </div>)}
+
+        {menu === "audio" && (<div
+            className="absolute bottom-16 right-3 z-20 max-h-64 w-56 overflow-auto rounded-md border border-[#2e2e2e] bg-[#1c1c1c]/95 p-1.5 shadow-xl backdrop-blur"
+            onClick={(event) => event.stopPropagation()}>
+            <p className="px-2 pb-1 pt-2 text-[11px] text-[#8b8b8b]">Audio track</p>
+            {audioTracks.map((track) => (<button
+                key={"audio-" + track.index}
+                type="button"
+                onClick={() => selectAudioTrack(track.index)}
+                className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs text-[#fafafa] hover:bg-white/10"
+            >
+                <span className="inline-block w-4 text-[#3ecf8e]">{selectedAudioTrack === track.index ? "✓" : ""}</span>
+                <span className="flex-1 truncate">{track.label}</span>
+            </button>))}
+        </div>)}
+
+        {menu === "subtitles" && (<div
+            className="absolute bottom-16 right-3 z-20 max-h-64 w-56 overflow-auto rounded-md border border-[#2e2e2e] bg-[#1c1c1c]/95 p-1.5 shadow-xl backdrop-blur"
+            onClick={(event) => event.stopPropagation()}>
+            <p className="px-2 pb-1 pt-2 text-[11px] text-[#8b8b8b]">Subtitles</p>
+            <button
+                type="button"
+                onClick={() => selectSubtitleTrack(-1)}
+                className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs text-[#fafafa] hover:bg-white/10"
+            >
+                <span className="inline-block w-4 text-[#3ecf8e]">{selectedSubtitleTrack === -1 ? "✓" : ""}</span>
+                <span className="flex-1">Off</span>
+            </button>
+            {subtitleTracks.map((track) => (<button
+                key={"subtitle-" + track.index}
+                type="button"
+                onClick={() => selectSubtitleTrack(track.index)}
+                className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs text-[#fafafa] hover:bg-white/10"
+            >
+                <span className="inline-block w-4 text-[#3ecf8e]">{selectedSubtitleTrack === track.index ? "✓" : ""}</span>
+                <span className="flex-1 truncate">{track.label}</span>
+            </button>))}
         </div>)}
 
         {menu === "speed" && (<div
@@ -605,6 +651,26 @@ function VideoPlayer({file, streamUrl, publicToken, heightClass = "h-[70vh]"}) {
                 <span className="ml-2 text-xs tabular-nums text-[#fafafa]/80">{fmtTime(current)} / {fmtTime(duration)}</span>
 
                 <div className="ml-auto flex items-center gap-1">
+                    {audioTracks.length > 1 && (<button
+                        type="button"
+                        className={"flex h-8 shrink-0 items-center justify-center rounded-md px-2 text-xs text-[#fafafa]/90 transition-colors hover:bg-white/10 " + (menu === "audio" ? "bg-white/10" : "")}
+                        aria-label="Audio tracks"
+                        aria-expanded={menu === "audio"}
+                        onClick={() => setMenu(menu === "audio" ? null : "audio")}
+                    >
+                        <span className="material-symbols-outlined mr-1 text-[17px]" aria-hidden="true">audio_file</span>
+                        Audio
+                    </button>)}
+                    {subtitleTracks.length > 0 && (<button
+                        type="button"
+                        className={"flex h-8 shrink-0 items-center justify-center rounded-md px-2 text-xs text-[#fafafa]/90 transition-colors hover:bg-white/10 " + (menu === "subtitles" ? "bg-white/10" : "")}
+                        aria-label="Subtitle tracks"
+                        aria-expanded={menu === "subtitles"}
+                        onClick={() => setMenu(menu === "subtitles" ? null : "subtitles")}
+                    >
+                        <span className="material-symbols-outlined mr-1 text-[17px]" aria-hidden="true">closed_caption</span>
+                        Subs
+                    </button>)}
                     <button
                         type="button"
                         className={`${ctrlBtn} w-auto px-2 text-xs tabular-nums ${menu === "speed" ? "bg-white/10" : ""}`}
@@ -1192,7 +1258,7 @@ export default function ViewFile() {
         setError("");
 
         if (publicToken) {
-            setSource({streamUrl: `${API_URL}/public/stream/${encodeURIComponent(publicToken)}`});
+            setSource({streamUrl: `${API_URL}/public/stream/${encodeURIComponent(publicToken)}`, publicToken});
             return () => {
                 cancelled = true;
             };
@@ -1219,7 +1285,7 @@ export default function ViewFile() {
                 const data = await response.json();
                 if (!response.ok) throw new Error(data.detail || "Could not open this file.");
                 if (!data.public_token) throw new Error("The server did not return a public stream token.");
-                if (!cancelled) setSource({streamUrl: `${API_URL}/public/stream/${data.public_token}`});
+                if (!cancelled) setSource({streamUrl: `${API_URL}/public/stream/${data.public_token}`, publicToken: data.public_token});
             } catch (err) {
                 if (!cancelled) setError(err.message || "Could not open this file.");
             }
@@ -1289,7 +1355,7 @@ export default function ViewFile() {
                         {status}
                     </div>) : (<div className="flex h-full w-full min-h-0 flex-col">
                         <div className="min-h-0 min-w-0 flex-1">
-                            <VideoPlayer file={{name}} streamUrl={source.streamUrl} heightClass="h-full"/>
+                            <VideoPlayer file={{name}} streamUrl={source.streamUrl} publicToken={source.publicToken} heightClass="h-full"/>
                         </div>
                     </div>)}
         </main>
