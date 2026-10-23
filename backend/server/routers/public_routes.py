@@ -31,6 +31,12 @@ from core.utils.binaries import get_ffmpeg_path
 from core.utils.discord_ import Discord
 from core.utils.progress import Progress
 from .upload_state import get_upload_job_metadata
+from backend.server.video_processing import (
+    get_processed_video,
+    get_video_processing_status,
+    read_processed_segment,
+    retry_video_processing,
+)
 
 router: APIRouter = APIRouter()
 
@@ -574,11 +580,36 @@ async def _public_media_info(file: File, token: str, request: Request | None = N
     return media_info
 
 
+async def _playback_media_info(file: File, token: str, request: Request | None = None) -> dict[str, Any] | None:
+    """Prefer the verified, stored streaming metadata and retain dynamic fallback for legacy files."""
+
+    if file.id is not None:
+        processed = get_processed_video(int(file.id))
+        if processed is not None:
+            media_info = dict(processed.get("media_info") or {})
+            media_info["_processed_assets"] = processed.get("assets") or {}
+            return media_info
+
+    return await _public_media_info(file, token, request)
+
+
 def _hls_media_playlist(token: str, media_info: dict[str, Any], *, kind: str, stream_index: int | None = None) -> str:
     """Describe fixed-duration on-demand segments; each request is generated in memory."""
 
     duration = float(media_info["duration"])
-    segment_count = math.ceil(duration / _MEDIA_SEGMENT_SECONDS)
+    processed_assets = media_info.get("_processed_assets")
+    stored_segments: list[dict[str, Any]] | None = None
+
+    if processed_assets is not None and kind in {"video", "audio"}:
+        if kind == "video":
+            track_key = str(int(media_info["video"]["index"]))
+        else:
+            track_key = str(int(stream_index or 0))
+        stored_segments = list(((processed_assets.get(kind) or {}).get(track_key)) or [])
+        segment_count = len(stored_segments)
+    else:
+        segment_count = math.ceil(duration / _MEDIA_SEGMENT_SECONDS)
+
     if segment_count <= 0 or segment_count > _MEDIA_MAX_SEGMENTS:
         raise HTTPException(status_code=413, detail="This video's duration is too long for track-aware playback.")
 
@@ -593,12 +624,16 @@ def _hls_media_playlist(token: str, media_info: dict[str, Any], *, kind: str, st
     ]
 
     for segment_index in range(segment_count):
-        if segment_index > 0:
-            # Each segment is produced by a short-lived FFmpeg process, so declare the
-            # timestamp/transport-stream counter reset explicitly to the HLS client.
+        if segment_index > 0 and stored_segments is None:
+            # Legacy fragments are produced by separate FFmpeg runs, so declare each
+            # timestamp reset. Preprocessed HLS segments come from a continuous encode.
             lines.append("#EXT-X-DISCONTINUITY")
 
-        segment_duration = min(_MEDIA_SEGMENT_SECONDS, duration - segment_index * _MEDIA_SEGMENT_SECONDS)
+        segment_duration = (
+            float(stored_segments[segment_index].get("duration") or _MEDIA_SEGMENT_SECONDS)
+            if stored_segments is not None
+            else min(_MEDIA_SEGMENT_SECONDS, duration - segment_index * _MEDIA_SEGMENT_SECONDS)
+        )
         if kind == "audio":
             url = f"{base}/segment/audio/{int(stream_index or 0)}/{segment_index}"
         else:
@@ -622,16 +657,45 @@ def _media_response_headers(request: Request) -> dict[str, str]:
     }
 
 
+@router.get("/video-processing/{token}/status")
+async def public_video_processing_status(token: str, request: Request) -> JSONResponse:
+    """Return per-video processing progress to the holder of the signed stream token."""
+
+    file = await _owned_public_file(token, request)
+    if file.id is None:
+        raise HTTPException(status_code=404, detail="File not found.")
+    return JSONResponse(get_video_processing_status(int(file.id)), headers=_media_response_headers(request))
+
+
+@router.post("/video-processing/{token}/retry")
+async def public_retry_video_processing(token: str, request: Request) -> JSONResponse:
+    """Requeue a failed video conversion without modifying its original uploaded file."""
+
+    file = await _owned_public_file(token, request)
+    if file.id is None:
+        raise HTTPException(status_code=404, detail="File not found.")
+
+    current = get_video_processing_status(int(file.id))
+    if current.get("status") == "ready":
+        return JSONResponse(current, headers=_media_response_headers(request))
+    if current.get("status") != "failed":
+        return JSONResponse(current, headers=_media_response_headers(request))
+    if not retry_video_processing(int(file.id)):
+        raise HTTPException(status_code=409, detail="This video is not eligible for retry.")
+    return JSONResponse(get_video_processing_status(int(file.id)), headers=_media_response_headers(request))
+
+
 @router.get("/tracks/{token}")
 async def public_media_tracks(token: str, request: Request) -> JSONResponse:
     """List selectable audio and text subtitle tracks embedded in the original file."""
 
     file = await _owned_public_file(token, request)
-    media_info = await _public_media_info(file, token, request)
+    media_info = await _playback_media_info(file, token, request)
     if media_info is None:
         return Response(status_code=204, headers=_media_response_headers(request))
+    public_info = {key: value for key, value in media_info.items() if not key.startswith("_")}
     return JSONResponse(
-        {**media_info, "segment_duration": _MEDIA_SEGMENT_SECONDS},
+        {**public_info, "segment_duration": _MEDIA_SEGMENT_SECONDS},
         headers=_media_response_headers(request),
     )
 
@@ -641,7 +705,7 @@ async def public_hls_master(token: str, request: Request) -> Response:
     """Create an HLS master playlist without writing a playlist or media segment to disk."""
 
     file = await _owned_public_file(token, request)
-    media_info = await _public_media_info(file, token, request)
+    media_info = await _playback_media_info(file, token, request)
     if media_info is None:
         return Response(status_code=204, headers=_media_response_headers(request))
     if not media_info.get("video"):
@@ -682,7 +746,7 @@ async def public_hls_video_playlist(token: str, request: Request) -> Response:
     """Create the video-only HLS playlist for dynamic, in-memory segments."""
 
     file = await _owned_public_file(token, request)
-    media_info = await _public_media_info(file, token, request)
+    media_info = await _playback_media_info(file, token, request)
     if media_info is None:
         return Response(status_code=204, headers=_media_response_headers(request))
     return Response(
@@ -701,7 +765,7 @@ async def public_hls_audio_playlist(
     """Create a separate audio rendition playlist for the selected embedded stream."""
 
     file = await _owned_public_file(token, request)
-    media_info = await _public_media_info(file, token, request)
+    media_info = await _playback_media_info(file, token, request)
     if media_info is None:
         return Response(status_code=204, headers=_media_response_headers(request))
     if not any(int(item["index"]) == track for item in media_info["audio"]):
@@ -724,7 +788,7 @@ async def public_hls_audio_playlist_legacy(
     """Support older HLS manifests that pass the selected audio track in the query string."""
 
     file = await _owned_public_file(token, request)
-    media_info = await _public_media_info(file, token, request)
+    media_info = await _playback_media_info(file, token, request)
     if media_info is None:
         return Response(status_code=204, headers=_media_response_headers(request))
 
@@ -782,11 +846,17 @@ async def public_hls_segment(
         raise HTTPException(status_code=404, detail="Media segment not found.")
 
     file = await _owned_public_file(token, request)
-    media_info = await _public_media_info(file, token, request)
+    media_info = await _playback_media_info(file, token, request)
     if media_info is None:
         return Response(status_code=204, headers=_media_response_headers(request))
     duration = float(media_info["duration"])
-    segment_count = math.ceil(duration / _MEDIA_SEGMENT_SECONDS)
+    processed_assets = media_info.get("_processed_assets")
+    selected_segments = None
+    if processed_assets is not None and kind in {"video", "audio"}:
+        selected_segments = ((processed_assets.get(kind) or {}).get(str(track))) or []
+        segment_count = len(selected_segments)
+    else:
+        segment_count = math.ceil(duration / _MEDIA_SEGMENT_SECONDS)
     if index < 0 or index >= segment_count:
         raise HTTPException(status_code=404, detail="Media segment not found.")
 
@@ -817,6 +887,18 @@ async def public_hls_segment(
             start_seconds=start,
             duration_seconds=segment_duration,
         )
+
+    if processed_assets is not None and kind in {"video", "audio"}:
+        processed = get_processed_video(int(file.id)) if file.id is not None else None
+        if processed is None:
+            raise HTTPException(status_code=503, detail="Processed streaming assets are temporarily unavailable.")
+        try:
+            segment = await read_processed_segment(file, processed, kind, stream_index, index)
+        except IndexError as error:
+            raise HTTPException(status_code=404, detail="Processed media segment not found.") from error
+        except (KeyError, OSError, ValueError) as error:
+            raise HTTPException(status_code=502, detail="Could not read the stored media segment.") from error
+        return Response(content=segment, media_type="video/mp2t", headers=_media_response_headers(request))
 
     cache_key = _media_segment_cache_key(file, kind, stream_index, index)
     segment = await _get_or_generate_media_segment(
@@ -1003,7 +1085,7 @@ async def public_hls_subtitles(
     """Stream one extracted WebVTT track as FFmpeg produces cues; no sidecar file is stored."""
 
     file = await _owned_public_file(token, request)
-    media_info = await _public_media_info(file, token, request)
+    media_info = await _playback_media_info(file, token, request)
     if media_info is None:
         return Response(status_code=204, headers=_media_response_headers(request))
     subtitle = next(
