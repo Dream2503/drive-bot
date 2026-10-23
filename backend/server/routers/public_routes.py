@@ -791,8 +791,12 @@ async def public_hls_subtitles(
         # start-time offset but retains the requested seek position (e.g. 120 seconds).
         "-copyts", "-start_at_zero",
         "-rw_timeout", "300000000",
+        # Input-side seek speeds up demuxing. The output-side seek below is also
+        # required: FFmpeg's input -ss alone does not reliably discard earlier
+        # subtitle packets, which shifts cues into the wrong playback window.
         "-ss", f"{start_seconds:.6f}",
         "-i", _media_source_url(token),
+        "-ss", f"{start_seconds:.6f}",
         "-t", f"{segment_duration:.6f}",
         "-map", f"0:{stream_index}",
         "-vn", "-an", "-dn",
