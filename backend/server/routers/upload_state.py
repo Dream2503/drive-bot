@@ -677,6 +677,11 @@ async def list_user_upload_batches(username: str) -> list[dict[str, Any]]:
                         {key: value for key, value in child_item.items() if not key.startswith("_")}
                         for child_item in child_items if isinstance(child_item, dict)
                     ]
+                    if str(metadata.get("status") or "") == "cancelled" or metadata.get("cancelled"):
+                        for folder_item in folder_items:
+                            if folder_item.get("status") not in {"completed", "error", "failed"}:
+                                folder_item["status"] = "cancelled"
+                                folder_item["message"] = "Cancelled"
                     if folder_items and folder_items != items:
                         items = folder_items
                         metadata["items"] = items
