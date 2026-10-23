@@ -55,8 +55,8 @@ function getTrackLanguage(track, kind = "Audio") {
     return kind + " " + (Number(track?.index) >= 0 ? Number(track.index) + 1 : 1);
 }
 
-/** Convert WebVTT cue timestamps into seconds. */
-function webVttTimeToSeconds(value) {
+/** Convert SRT or WebVTT cue timestamps into seconds. */
+function subtitleTimeToSeconds(value) {
     const parts = String(value || "").trim().replace(",", ".").split(":");
     if (parts.length < 2 || parts.length > 3) return NaN;
     const seconds = Number(parts.pop());
@@ -66,22 +66,30 @@ function webVttTimeToSeconds(value) {
     return hours * 3600 + minutes * 60 + seconds;
 }
 
-/** Parse WebVTT into plain-text cues for a renderer independent of native TextTrack support. */
-function parseWebVtt(source) {
-    const text = String(source || "").replace(/^\uFEFF/, "").replace(/\r\n?/g, "\n");
+/** Parse SRT or WebVTT cues without depending on blank-line formatting between blocks. */
+function parseSubtitleText(source) {
+    const lines = String(source || "").replace(/^\uFEFF/, "").replace(/\r\n?/g, "\n").split("\n");
     const cues = [];
 
-    for (const block of text.split(/\n{2,}/)) {
-        const lines = block.split("\n");
-        const timingIndex = lines.findIndex((line) => line.includes("-->"));
-        if (timingIndex < 0) continue;
-
-        const timing = lines[timingIndex].split("-->");
+    for (let index = 0; index < lines.length; index += 1) {
+        if (!lines[index].includes("-->")) continue;
+        const timing = lines[index].split("-->");
         if (timing.length !== 2) continue;
-        const start = webVttTimeToSeconds(timing[0]);
-        const end = webVttTimeToSeconds(timing[1].trim().split(/\s+/)[0]);
-        const body = lines.slice(timingIndex + 1).join("\n")
+
+        const start = subtitleTimeToSeconds(timing[0]);
+        const end = subtitleTimeToSeconds(timing[1].trim().split(/\s+/)[0]);
+        if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) continue;
+
+        const bodyLines = [];
+        for (let bodyIndex = index + 1; bodyIndex < lines.length; bodyIndex += 1) {
+            if (lines[bodyIndex].includes("-->") || (!lines[bodyIndex].trim() && bodyLines.length)) break;
+            if (lines[bodyIndex].trim() || bodyLines.length) bodyLines.push(lines[bodyIndex]);
+        }
+
+        const body = bodyLines.join("\n")
+            .replace(/\{\\[^}]+\}/g, "")
             .replace(/<[^>]*>/g, "")
+            .replace(/\\[Nn]/g, "\n")
             .replace(/&amp;/gi, "&")
             .replace(/&lt;/gi, "<")
             .replace(/&gt;/gi, ">")
@@ -90,9 +98,7 @@ function parseWebVtt(source) {
             .replace(/&nbsp;/gi, "\u00a0")
             .trim();
 
-        if (Number.isFinite(start) && Number.isFinite(end) && end > start && body) {
-            cues.push({start, end, text: body});
-        }
+        if (body) cues.push({start, end, text: body});
     }
 
     return cues.sort((left, right) => left.start - right.start);
@@ -311,7 +317,7 @@ function VideoPlayer({file, streamUrl, publicToken, heightClass = "h-[70vh]"}) {
         if (!publicToken || selectedSubtitleTrack < 0) return undefined;
 
         const subtitleUrl = API_URL + "/public/hls/" + encodeURIComponent(publicToken)
-            + "/subtitles/" + selectedSubtitleTrack + ".vtt";
+            + "/subtitles/" + selectedSubtitleTrack + ".srt";
 
         (async () => {
             try {
@@ -320,7 +326,7 @@ function VideoPlayer({file, streamUrl, publicToken, heightClass = "h-[70vh]"}) {
                     throw new Error("Subtitle request failed (HTTP " + response.status + ").");
                 }
 
-                const cues = parseWebVtt(await response.text());
+                const cues = parseSubtitleText(await response.text());
                 if (cancelled) return;
 
                 if (!cues.length) {
@@ -530,7 +536,10 @@ function VideoPlayer({file, streamUrl, publicToken, heightClass = "h-[70vh]"}) {
         setBuffered(0);
     };
 
-    const activeSubtitleCue = subtitleCues.find((cue) => current >= cue.start && current <= cue.end);
+    const activeSubtitleText = subtitleCues
+        .filter((cue) => current >= cue.start && current < cue.end)
+        .map((cue) => cue.text)
+        .join("\n");
     const controlsVisible = showUi || !playing || menu !== null;
     /**
      * Convert a time value to a clamped timeline percentage.
@@ -606,12 +615,12 @@ function VideoPlayer({file, streamUrl, publicToken, heightClass = "h-[70vh]"}) {
             onRateChange={(event) => setRate(event.currentTarget.playbackRate)}
             onError={handleMediaError}
         />
-        {activeSubtitleCue && (<div
+        {activeSubtitleText && (<div
             aria-live="off"
             className="pointer-events-none absolute inset-x-4 bottom-[5.5rem] z-10 flex justify-center px-4 text-center"
         >
             <span className="max-w-[90%] whitespace-pre-line rounded bg-black/75 px-3 py-1.5 text-base font-semibold leading-relaxed text-white [text-shadow:0_1px_2px_#000,1px_0_2px_#000,-1px_0_2px_#000] md:text-xl">
-                {activeSubtitleCue.text}
+                {activeSubtitleText}
             </span>
         </div>)}
         {subtitleLoadError && selectedSubtitleTrack >= 0 && (<div className="pointer-events-none absolute inset-x-4 bottom-20 z-10 flex justify-center">
