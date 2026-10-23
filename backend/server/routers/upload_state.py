@@ -628,34 +628,37 @@ async def list_user_upload_batches(username: str) -> list[dict[str, Any]]:
                         and str(child_metadata.get("batch_id") or "") == batch_id
                         and child_status in {"error", "cancelled"}
                         and metadata.get("status") in {"queued", "uploading"}
-                        and ingestion_type != "google_drive_folder"
                 ):
                     metadata["status"] = child_status
                     metadata["message"] = progress_message or (
                         "Upload cancelled" if child_status == "cancelled" else "Upload failed"
                     )
-                    active_seen = False
-                    for item in items:
-                        if item.get("status") in {"downloading", "uploading"}:
-                            if child_status == "cancelled":
+                    # Ingestion jobs publish authoritative file-level outcomes from the
+                    # server. Preserve those successes/failures instead of overwriting them
+                    # with a generic parent-level cancellation/error snapshot.
+                    if ingestion_type != "google_drive_folder":
+                        active_seen = False
+                        for item in items:
+                            if item.get("status") in {"downloading", "uploading"}:
+                                if child_status == "cancelled":
+                                    item["status"] = "cancelled"
+                                    item["message"] = "Cancelled"
+                                elif not active_seen:
+                                    item["status"] = "error"
+                                    item["message"] = metadata["message"]
+                                    active_seen = True
+                                else:
+                                    item["status"] = "skipped"
+                                    item["message"] = "Not started after failure"
+                                items_changed = True
+                            elif child_status == "cancelled" and item.get("status") == "queued":
                                 item["status"] = "cancelled"
                                 item["message"] = "Cancelled"
-                            elif not active_seen:
-                                item["status"] = "error"
-                                item["message"] = metadata["message"]
-                                active_seen = True
-                            else:
+                                items_changed = True
+                            elif child_status == "error" and item.get("status") == "queued":
                                 item["status"] = "skipped"
                                 item["message"] = "Not started after failure"
-                            items_changed = True
-                        elif child_status == "cancelled" and item.get("status") == "queued":
-                            item["status"] = "cancelled"
-                            item["message"] = "Cancelled"
-                            items_changed = True
-                        elif child_status == "error" and item.get("status") == "queued":
-                            item["status"] = "skipped"
-                            item["message"] = "Not started after failure"
-                            items_changed = True
+                                items_changed = True
                     metadata["completed_items"] = sum(1 for item in items if item.get("status") == "completed")
                     items_changed = True
 
@@ -766,7 +769,41 @@ async def list_user_upload_batches(username: str) -> list[dict[str, Any]]:
         completed_items = max(0, min(int(metadata.get("completed_items") or 0), total_items))
         current_fraction = min(1.0, current_transfer / current_total) if current_total else 0.0
         status = str(metadata.get("status") or "queued")
-        progress = 100.0 if status == "completed" else min(99.0, ((completed_items + current_fraction) / total_items) * 100.0)
+
+        if ingestion_type in {"google_drive_folder", "torrent"} and items:
+            sizes_known = all(max(0, int(item.get("size") or item.get("total") or 0)) > 0 for item in items)
+            item_count = len(items)
+            if sizes_known:
+                total_bytes = sum(max(0, int(item.get("size") or item.get("total") or 0)) for item in items)
+                downloaded_bytes = 0
+                uploaded_bytes = 0
+                for item in items:
+                    item_size = max(0, int(item.get("size") or item.get("total") or 0))
+                    item_status = str(item.get("status") or "queued")
+                    if item_status in {"waiting_upload", "uploading", "completed", "downloaded"}:
+                        downloaded_bytes += item_size
+                    elif item_status == "downloading":
+                        downloaded_bytes += min(item_size, max(0, int(item.get("download_transfer", item.get("transfer", 0)) or 0)))
+                    if item_status == "completed":
+                        uploaded_bytes += item_size
+                    elif item_status == "uploading":
+                        uploaded_bytes += min(item_size, max(0, int(item.get("upload_transfer", item.get("transfer", 0)) or 0)))
+                download_fraction = min(1.0, downloaded_bytes / total_bytes) if total_bytes else 0.0
+                upload_fraction = min(1.0, uploaded_bytes / total_bytes) if total_bytes else 0.0
+            else:
+                # When Drive does not disclose file sizes, use item counts rather than
+                # pretending that a byte-accurate percentage is known.
+                discovered = max(1, len(items))
+                statuses = [str(item.get("status") or "queued") for item in items]
+                downloaded_items = sum(value in {"downloaded", "waiting_upload", "uploading", "completed"} for value in statuses)
+                downloading_items = sum(value == "downloading" for value in statuses)
+                uploading_items = sum(value == "uploading" for value in statuses)
+                uploaded_items = sum(value == "completed" for value in statuses)
+                download_fraction = min(1.0, (downloaded_items + 0.5 * downloading_items) / discovered)
+                upload_fraction = min(1.0, (uploaded_items + 0.5 * uploading_items) / discovered)
+            progress = 100.0 if status == "completed" else min(99.0, ((download_fraction + upload_fraction) / 2) * 100.0)
+        else:
+            progress = 100.0 if status == "completed" else min(99.0, ((completed_items + current_fraction) / total_items) * 100.0)
 
         if metadata.get("cancelled"):
             status = "cancelled"
