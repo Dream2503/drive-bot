@@ -798,6 +798,7 @@ async def public_hls_subtitles(
         "pipe:1",
     ]
 
+    await _MEDIA_PROCESS_LIMIT.acquire()
     try:
         process = await asyncio.create_subprocess_exec(
             *command,
@@ -805,6 +806,7 @@ async def public_hls_subtitles(
             stderr=asyncio.subprocess.PIPE,
         )
     except OSError as error:
+        _MEDIA_PROCESS_LIMIT.release()
         raise HTTPException(
             status_code=503,
             detail="The subtitle processor could not be started. Check the FFmpeg installation.",
@@ -815,6 +817,7 @@ async def public_hls_subtitles(
         if process.returncode is None:
             process.kill()
         await process.wait()
+        _MEDIA_PROCESS_LIMIT.release()
         raise HTTPException(status_code=503, detail="The subtitle processor did not expose its output stream.")
 
     started_at = monotonic()
@@ -860,6 +863,7 @@ async def public_hls_subtitles(
             if not stderr_task.done():
                 stderr_task.cancel()
             await asyncio.gather(stderr_task, return_exceptions=True)
+            _MEDIA_PROCESS_LIMIT.release()
 
     return StreamingResponse(
         stream_subtitles(),
