@@ -382,6 +382,11 @@ async def reconcile_completed_link_batch(batch_id: str, username: str, child_job
         for item in child_items
         if isinstance(item, dict) and item.get("file_index") is not None
     }
+    if getattr(progress, "ingestion_type", "") == "google_drive_folder" and child_items:
+        items = [
+            {key: value for key, value in item.items() if not key.startswith("_")}
+            for item in child_items if isinstance(item, dict)
+        ]
 
     # A link child only returns a terminal-success progress after the entire direct-link,
     # YouTube, or selected-torrent import has finished. Therefore every selected batch item
@@ -418,6 +423,7 @@ async def reconcile_completed_link_batch(batch_id: str, username: str, child_job
         items=items,
         total_items=total_items,
         completed_items=total_items,
+        ingestion_type=str(getattr(progress, "ingestion_type", "") or batch.get("ingestion_type") or ""),
     )
     return True
 
