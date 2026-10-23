@@ -144,6 +144,7 @@ function VideoPlayer({file, streamUrl, publicToken, heightClass = "h-[70vh]"}) {
     const [subtitleTracks, setSubtitleTracks] = useState([]);
     const [selectedSubtitleTrack, setSelectedSubtitleTrack] = useState(-1);
     const [subtitleWindowSeconds, setSubtitleWindowSeconds] = useState(6);
+    const trackInfoRequestRef = useRef(null);
     const [subtitleReloadNonce, setSubtitleReloadNonce] = useState(0);
     const [subtitleCues, setSubtitleCues] = useState([]);
     const [subtitleLoadError, setSubtitleLoadError] = useState("");
@@ -218,9 +219,31 @@ function VideoPlayer({file, streamUrl, publicToken, heightClass = "h-[70vh]"}) {
             }
 
             try {
-                const response = await fetch(tracksUrl, {cache: "no-store"});
-                if (!response.ok) throw new Error("Track metadata is unavailable.");
-                const trackInfo = await response.json();
+                // A playback retry can rerun this effect while the same media probe is
+                // still running. Reuse its promise so retries don't create parallel
+                // /public/tracks requests for the same public file.
+                let trackInfoPromise = trackInfoRequestRef.current?.publicToken === publicToken
+                    ? trackInfoRequestRef.current.promise
+                    : null;
+
+                if (!trackInfoPromise) {
+                    trackInfoPromise = (async () => {
+                        const response = await fetch(tracksUrl, {cache: "no-store"});
+                        if (!response.ok) throw new Error("Track metadata is unavailable.");
+                        return response.json();
+                    })();
+                    trackInfoRequestRef.current = {publicToken, promise: trackInfoPromise};
+                }
+
+                let trackInfo;
+                try {
+                    trackInfo = await trackInfoPromise;
+                } catch (metadataError) {
+                    if (trackInfoRequestRef.current?.promise === trackInfoPromise) {
+                        trackInfoRequestRef.current = null;
+                    }
+                    throw metadataError;
+                }
                 if (cancelled) return;
 
                 const segmentDuration = Number(trackInfo.segment_duration);
