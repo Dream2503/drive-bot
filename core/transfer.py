@@ -15,7 +15,7 @@ from core.utils import sanitize_sensitive_urls, write_log
 from core.utils.download_ import download_processed_link, download_unprocessed_link
 from core.utils.download_utils import download_google_drive_folder, is_google_drive_folder_url
 from core.utils.progress import Progress, upload_growing_file
-from core.utils.ingestion_queue import (
+from core.utils.upload_manager import (
     IngestionUploadTicket,
     cancel_ingestion_upload,
     enqueue_ingestion_upload,
