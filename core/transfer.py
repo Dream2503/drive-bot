@@ -38,7 +38,7 @@ async def file_upload(
         write_log("INFO", data_center, "UPLOAD", file.username, f"Found local file: {file_path.name}")
         progress: Progress = Progress(file.name, "Uploading File", 0)
 
-        async for progress_value in upload_growing_file(
+        async with aclosing(upload_growing_file(
                 file,
                 file_path,
                 data_center,
@@ -46,8 +46,9 @@ async def file_upload(
                 upload_task,
                 track_download=track_download,
                 download_total=download_total,
-        ):
-            yield progress_value
+        )) as upload_progress_stream:
+            async for progress_value in upload_progress_stream:
+                yield progress_value
 
         if not intermediate:
             await file.save()
