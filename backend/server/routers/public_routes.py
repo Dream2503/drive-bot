@@ -249,7 +249,7 @@ def _media_source_url(token: str) -> str:
     return f"http://127.0.0.1:8000/public/stream/{quote(token, safe='')}"
 
 
-async def _run_media_tool(command: list[str], *, timeout: float, output_limit: int) -> bytes:
+async def _run_media_tool(command: list[str], *, timeout: float, output_limit: int, request: Request | None = None) -> bytes | None:
     """Run one bounded FFmpeg utility command and collect its in-memory output."""
 
     async with _MEDIA_PROCESS_LIMIT:
@@ -262,19 +262,58 @@ async def _run_media_tool(command: list[str], *, timeout: float, output_limit: i
         except OSError as error:
             raise HTTPException(status_code=503, detail="The media processing tools could not be started.") from error
 
+        communicate_task = asyncio.create_task(process.communicate())
+        disconnect_task = None
+
+        async def wait_for_disconnect() -> None:
+            """Stop waiting when the HTTP client closes its connection."""
+
+            if request is None:
+                return
+
+            while not await request.is_disconnected():
+                await asyncio.sleep(0.2)
+
+        if request is not None:
+            disconnect_task = asyncio.create_task(wait_for_disconnect())
+
         try:
-            stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=timeout)
-        except asyncio.TimeoutError as error:
-            process.kill()
-            await process.communicate()
-            raise HTTPException(status_code=504, detail="Preparing this media track timed out. Try again.") from error
+            waiting_tasks = {communicate_task}
+            if disconnect_task is not None:
+                waiting_tasks.add(disconnect_task)
+
+            done, _ = await asyncio.wait(
+                waiting_tasks,
+                timeout=timeout,
+                return_when=asyncio.FIRST_COMPLETED,
+            )
+
+            if not done:
+                if process.returncode is None:
+                    process.kill()
+                await process.communicate()
+                raise HTTPException(status_code=504, detail="Preparing this media track timed out. Try again.")
+
+            # If the client has gone away, stop expensive probing/transcoding instead of
+            # returning a large response to a socket that is already closed.
+            if disconnect_task is not None and disconnect_task in done and communicate_task not in done:
+                if process.returncode is None:
+                    process.kill()
+                await process.communicate()
+                return None
+
+            stdout, stderr = communicate_task.result()
+
         except asyncio.CancelledError:
-            # A viewer may close or seek away while FFmpeg is generating a segment.
-            # Stop the subprocess immediately instead of leaving it writing to a closed client.
+            # Also reap FFmpeg if the ASGI request itself is cancelled during shutdown.
             if process.returncode is None:
                 process.kill()
             await process.communicate()
             raise
+        finally:
+            if disconnect_task is not None and not disconnect_task.done():
+                disconnect_task.cancel()
+                await asyncio.gather(disconnect_task, return_exceptions=True)
 
         if process.returncode != 0:
             # Do not return raw FFmpeg stderr because it can contain internal URLs or storage details.
@@ -309,7 +348,7 @@ def _hls_attribute(value: str) -> str:
     return f'"{clean[:120]}"'
 
 
-async def _public_media_info(file: File, token: str) -> dict[str, Any]:
+async def _public_media_info(file: File, token: str, request: Request | None = None) -> dict[str, Any] | None:
     """Probe the original stored media and cache only its small stream metadata."""
 
     cache_key = f"{file.username}:{file.id}:{_file_etag(file)}"
@@ -333,7 +372,10 @@ async def _public_media_info(file: File, token: str) -> dict[str, Any]:
         ],
         timeout=90,
         output_limit=8 * 1024 * 1024,
+        request=request,
     )
+    if output is None:
+        return None
 
     try:
         probe = json.loads(output)
@@ -452,7 +494,9 @@ async def public_media_tracks(token: str, request: Request) -> JSONResponse:
     """List selectable audio and text subtitle tracks embedded in the original file."""
 
     file = await _owned_public_file(token, request)
-    media_info = await _public_media_info(file, token)
+    media_info = await _public_media_info(file, token, request)
+    if media_info is None:
+        return Response(status_code=204, headers=_media_response_headers(request))
     return JSONResponse(media_info, headers=_media_response_headers(request))
 
 
@@ -461,7 +505,9 @@ async def public_hls_master(token: str, request: Request) -> Response:
     """Create an HLS master playlist without writing a playlist or media segment to disk."""
 
     file = await _owned_public_file(token, request)
-    media_info = await _public_media_info(file, token)
+    media_info = await _public_media_info(file, token, request)
+    if media_info is None:
+        return Response(status_code=204, headers=_media_response_headers(request))
     if not media_info.get("video"):
         raise HTTPException(status_code=415, detail="This file has no video track.")
 
@@ -500,7 +546,9 @@ async def public_hls_video_playlist(token: str, request: Request) -> Response:
     """Create the video-only HLS playlist for dynamic, in-memory segments."""
 
     file = await _owned_public_file(token, request)
-    media_info = await _public_media_info(file, token)
+    media_info = await _public_media_info(file, token, request)
+    if media_info is None:
+        return Response(status_code=204, headers=_media_response_headers(request))
     return Response(
         content=_hls_media_playlist(token, media_info, kind="video"),
         media_type="application/vnd.apple.mpegurl",
@@ -517,7 +565,9 @@ async def public_hls_audio_playlist(
     """Create a separate audio rendition playlist for the selected embedded stream."""
 
     file = await _owned_public_file(token, request)
-    media_info = await _public_media_info(file, token)
+    media_info = await _public_media_info(file, token, request)
+    if media_info is None:
+        return Response(status_code=204, headers=_media_response_headers(request))
     if not any(int(item["index"]) == track for item in media_info["audio"]):
         raise HTTPException(status_code=404, detail="Audio track not found.")
 
@@ -542,7 +592,9 @@ async def public_hls_segment(
         raise HTTPException(status_code=404, detail="Media segment not found.")
 
     file = await _owned_public_file(token, request)
-    media_info = await _public_media_info(file, token)
+    media_info = await _public_media_info(file, token, request)
+    if media_info is None:
+        return Response(status_code=204, headers=_media_response_headers(request))
     duration = float(media_info["duration"])
     segment_count = math.ceil(duration / _MEDIA_SEGMENT_SECONDS)
     if index < 0 or index >= segment_count:
@@ -608,7 +660,10 @@ async def public_hls_segment(
         command,
         timeout=max(120.0, segment_duration * 30.0),
         output_limit=_MEDIA_MAX_OUTPUT_BYTES,
+        request=request,
     )
+    if segment is None:
+        return Response(status_code=204, headers=_media_response_headers(request))
     if not segment:
         raise HTTPException(status_code=502, detail="FFmpeg produced an empty media segment.")
 
@@ -620,7 +675,9 @@ async def public_hls_subtitles(token: str, stream_index: int, request: Request) 
     """Extract one text subtitle track to WebVTT in memory; no sidecar file is stored."""
 
     file = await _owned_public_file(token, request)
-    media_info = await _public_media_info(file, token)
+    media_info = await _public_media_info(file, token, request)
+    if media_info is None:
+        return Response(status_code=204, headers=_media_response_headers(request))
     subtitle = next(
         (item for item in media_info["subtitles"] if int(item["index"]) == stream_index),
         None,
@@ -645,7 +702,10 @@ async def public_hls_subtitles(token: str, stream_index: int, request: Request) 
         ],
         timeout=300,
         output_limit=32 * 1024 * 1024,
+        request=request,
     )
+    if output is None:
+        return Response(status_code=204, headers=_media_response_headers(request))
     if not output.startswith(b"WEBVTT"):
         raise HTTPException(status_code=502, detail="Could not extract this subtitle track.")
 
