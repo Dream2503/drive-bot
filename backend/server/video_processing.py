@@ -1337,12 +1337,168 @@ async def _process_job(file_id: int) -> None:
 
 
 
+# >>> TEMPORARY LEGACY VIDEO BACKFILL PIPELINE
+# This whole section and its worker hook are temporary. Remove them together when the
+# user asks to remove the one-time legacy-video backfill.
+_TEMPORARY_BACKFILL_SCAN_INTERVAL_SECONDS = 5.0
+_TEMPORARY_BACKFILL_MAX_ATTEMPTS = 3
+_TEMPORARY_BACKFILL_COMPLETE_KEY = "video:processing:temporary-backfill:complete"
+_TEMPORARY_BACKFILL_FAILURE_PREFIX = "video:processing:temporary-backfill:failed:"
+
+
+async def _temporary_backfill_unprocessed_video() -> bool:
+    """TEMPORARY: enqueue one legacy video lacking a processed HLS record."""
+
+    if await Redis.redis.exists(_TEMPORARY_BACKFILL_COMPLETE_KEY):
+        return False
+
+    with POOL.connection() as connection:
+        rows = connection.execute(
+            """
+            SELECT f.id, f.name, f.type, f.size, f.username
+            FROM files AS f
+            LEFT JOIN processed_videos AS pv ON pv.id = f.id
+            WHERE pv.id IS NULL
+              AND f.deleted_at IS NULL
+              AND (
+                  LOWER(COALESCE(f.type, '')) LIKE 'video/%'
+                  OR LOWER(COALESCE(f.name, '')) ~ E'\\\\.(3g2|3gp|asf|avi|divx|flv|m2ts|m2v|m4v|mkv|mov|mpe|mpeg|mpg|mts|mxf|ogv|rm|rmvb|ts|vob|webm|wmv)$'
+              )
+            ORDER BY f.id ASC;
+            """
+        ).fetchall()
+
+    pending_job_exists = False
+    exhausted_file_ids: list[int] = []
+
+    # Queue only one legacy file at a time. The existing worker and shared upload FIFO
+    # remain responsible for processing and derivative uploads, respectively.
+    for row in rows:
+        file_id = int(row["id"])
+        job_key = _video_job_key(file_id)
+        job = await Redis.redis.hgetall(job_key)
+
+        if not job:
+            created = await enqueue_video_processing_job(
+                file_id,
+                status="queued",
+                message="Queued by the temporary legacy video backfill.",
+                source_size=int(row.get("size") or 0),
+                username=str(row.get("username") or "system"),
+                name=str(row.get("name") or ""),
+            )
+            if created:
+                await Redis.redis.delete(_TEMPORARY_BACKFILL_COMPLETE_KEY)
+                write_log(
+                    "INFO", Database, "TEMP VIDEO BACKFILL", str(row.get("username") or "system"),
+                    f"Queued legacy video file_id={file_id} name={str(row.get('name') or '')!r}; "
+                    "waiting for the normal Redis processing worker.",
+                )
+                return True
+            continue
+
+        status = str(job.get("status") or "queued").casefold()
+        try:
+            attempts = max(0, int(job.get("attempts") or 0))
+        except (TypeError, ValueError):
+            attempts = 0
+
+        if status == "queued":
+            # Repair a missing sorted-set entry without creating a duplicate job.
+            if await Redis.redis.zscore(_JOB_QUEUE, str(file_id)) is None:
+                sequence = await Redis.redis.incr(_JOB_SEQUENCE)
+                await Redis.redis.zadd(_JOB_QUEUE, {str(file_id): sequence})
+                write_log(
+                    "WARNING", Database, "TEMP VIDEO BACKFILL", str(row.get("username") or "system"),
+                    f"Repaired missing Redis queue entry for legacy video file_id={file_id}.",
+                )
+                return True
+            pending_job_exists = True
+            continue
+
+        if status in {"preparing", "processing"}:
+            pending_job_exists = True
+            continue
+
+        if status == "failed":
+            if attempts < _TEMPORARY_BACKFILL_MAX_ATTEMPTS:
+                if await retry_video_processing(file_id):
+                    write_log(
+                        "WARNING", Database, "TEMP VIDEO BACKFILL", str(row.get("username") or "system"),
+                        f"Retrying failed legacy video file_id={file_id} attempt={attempts + 1}/"
+                        f"{_TEMPORARY_BACKFILL_MAX_ATTEMPTS}.",
+                    )
+                    return True
+            else:
+                exhausted_file_ids.append(file_id)
+                failure_key = f"{_TEMPORARY_BACKFILL_FAILURE_PREFIX}{file_id}"
+                first_report = await Redis.redis.set(failure_key, "1", nx=True)
+                if first_report:
+                    write_log(
+                        "ERROR", Database, "TEMP VIDEO BACKFILL", str(row.get("username") or "system"),
+                        f"Skipping legacy video after {_TEMPORARY_BACKFILL_MAX_ATTEMPTS} processing attempts "
+                        f"file_id={file_id} name={str(row.get('name') or '')!r}; inspect the VIDEO PROCESSING error log.",
+                    )
+            continue
+
+        # A Redis 'ready' state without a durable processed_videos row is inconsistent.
+        # Reset it so the original can be recovered and the derivative can be rebuilt.
+        await _update_job(
+            file_id,
+            status="queued",
+            stage="queued",
+            progress=0,
+            message="Rebuilding missing processed-video metadata during temporary backfill.",
+            processed_seconds=0,
+            completed_segments=0,
+            total_segments=0,
+            error=None,
+            started_at=None,
+            finished_at=None,
+        )
+        write_log(
+            "WARNING", Database, "TEMP VIDEO BACKFILL", str(row.get("username") or "system"),
+            f"Requeued legacy video with missing processed metadata file_id={file_id} previous_status={status!r}.",
+        )
+        return True
+
+    if pending_job_exists:
+        return False
+
+    # No unprocessed video can be queued or retried. Persist this marker so a completed
+    # one-time backfill does not rescan the whole library on every worker poll/restart.
+    completed = await Redis.redis.set(_TEMPORARY_BACKFILL_COMPLETE_KEY, str(time()), nx=True)
+    if completed:
+        if exhausted_file_ids:
+            remaining = len(exhausted_file_ids)
+            preview = ", ".join(str(value) for value in exhausted_file_ids[:30])
+            suffix = "…" if remaining > 30 else ""
+            write_log(
+                "WARNING", Database, "TEMP VIDEO BACKFILL", "system",
+                f"Backfill reached its stopping point: {remaining} video(s) remain unprocessed after "
+                f"{_TEMPORARY_BACKFILL_MAX_ATTEMPTS} attempts. file_ids=[{preview}{suffix}]. "
+                "Other eligible legacy videos have been processed.",
+            )
+        else:
+            write_log(
+                "INFO", Database, "TEMP VIDEO BACKFILL", "system",
+                f"Backfill complete: all {len(rows)} discovered legacy video(s) have processed HLS records.",
+            )
+    return False
+
+
+# <<< TEMPORARY LEGACY VIDEO BACKFILL PIPELINE
+
+
 async def run_video_processing_worker() -> None:
     """Recover and process Redis-backed video jobs, one at a time."""
 
     recovered = False
     startup_time = time()
     next_stale_check = startup_time
+    # >>> TEMPORARY LEGACY VIDEO BACKFILL HOOK
+    next_backfill_scan = startup_time
+    # <<< TEMPORARY LEGACY VIDEO BACKFILL HOOK
     while True:
         try:
             if not recovered:
@@ -1355,6 +1511,12 @@ async def run_video_processing_worker() -> None:
                 next_stale_check = now + _JOB_REQUEUE_INTERVAL
             file_id = await _claim_next_job()
             if file_id is None:
+                # >>> TEMPORARY LEGACY VIDEO BACKFILL HOOK
+                now = time()
+                if now >= next_backfill_scan:
+                    await _temporary_backfill_unprocessed_video()
+                    next_backfill_scan = time() + _TEMPORARY_BACKFILL_SCAN_INTERVAL_SECONDS
+                # <<< TEMPORARY LEGACY VIDEO BACKFILL HOOK
                 await asyncio.sleep(_JOB_POLL_SECONDS)
                 continue
             await _process_job(file_id)
