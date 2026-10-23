@@ -948,6 +948,7 @@ async def download_google_drive_folder(file: File, link: str) -> AsyncGenerator[
     def refresh_snapshot(message: str | None = None) -> None:
         """Update backend-visible job and per-file progress from worker snapshots."""
 
+        sample_at = monotonic()
         total_bytes = sum(max(0, int(item.get("total") or item.get("size") or 0)) for item in items)
         download_bytes = 0
         upload_bytes = 0
@@ -957,12 +958,65 @@ async def download_google_drive_folder(file: File, link: str) -> AsyncGenerator[
         for item in items:
             size = max(0, int(item.get("total") or item.get("size") or 0))
             status = str(item.get("status") or "queued")
+
+            # gdown versions without a progress callback still write to a staging
+            # file before atomically publishing the finished destination. Observe
+            # those staged bytes so progress stays backend-driven on every version.
+            if status == "downloading":
+                staging_value = str(item.get("_staging_dir") or "")
+                if staging_value:
+                    staging_path = Path(staging_value)
+                    try:
+                        staged_bytes = sum(
+                            candidate.stat().st_size
+                            for candidate in staging_path.rglob("*")
+                            if candidate.is_file()
+                        )
+                    except OSError:
+                        staged_bytes = 0
+                    item["download_transfer"] = max(
+                        int(item.get("download_transfer") or 0),
+                        staged_bytes,
+                    )
+
             downloaded = max(0, int(item.get("download_transfer") or 0))
             uploaded = max(0, int(item.get("upload_transfer") or 0))
             if status in {"waiting_upload", "uploading", "completed"}:
                 downloaded = max(downloaded, size)
             if status == "completed":
                 uploaded = size
+            item["download_transfer"] = downloaded
+            item["upload_transfer"] = uploaded
+
+            for phase, counter, phase_total in (
+                ("download", downloaded, max(0, int(item.get("download_total") or 0))),
+                ("upload", uploaded, max(0, int(item.get("upload_total") or 0))),
+            ):
+                previous_at = float(item.get(f"_{phase}_sample_at") or sample_at)
+                elapsed = max(0.0, sample_at - previous_at)
+                previous_bytes = max(0, int(item.get(f"_{phase}_sample_bytes") or 0))
+                previous_speed = max(0.0, float(item.get(f"{phase}_speed") or 0))
+                last_moved_at = float(item.get(f"_{phase}_last_moved_at") or sample_at)
+
+                if counter < previous_bytes:
+                    speed = 0.0
+                    last_moved_at = sample_at
+                elif elapsed > 0 and counter > previous_bytes:
+                    measured_speed = (counter - previous_bytes) / elapsed
+                    speed = measured_speed if previous_speed <= 0 else previous_speed * 0.7 + measured_speed * 0.3
+                    last_moved_at = sample_at
+                else:
+                    speed = 0.0 if sample_at - last_moved_at >= 4 else previous_speed
+
+                item[f"{phase}_speed"] = speed
+                item[f"{phase}_eta"] = (
+                    max(0.0, (phase_total - counter) / speed)
+                    if phase_total > counter and speed > 0 else None
+                )
+                item[f"_{phase}_sample_at"] = sample_at
+                item[f"_{phase}_sample_bytes"] = counter
+                item[f"_{phase}_last_moved_at"] = last_moved_at
+
             download_bytes += min(size, downloaded) if size > 0 else downloaded
             upload_bytes += min(size, uploaded) if size > 0 else uploaded
             known_download_total += max(0, int(item.get("download_total") or 0))
@@ -1005,6 +1059,7 @@ async def download_google_drive_folder(file: File, link: str) -> AsyncGenerator[
             staging_dir = temp_dir / "payload" / f"{index:06d}"
             staging_dir.mkdir(parents=True, exist_ok=True)
             proposed_path = staging_dir / relative_parts[-1]
+            item["_staging_dir"] = str(staging_dir)
             item["status"] = "downloading"
             item["message"] = "Downloading file"
             try:
