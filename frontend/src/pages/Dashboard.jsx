@@ -59,7 +59,7 @@ import {createUniqueId, decodePathSegment, folderPathToRoute, getFileIcon, getFi
  */
 
 /** @typedef {{kind: "background"} | {kind: "item", item: SelectableItem}} ContextMenuPayload */
-/** @typedef {ContextMenuPayload & {x: number, y: number}} ContextMenuState */
+/** @typedef {ContextMenuPayload & {x: number, y: number, canDownloadZip?: boolean}} ContextMenuState */
 
 function isPathWithinFolder(candidatePath, folderPath) {
     const candidate = String(candidatePath || "").replace(/\/$/, "");
