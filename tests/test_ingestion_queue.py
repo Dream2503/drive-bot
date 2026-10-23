@@ -107,7 +107,7 @@ class FakeRedis:
 class IngestionQueueTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self) -> None:
         self.redis = FakeRedis()
-        self.redis_patch = patch.object(ingestion_queue.Redis, "redis", self.redis)
+        self.redis_patch = patch.object(ingestion_queue.Redis, "redis", self.redis, create=True)
         self.redis_patch.start()
         self.addCleanup(self.redis_patch.stop)
 
