@@ -487,13 +487,16 @@ export default function ViewFile() {
     const downloadControllerRef = useRef(null);
     const downloadMountedRef = useRef(true);
     const downloadDismissedRef = useRef(false);
-    const downloadSessionRef = useRef({
-        id: `public-view-${createUniqueId()}`,
-        tempName: "",
-        total: 0,
-        etag: "",
-        transferred: 0,
-    });
+    const downloadSessionRef = useRef(null);
+    if (!downloadSessionRef.current) {
+        downloadSessionRef.current = {
+            id: `public-view-${createUniqueId()}`,
+            tempName: "",
+            total: 0,
+            etag: "",
+            transferred: 0,
+        };
+    }
     const downloadTrayJobId = `view-file-download-${fileId || publicToken || "shared"}`;
     const name = searchParams.get("name") || publicFile?.name || "Untitled";
     const kind = searchParams.get("kind") || getFileKind(publicFile?.name || name);
@@ -1157,8 +1160,18 @@ export default function ViewFile() {
             clearCompletedDownloads={() => {
                 if (!["completed", "error"].includes(downloadState.status) && !downloadError) return;
                 downloadDismissedRef.current = true;
+                downloadControllerRef.current?.abort();
                 setDownloadError("");
                 setDownloadState({status: "idle", transferred: 0, total: 0, message: ""});
+                const session = downloadSessionRef.current;
+                if (session.tempName && typeof navigator.storage?.getDirectory === "function") {
+                    navigator.storage.getDirectory().then((root) => root.removeEntry(session.tempName)).catch(() => {});
+                }
+                session.tempName = "";
+                session.total = 0;
+                session.etag = "";
+                session.transferred = 0;
+                removeResumableDownloadChunks(session.id).catch(() => {});
             }}
         />
     </div>);
