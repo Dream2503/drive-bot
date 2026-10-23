@@ -27,7 +27,7 @@ class FakeHashRedis:
 class BackendProgressMetricTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self) -> None:
         self.redis = FakeHashRedis()
-        self.redis_patch = patch.object(Redis, "redis", self.redis)
+        self.redis_patch = patch.object(Redis, "redis", self.redis, create=True)
         self.redis_patch.start()
         self.addCleanup(self.redis_patch.stop)
 
