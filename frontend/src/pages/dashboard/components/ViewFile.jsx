@@ -607,11 +607,25 @@ export default function ViewFile() {
     const startStagedDownload = useCallback(async () => {
         if (!downloadUrl || downloadControllerRef.current) return;
         if (typeof navigator.storage?.getDirectory !== "function") {
+            // Public download links are signed and the backend returns Content-Disposition:
+            // attachment. Let the browser download directly when OPFS staging is unavailable.
+            // A normal navigation/download does not expose response bytes to JavaScript, so
+            // it avoids the cross-origin fetch/preflight issue caused by the Cloudflare redirect.
+            const anchor = document.createElement("a");
+            anchor.href = downloadUrl;
+            anchor.download = name || publicFile?.name || "download";
+            anchor.target = "_blank";
+            anchor.rel = "noopener noreferrer";
+            document.body.appendChild(anchor);
+            anchor.click();
+            anchor.remove();
+
+            const total = Math.max(0, Number(publicFile?.size) || 0);
             setDownloadState({
-                status: "error",
-                transferred: 0,
-                total: 0,
-                message: "This browser does not support staged downloads. Use a recent Chromium-based browser.",
+                status: "completed",
+                transferred: total,
+                total,
+                message: "Browser download started directly · staged downloads are unavailable in this browser",
             });
             return;
         }
