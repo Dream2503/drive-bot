@@ -959,15 +959,18 @@ export default function DashboardPage() {
     };
 
     /**
-     * Prepare a short-lived public URL for a ZIP streamed directly from storage,
-     * then let the browser download it without buffering the archive in JS memory.
+     * Prepare a short-lived public URL for a ZIP streamed directly from storage.
+     * The archive can contain files, folders, or a mixed selection.
      * @param {Array<string | number>} fileIds
+     * @param {string} requestedName
+     * @param {Array<string | number>} [folderIds]
      * @returns {Promise<void>}
      */
-    const downloadFilesAsZip = async (fileIds, requestedName) => {
-        const uniqueIds = [...new Set((fileIds || []).map((id) => String(id)))];
-        if (uniqueIds.length < 2) {
-            alert("Select at least two files to download as a ZIP.");
+    const downloadFilesAsZip = async (fileIds, requestedName, folderIds = []) => {
+        const uniqueFileIds = [...new Set((fileIds || []).map((id) => String(id)))];
+        const uniqueFolderIds = [...new Set((folderIds || []).map((id) => String(id)))];
+        if (!uniqueFolderIds.length && uniqueFileIds.length < 2) {
+            alert("Select a folder or at least two files to download as a ZIP.");
             return;
         }
 
@@ -987,7 +990,7 @@ export default function DashboardPage() {
             const response = await fetch(`${API_URL}/auth/files/zip-link`, {
                 method: "POST",
                 headers: {Authorization: `Bearer ${token}`, "Content-Type": "application/json"},
-                body: JSON.stringify({file_ids: uniqueIds}),
+                body: JSON.stringify({file_ids: uniqueFileIds, folder_ids: uniqueFolderIds}),
             });
             const data = await response.json().catch(() => ({}));
             if (!response.ok) {
@@ -1036,7 +1039,7 @@ export default function DashboardPage() {
             runResumableDownload(job);
         } catch (error) {
             console.error("ZIP download failed:", error);
-            alert(error.message || "Failed to download the selected files as a ZIP.");
+            alert(error.message || "Failed to download the selected items as a ZIP.");
         }
     };
 
