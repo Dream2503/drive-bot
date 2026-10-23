@@ -5,9 +5,11 @@ from __future__ import annotations
 import asyncio
 import json
 import math
+import os
 import shutil
 import tempfile
 from pathlib import Path
+from dataclasses import dataclass
 from time import monotonic
 from typing import Any
 
@@ -16,9 +18,17 @@ from psycopg.types.json import Jsonb
 
 from backend.database.connection import POOL
 from backend.database.models.file import File, is_video_file
+from core.config import TRANSFER_PATH
 from core.data_center import DataCenter
 from core.stream import Stream
+from core.utils import sanitize_sensitive_urls, write_log
 from core.utils.binaries import get_ffmpeg_path
+from core.utils.ingestion_queue import (
+    IngestionUploadTicket,
+    cancel_ingestion_upload,
+    enqueue_ingestion_upload,
+    ingestion_upload_slot,
+)
 from core.utils.progress import Progress, upload_growing_file
 
 VIDEO_SEGMENT_SECONDS = 6
@@ -34,6 +44,141 @@ _VIDEO_BITMAP_SUBTITLE_CODECS = {
 }
 _JOB_POLL_SECONDS = 1.0
 _MAX_PROCESSING_PROGRESS = 99.0
+
+
+@dataclass(slots=True)
+class LocalVideoPreparation:
+    """Own the preserved local source and the completion barrier for an original upload."""
+
+    file: File
+    source_path: Path
+    staging_root: Path
+    original_saved: asyncio.Event
+    task: asyncio.Task[None] | None = None
+    stage: str = "probing"
+    progress: float = 0.0
+    message: str = "Preparing the local video source."
+    processed_seconds: float = 0.0
+    duration: float = 0.0
+    bytes_downloaded: int = 0
+    source_size: int = 0
+    completed_segments: int = 0
+    total_segments: int = 0
+
+
+_LOCAL_VIDEO_PREPARATIONS: dict[int, LocalVideoPreparation] = {}
+
+
+def has_local_video_preparation(file: File) -> bool:
+    """Return whether this exact in-memory file object has an active local preprocessing task."""
+
+    context = _LOCAL_VIDEO_PREPARATIONS.get(id(file))
+    return context is not None and context.task is not None and not context.task.done()
+
+
+def _preserve_video_source(source_path: Path, destination: Path) -> None:
+    """Keep a stable local source even when the ingestion flow removes its own staging file."""
+
+    if not source_path.is_file():
+        raise FileNotFoundError(f"Video source is not available: {source_path}")
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        os.link(source_path, destination)
+    except OSError:
+        # Some source directories may be mounted on another device. Copy only as a
+        # fallback; the normal path uses a hard link and does not duplicate the bytes.
+        shutil.copy2(source_path, destination)
+
+
+async def start_local_video_preprocessing(file: File, source_path: Path) -> None:
+    """Preserve the complete local source and begin FFmpeg work while original chunks upload."""
+
+    if not is_video_file(file.name, file.type):
+        return
+
+    key = id(file)
+    existing = _LOCAL_VIDEO_PREPARATIONS.get(key)
+    if existing is not None and existing.task is not None and not existing.task.done():
+        return
+
+    staging_root = TRANSFER_PATH / "video-processing" / f"{key:x}-{os.urandom(6).hex()}"
+    preserved_source = staging_root / "original"
+    try:
+        await asyncio.to_thread(_preserve_video_source, source_path, preserved_source)
+    except Exception:
+        shutil.rmtree(staging_root, ignore_errors=True)
+        raise
+
+    context = LocalVideoPreparation(file, preserved_source, staging_root, asyncio.Event())
+    _LOCAL_VIDEO_PREPARATIONS[key] = context
+    write_log(
+        "INFO", DataCenter(file.data_center) or DataCenter, "VIDEO PROCESSING", file.username,
+        f"Local preparation started file_id={file.id} name={file.name!r} source={source_path.name!r}; "
+        "FFmpeg can now run alongside the original upload.",
+    )
+    context.task = asyncio.create_task(
+        _run_local_video_preparation(context),
+        name=f"storelimitless-video-prep-{file.id or key}",
+    )
+
+
+def notify_video_file_saved(file: File) -> None:
+    """Persist preparation progress accumulated before the original file received its ID."""
+
+    context = _LOCAL_VIDEO_PREPARATIONS.get(id(file))
+    if context is None:
+        return
+    write_log(
+        "INFO", DataCenter(file.data_center) or DataCenter, "VIDEO PROCESSING", file.username,
+        f"Original upload finalized file_id={file.id} name={file.name!r} size={file.size} "
+        f"chunks={len(file.links)}; synchronizing locally accumulated progress.",
+    )
+    if file.id is not None:
+        _update_job(
+            int(file.id),
+            status="preparing",
+            stage=context.stage,
+            progress=context.progress,
+            message=context.message,
+            processed_seconds=context.processed_seconds,
+            duration=context.duration,
+            bytes_downloaded=context.bytes_downloaded,
+            source_size=context.source_size,
+            completed_segments=context.completed_segments,
+            total_segments=context.total_segments,
+        )
+    context.original_saved.set()
+
+
+async def abort_local_video_preparation(file: File, reason: str) -> None:
+    """Cancel local preparation only when the original never reached a durable database row."""
+
+    context = _LOCAL_VIDEO_PREPARATIONS.get(id(file))
+    if context is None:
+        return
+
+    if file.id is not None:
+        # File.save() can commit PostgreSQL before a later cache/logging operation raises.
+        # Once the original has an ID, keep local preparation alive and release its barrier
+        # instead of throwing away the source or forcing an avoidable remote re-download.
+        write_log(
+            "WARNING", DataCenter(file.data_center) or DataCenter, "VIDEO PROCESSING", file.username,
+            f"Upload task ended after original was saved file_id={file.id} name={file.name!r}; "
+            f"continuing local processing: {reason}",
+        )
+        context.original_saved.set()
+        return
+
+    if context.task is not None and not context.task.done():
+        context.task.cancel()
+        await asyncio.gather(context.task, return_exceptions=True)
+    _LOCAL_VIDEO_PREPARATIONS.pop(id(file), None)
+    shutil.rmtree(context.staging_root, ignore_errors=True)
+    write_log(
+        "WARNING", DataCenter(file.data_center) or DataCenter, "VIDEO PROCESSING", file.username,
+        f"Cancelled local preparation because original upload failed before a database row existed "
+        f"name={file.name!r}: {reason}",
+    )
 
 
 def get_processed_video(file_id: int) -> dict[str, Any] | None:
@@ -161,6 +306,29 @@ def retry_video_processing(file_id: int) -> bool:
             raise
 
 
+def _update_for_original(original: File, fallback_file_id: int | None = None, **updates: Any) -> None:
+    """Persist progress when possible and retain a snapshot before the original ID exists."""
+
+    context = _LOCAL_VIDEO_PREPARATIONS.get(id(original))
+    if context is not None:
+        if updates.get("status") == "processing":
+            # Active local preparation must not be mistaken for abandoned worker work.
+            updates["status"] = "preparing"
+
+        for key in (
+            "stage", "progress", "message", "processed_seconds", "duration",
+            "bytes_downloaded", "source_size", "completed_segments", "total_segments",
+        ):
+            if key in updates:
+                setattr(context, key, updates[key])
+
+    file_id = original.id if original.id is not None else fallback_file_id
+    if file_id is None:
+        return
+
+    _update_job(int(file_id), **updates)
+
+
 def _update_job(file_id: int, **updates: Any) -> None:
     """Persist an allow-listed progress snapshot for a background video job."""
     allowed = {
@@ -210,9 +378,9 @@ def _recover_interrupted_jobs() -> None:
             UPDATE video_processing_jobs
             SET status = 'queued',
                 stage = 'queued',
-                message = 'Resuming after server restart.',
+                message = 'Resuming after server restart; source will be recovered from the stored original.',
                 updated_at = NOW()
-            WHERE status = 'processing';
+            WHERE status IN ('processing', 'preparing');
             """
         )
         connection.commit()
@@ -437,7 +605,7 @@ async def _run_ffmpeg_track(
         progress_span: float,
         total_tracks: int,
         track_number: int,
-        file_id: int,
+        original: File,
 ) -> None:
     """Run one full-length HLS encode and publish FFmpeg's real media-time progress."""
     process = await asyncio.create_subprocess_exec(
@@ -471,8 +639,8 @@ async def _run_ffmpeg_track(
             )
             now = monotonic()
             if now - last_report >= 0.4 or value == "end":
-                _update_job(
-                    file_id,
+                _update_for_original(
+                    original,
                     status="processing",
                     stage="processing",
                     progress=round(overall, 2),
@@ -503,6 +671,10 @@ async def _download_original(file: File, destination: Path) -> None:
     if not file.links or file.size <= 0:
         raise RuntimeError("The original video has no valid stored chunks.")
 
+    write_log(
+        "WARNING", DataCenter(file.data_center) or DataCenter, "VIDEO PROCESSING", file.username,
+        f"Reading original file_id={file.id} name={file.name!r} back from remote storage because no local processing source survived.",
+    )
     stream = await Stream.prepare(file)
     downloaded = 0
     last_report_bytes = 0
@@ -526,6 +698,10 @@ async def _download_original(file: File, destination: Path) -> None:
                 last_report_time = now
     if downloaded != file.size:
         raise RuntimeError(f"The downloaded original was incomplete ({downloaded} of {file.size} bytes).")
+    write_log(
+        "INFO", DataCenter(file.data_center) or DataCenter, "VIDEO PROCESSING", file.username,
+        f"Recovery source read complete file_id={file.id} bytes={downloaded}.",
+    )
     _update_job(
         int(file.id),
         stage="probing",
@@ -536,25 +712,50 @@ async def _download_original(file: File, destination: Path) -> None:
     )
 
 
-async def _process_video(file_id: int) -> None:
-    """Build, package, upload, and register a streaming-compatible HLS derivative."""
-    original = _load_original(file_id)
-    if original is None or original.id is None:
+async def _process_video(
+        file_id: int | None,
+        *,
+        original_override: File | None = None,
+        source_path_override: Path | None = None,
+        original_saved_event: asyncio.Event | None = None,
+) -> None:
+    """Build HLS assets from local staging when possible and queue derivative upload after original finalization."""
+
+    original = original_override
+    if original is None:
+        if file_id is None:
+            raise RuntimeError("A file ID is required for remote-source recovery.")
+        original = _load_original(file_id)
+
+    if original is None:
+        write_log("WARNING", DataCenter, "VIDEO PROCESSING", str(file_id or "unknown"), "Original database row disappeared before processing.")
         return
+
+    current_file_id = int(original.id) if original.id is not None else file_id
     if original.deleted_at is not None:
-        _update_job(
-            file_id,
-            status="failed",
-            stage="failed",
-            message="This video is in the trash and was not processed.",
-            error="The original file is deleted.",
-            finished_at="NOW()",
-        )
+        if current_file_id is not None:
+            _update_for_original(
+                original, current_file_id,
+                status="failed",
+                stage="failed",
+                message="This video is in the trash and was not processed.",
+                error="The original file is deleted.",
+                finished_at="NOW()",
+            )
         return
-    if not original.links or original.size <= 0:
+
+    if source_path_override is None and (not original.links or original.size <= 0):
         raise RuntimeError("The original file is missing storage links or has an invalid size.")
     if not is_video_file(original.name, original.type):
-        _update_job(file_id, status="failed", stage="failed", message="This file is not a video.", error="Not a video file.")
+        if current_file_id is not None:
+            _update_for_original(
+                original, current_file_id,
+                status="failed",
+                stage="failed",
+                message="This file is not a video.",
+                error="Not a video file.",
+                finished_at="NOW()",
+            )
         return
 
     ffmpeg_path, ffprobe_path = _media_tool_paths()
@@ -562,23 +763,53 @@ async def _process_video(file_id: int) -> None:
     if data_center is None:
         raise RuntimeError(f"Unsupported data center: {original.data_center}")
 
-    with tempfile.TemporaryDirectory(prefix=f"storelimitless-video-{file_id}-") as temporary:
+    file_label = f"file_id={original.id} name={original.name!r}"
+    write_log(
+        "INFO", data_center, "VIDEO PROCESSING", original.username,
+        f"Starting stream preparation {file_label} source_mode={'local' if source_path_override is not None else 'remote-recovery'}.",
+    )
+
+    with tempfile.TemporaryDirectory(prefix=f"storelimitless-video-{original.id or 'pending'}-") as temporary:
         root = Path(temporary)
-        source_path = root / "original"
         output_root = root / "hls"
         output_root.mkdir(parents=True, exist_ok=True)
 
-        await _download_original(original, source_path)
+        if source_path_override is not None:
+            source_path = source_path_override
+            source_size = source_path.stat().st_size
+            _update_for_original(
+                original, current_file_id,
+                status="preparing",
+                stage="probing",
+                progress=10.0,
+                message="Using the preserved local source. Inspecting video and audio tracks.",
+                bytes_downloaded=source_size,
+                source_size=source_size,
+            )
+            write_log(
+                "INFO", data_center, "VIDEO PROCESSING", original.username,
+                f"Using preserved local source {file_label} source_size={source_size}; no remote original download required.",
+            )
+        else:
+            source_path = root / "original"
+            await _download_original(original, source_path)
+
         media_info = await _probe_media(source_path, ffprobe_path)
         duration = float(media_info["duration"])
         audio_tracks = list(media_info.get("audio") or [])
         if math.ceil(duration / VIDEO_SEGMENT_SECONDS) > 50000:
             raise RuntimeError("This video's duration exceeds the supported HLS segment limit.")
 
+        write_log(
+            "INFO", data_center, "VIDEO PROCESSING", original.username,
+            f"Probe complete {file_label} duration={duration:.3f}s video_codec={media_info['video'].get('codec')!r} "
+            f"audio_tracks={len(audio_tracks)} subtitle_tracks={len(media_info.get('subtitles') or [])}.",
+        )
         expected_segments_per_track = math.ceil(duration / VIDEO_SEGMENT_SECONDS)
         total_segments = expected_segments_per_track * (1 + len(audio_tracks))
-        _update_job(
-            file_id,
+        _update_for_original(
+            original, current_file_id,
+            status="preparing" if original_saved_event is not None and not original_saved_event.is_set() else "processing",
             stage="processing",
             progress=18.0,
             message="Preparing streamable video and audio segments.",
@@ -642,6 +873,10 @@ async def _process_video(file_id: int) -> None:
                 "-nostats",
                 str(playlist_path),
             ])
+            write_log(
+                "INFO", data_center, "VIDEO PROCESSING", original.username,
+                f"FFmpeg started {file_label} track={label!r} index={stream_index} duration={duration:.3f}s.",
+            )
             await _run_ffmpeg_track(
                 command,
                 duration=duration,
@@ -650,7 +885,7 @@ async def _process_video(file_id: int) -> None:
                 progress_span=55.0,
                 total_tracks=len(track_specs),
                 track_number=track_number,
-                file_id=file_id,
+                original=original,
             )
             segments = _parse_hls_segments(playlist_path)
             media_info.setdefault("_processed_assets", {}).setdefault(kind, {})[str(stream_index)] = []
@@ -659,8 +894,9 @@ async def _process_video(file_id: int) -> None:
                     "path": str(segment_path),
                     "duration": segment_duration,
                 })
-            _update_job(
-                file_id,
+            _update_for_original(
+                original, current_file_id,
+                status="preparing" if original_saved_event is not None and not original_saved_event.is_set() else "processing",
                 progress=round(min(75.0, 20.0 + 55.0 * track_number / max(1, len(track_specs))), 2),
                 message=f"Prepared {track_number} of {len(track_specs)} media tracks.",
                 completed_segments=min(total_segments, sum(
@@ -668,6 +904,10 @@ async def _process_video(file_id: int) -> None:
                     for tracks in media_info["_processed_assets"].values()
                     for items in tracks.values()
                 )),
+            )
+            write_log(
+                "INFO", data_center, "VIDEO PROCESSING", original.username,
+                f"FFmpeg completed {file_label} track={label!r} generated_segments={len(segments)}.",
             )
 
         pack_path = root / "streaming-pack.bin"
@@ -693,8 +933,9 @@ async def _process_video(file_id: int) -> None:
                     pack_offset = offset + segment_size
                     current_asset += 1
                     packaging_progress = 75.0 + (5.0 * current_asset / max(1, asset_count))
-                    _update_job(
-                        file_id,
+                    _update_for_original(
+                        original, current_file_id,
+                        status="preparing" if original_saved_event is not None and not original_saved_event.is_set() else "processing",
                         stage="packaging",
                         progress=round(packaging_progress, 2),
                         message=f"Packaging streamable segments ({current_asset}/{asset_count}).",
@@ -705,14 +946,26 @@ async def _process_video(file_id: int) -> None:
         if pack_offset <= 0 or not pack_path.is_file():
             raise RuntimeError("No streamable media segments were generated.")
 
-        _update_job(
-            file_id,
-            stage="storing",
-            progress=80.0,
-            message="Uploading the processed streaming copy to the data center.",
-            completed_segments=asset_count,
-            total_segments=asset_count,
-        )
+        if original_saved_event is not None and not original_saved_event.is_set():
+            write_log(
+                "INFO", data_center, "VIDEO PROCESSING", original.username,
+                f"Processing finished before original upload {file_label}; holding derivative locally until original finalization.",
+            )
+            _update_for_original(
+                original, current_file_id,
+                status="preparing",
+                stage="waiting_for_original_upload",
+                progress=80.0,
+                message="Stream preparation is complete. Waiting for the original upload to finish before storing the streaming copy.",
+                completed_segments=asset_count,
+                total_segments=asset_count,
+            )
+            await original_saved_event.wait()
+
+        if original.id is None:
+            raise RuntimeError("The original database record was not committed before derivative upload.")
+        file_id = int(original.id)
+
         packed_file = File(
             directory_id=int(original.directory_id),
             name=f"processed-video-{file_id}.bin",
@@ -728,15 +981,49 @@ async def _process_video(file_id: int) -> None:
             if len(await verify_pack.read(1)) != 1:
                 raise RuntimeError("The streaming package could not be read back from staging.")
 
-        async for progress in upload_growing_file(packed_file, pack_path, data_center, upload_progress):
-            transferred = min(pack_offset, max(0, int(progress.transfer or 0)))
-            percentage = 80.0 + 18.0 * transferred / max(1, pack_offset)
-            _update_job(
-                file_id,
-                stage="storing",
-                progress=round(min(98.0, percentage), 2),
-                message=f"Uploading processed stream ({transferred * 100 / max(1, pack_offset):.1f}%).",
-            )
+        _update_job(
+            file_id,
+            status="preparing",
+            stage="waiting_for_upload",
+            progress=80.0,
+            message="Stream preparation complete. Waiting for the shared upload queue.",
+            completed_segments=asset_count,
+            total_segments=asset_count,
+        )
+        upload_job_status = "preparing" if original_saved_event is not None else "processing"
+        ticket: IngestionUploadTicket = await enqueue_ingestion_upload(packed_file.name, original.username)
+        write_log(
+            "INFO", data_center, "VIDEO PROCESSING", original.username,
+            f"Queued processed derivative file_id={file_id} size={pack_offset} behind all active original/file uploads.",
+        )
+        try:
+            async with ingestion_upload_slot(ticket):
+                _update_job(
+                    file_id,
+                    status=upload_job_status,
+                    stage="storing",
+                    progress=80.0,
+                    message="Uploading the processed streaming copy to the data center.",
+                    completed_segments=asset_count,
+                    total_segments=asset_count,
+                )
+                write_log(
+                    "INFO", data_center, "VIDEO PROCESSING", original.username,
+                    f"Processed derivative upload started file_id={file_id} packed_size={pack_offset}.",
+                )
+                async for progress in upload_growing_file(packed_file, pack_path, data_center, upload_progress):
+                    transferred = min(pack_offset, max(0, int(progress.transfer or 0)))
+                    percentage = 80.0 + 18.0 * transferred / max(1, pack_offset)
+                    _update_job(
+                        file_id,
+                        status=upload_job_status,
+                        stage="storing",
+                        progress=round(min(98.0, percentage), 2),
+                        message=f"Uploading processed stream ({transferred * 100 / max(1, pack_offset):.1f}%).",
+                    )
+        finally:
+            if not ticket.claimed:
+                await cancel_ingestion_upload(ticket)
 
         expected_parts = math.ceil(pack_offset / int(data_center.MAX_SIZE))
         if packed_file.size != pack_offset or len(packed_file.links) != expected_parts:
@@ -746,6 +1033,10 @@ async def _process_video(file_id: int) -> None:
         first_chunk = await data_center.download(packed_file.links[0])
         if len(first_chunk) != min(int(data_center.MAX_SIZE), pack_offset):
             raise RuntimeError("The processed stream could not be verified on the data center.")
+        write_log(
+            "INFO", data_center, "VIDEO PROCESSING", original.username,
+            f"Derivative storage verified file_id={file_id} packed_size={pack_offset} chunks={len(packed_file.links)}.",
+        )
 
         with POOL.connection() as connection:
             try:
@@ -791,10 +1082,59 @@ async def _process_video(file_id: int) -> None:
                 connection.rollback()
                 raise
 
+        write_log(
+            "INFO", data_center, "VIDEO PROCESSING", original.username,
+            f"Video is ready file_id={file_id} name={original.name!r} duration={duration:.3f}s segments={asset_count}.",
+        )
+
+
+async def _run_local_video_preparation(context: LocalVideoPreparation) -> None:
+    """Prepare locally while original chunks upload, then wait for original finalization before derivative upload."""
+
+    file = context.file
+    try:
+        await _process_video(
+            None,
+            original_override=file,
+            source_path_override=context.source_path,
+            original_saved_event=context.original_saved,
+        )
+    except asyncio.CancelledError:
+        raise
+    except Exception as error:
+        detail = " ".join(sanitize_sensitive_urls(str(error)).split())[:1800] or type(error).__name__
+        # If the original upload is still active, wait for its terminal outcome before
+        # deciding whether a durable processing job exists to mark failed.
+        if file.id is None:
+            await context.original_saved.wait()
+        if file.id is not None:
+            try:
+                _update_job(
+                    int(file.id),
+                    status="failed",
+                    stage="failed",
+                    message="Video processing failed.",
+                    error=detail,
+                    finished_at="NOW()",
+                )
+            except Exception as status_error:
+                write_log(
+                    "ERROR", DataCenter(file.data_center) or DataCenter, "VIDEO PROCESSING", file.username,
+                    f"Could not persist failure file_id={file.id}: {status_error}",
+                )
+        write_log(
+            "ERROR", DataCenter(file.data_center) or DataCenter, "VIDEO PROCESSING", file.username,
+            f"Local stream preparation failed file_id={file.id} name={file.name!r}: {detail}",
+        )
+    finally:
+        _LOCAL_VIDEO_PREPARATIONS.pop(id(file), None)
+        shutil.rmtree(context.staging_root, ignore_errors=True)
+
 
 async def _process_job(file_id: int) -> None:
     """Run one queued job and record a useful failure without damaging the original."""
     try:
+        write_log("INFO", DataCenter, "VIDEO PROCESSING", str(file_id), f"Persistent worker claimed file_id={file_id}.")
         await _process_video(file_id)
     except asyncio.CancelledError:
         raise
@@ -811,7 +1151,7 @@ async def _process_job(file_id: int) -> None:
             )
         except Exception as status_error:
             print(f"Could not persist video processing failure for file {file_id}: {status_error}")
-        print(f"Video processing failed for file {file_id}: {detail}")
+        write_log("ERROR", DataCenter, "VIDEO PROCESSING", str(file_id), f"Persistent processing failed file_id={file_id}: {detail}")
 
 
 async def run_video_processing_worker() -> None:

@@ -95,11 +95,17 @@ try:
                         ON UPDATE CASCADE
                         ON DELETE CASCADE,
                 CONSTRAINT chk_video_processing_status
-                    CHECK (status IN ('queued', 'processing', 'ready', 'failed'))
+                    CHECK (status IN ('queued', 'preparing', 'processing', 'ready', 'failed'))
             );
 
             CREATE INDEX IF NOT EXISTS idx_video_processing_jobs_queue
                 ON video_processing_jobs (status, created_at, file_id);
+
+            ALTER TABLE video_processing_jobs
+                DROP CONSTRAINT IF EXISTS chk_video_processing_status;
+            ALTER TABLE video_processing_jobs
+                ADD CONSTRAINT chk_video_processing_status
+                CHECK (status IN ('queued', 'preparing', 'processing', 'ready', 'failed'));
 
             CREATE TABLE IF NOT EXISTS processed_videos (
                 id BIGINT PRIMARY KEY,

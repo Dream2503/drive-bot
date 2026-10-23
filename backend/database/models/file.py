@@ -76,6 +76,13 @@ class File(BaseModel):
 
             self.name = f"{stem}({i}){extension}"
 
+        video_file: bool = is_video_file(self.name, self.type)
+        has_local_preparation: bool = False
+        if video_file:
+            from backend.server.video_processing import has_local_video_preparation
+
+            has_local_preparation = has_local_video_preparation(self)
+
         with POOL.connection() as connection:
             try:
                 self.id = cast(dict[str, int], connection.execute(
@@ -99,18 +106,35 @@ class File(BaseModel):
 
                 # Queue registration shares the original-file transaction, so all
                 # ingestion paths converge here after the provider upload has finished.
-                if self.id is not None and is_video_file(self.name, self.type):
+                if self.id is not None and video_file:
                     connection.execute(
                         """
-                        INSERT INTO video_processing_jobs (file_id)
-                        VALUES (%s)
+                        INSERT INTO video_processing_jobs (file_id, status, stage, message)
+                        VALUES (%s, %s, %s, %s)
                         ON CONFLICT (file_id) DO NOTHING;
                         """,
-                        (self.id,),
+                        (
+                            self.id,
+                            "preparing" if has_local_preparation else "queued",
+                            "preparing" if has_local_preparation else "queued",
+                            "Preparing a local streaming copy alongside the original upload."
+                            if has_local_preparation else "Waiting for video processing.",
+                        ),
                     )
 
                 connection.commit()
                 await Redis.set(f"user:{self.username}:files", self)
+
+                if self.id is not None and video_file:
+                    write_log(
+                        "INFO", Database, "VIDEO PROCESSING", self.username,
+                        f"Original file saved file_id={self.id} name={self.name!r} size={self.size} "
+                        f"chunks={len(self.links)}; local_preparation={has_local_preparation}.",
+                    )
+                    if has_local_preparation:
+                        from backend.server.video_processing import notify_video_file_saved
+
+                        notify_video_file_saved(self)
 
             except Exception as e:
                 connection.rollback()
