@@ -963,7 +963,7 @@ async def download_torrent(file: File, link: str, selected_indices: set[int] | N
                 processed_indices.add(index)
                 saved_count += 1
 
-                if first_saved_id is None:
+                if first_saved_id is None and saved_file is file:
                     first_saved_id = saved_file.id
 
             status: Any = handle.status()
