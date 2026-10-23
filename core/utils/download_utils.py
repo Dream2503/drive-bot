@@ -26,6 +26,12 @@ from core.config import TRANSFER_PATH
 from core.data_center import DataCenter
 from core.utils import sanitize_sensitive_urls, write_log
 from core.utils.progress import Progress
+from core.utils.ingestion_queue import (
+    IngestionUploadTicket,
+    cancel_ingestion_upload,
+    enqueue_ingestion_upload,
+    ingestion_upload_slot,
+)
 
 
 @dataclass
@@ -841,27 +847,47 @@ async def download_torrent(file: File, link: str, selected_indices: set[int] | N
             relative_name: str,
             local_size: int,
             sequence: int,
+            ticket: IngestionUploadTicket,
     ) -> File:
-        """Upload one complete file, persist its metadata, and let file_upload free its local space."""
+        """Upload one complete file under the shared Redis FIFO and persist its metadata."""
 
         try:
-            async for upload_progress in file_upload(torrent_file, local_path, intermediate=True):
-                transferred: int = min(local_size, max(0, int(upload_progress.transfer or 0)))
+            async with ingestion_upload_slot(ticket):
                 item.update({
-                    "transfer": transferred,
+                    "transfer": 0,
                     "total": local_size,
+                    "download_transfer": local_size,
+                    "download_total": local_size,
+                    "upload_transfer": 0,
+                    "upload_total": local_size,
                     "status": "uploading",
-                    "message": (
-                        f"Uploading · {transferred * 100 / local_size:.1f}%"
-                        if local_size else "Uploading"
-                    ),
+                    "message": "Uploading",
                 })
-                await sleep(0)
+                async for upload_progress in file_upload(torrent_file, local_path, intermediate=True):
+                    transferred: int = min(local_size, max(0, int(upload_progress.transfer or 0)))
+                    item.update({
+                        "transfer": transferred,
+                        "total": local_size,
+                        "download_transfer": local_size,
+                        "download_total": local_size,
+                        "upload_transfer": transferred,
+                        "upload_total": local_size,
+                        "status": "uploading",
+                        "message": (
+                            f"Uploading · {transferred * 100 / local_size:.1f}%"
+                            if local_size else "Uploading"
+                        ),
+                    })
+                    await sleep(0)
 
-            await torrent_file.save()
+                await torrent_file.save()
             item.update({
                 "transfer": local_size,
                 "total": local_size,
+                "download_transfer": local_size,
+                "download_total": local_size,
+                "upload_transfer": local_size,
+                "upload_total": local_size,
                 "status": "completed",
                 "message": "Completed",
             })
@@ -880,6 +906,9 @@ async def download_torrent(file: File, link: str, selected_indices: set[int] | N
                 "message": f"Upload failed: {str(error)[:160]}",
             })
             raise
+        finally:
+            if not ticket.claimed:
+                await cancel_ingestion_upload(ticket)
 
     try:
         write_log("INFO", data_center, "TORRENT", file.username, f"Starting magnet download: {safe_link}")
@@ -940,6 +969,14 @@ async def download_torrent(file: File, link: str, selected_indices: set[int] | N
                 "name": "/".join(display_parts) or Path(raw_path).name,
                 "transfer": 0,
                 "total": file_sizes[index],
+                "download_transfer": 0,
+                "download_total": file_sizes[index],
+                "download_speed": 0.0,
+                "download_eta": None,
+                "upload_transfer": 0,
+                "upload_total": file_sizes[index],
+                "upload_speed": 0.0,
+                "upload_eta": None,
                 "status": "queued",
                 "message": "Waiting for download",
             })
@@ -1074,10 +1111,14 @@ async def download_torrent(file: File, link: str, selected_indices: set[int] | N
                 item = next(item for item in tray_items if int(item["file_index"]) == index)
                 item.update({
                     "name": relative_display_path,
-                    "transfer": 0,
+                    "transfer": local_size,
                     "total": local_size,
-                    "status": "uploading",
-                    "message": "Starting upload",
+                    "download_transfer": local_size,
+                    "download_total": local_size,
+                    "upload_transfer": 0,
+                    "upload_total": local_size,
+                    "status": "waiting_upload",
+                    "message": "Downloaded · waiting for upload",
                 })
                 write_log(
                     "INFO",
@@ -1086,6 +1127,7 @@ async def download_torrent(file: File, link: str, selected_indices: set[int] | N
                     file.username,
                     f"Uploading completed torrent file {scheduled_count}/{len(selected_order)}: {relative_display_path}",
                 )
+                ticket = await enqueue_ingestion_upload()
                 active_uploads[index] = create_task(
                     upload_completed_file(
                         torrent_file,
@@ -1094,26 +1136,64 @@ async def download_torrent(file: File, link: str, selected_indices: set[int] | N
                         relative_display_path,
                         local_size,
                         scheduled_count,
+                        ticket,
                     )
                 )
 
-            # Count download bytes for queued/downloading files, uploaded bytes for
-            # active uploads, and full size for saved files in the top-level progress.
-            aggregate_transfer: int = 0
+            # Persist download and storage-upload bytes independently; item-level metrics
+            # are computed by the backend and survive Redis status polling and page refreshes.
+            aggregate_download: int = 0
+            aggregate_upload: int = 0
+            sample_time: float = monotonic()
             for item in tray_items:
                 index = int(item["file_index"])
                 size = file_sizes[index]
                 item_status = str(item.get("status") or "queued")
 
-                if item_status in {"uploading", "completed"}:
-                    current_transfer = min(size, max(0, int(item.get("transfer") or 0)))
+                if item_status in {"downloaded", "waiting_upload", "uploading", "completed"}:
+                    downloaded = size
                 else:
-                    current_transfer = min(size, file_progress[index]) if index < len(file_progress) else 0
+                    downloaded = min(size, file_progress[index]) if index < len(file_progress) else 0
+                uploaded = size if item_status == "completed" else (
+                    min(size, max(0, int(item.get("upload_transfer", item.get("transfer", 0) or 0)))
+                    if item_status == "uploading" else 0
+                )
+                item.update({
+                    "download_transfer": downloaded,
+                    "download_total": size,
+                    "upload_transfer": uploaded,
+                    "upload_total": size,
+                })
+                previous_at = float(item.get("_sample_at") or sample_time)
+                elapsed = max(0.0, sample_time - previous_at)
+                previous_download = int(item.get("_sample_download") or 0)
+                previous_upload = int(item.get("_sample_upload") or 0)
+                previous_download_speed = max(0.0, float(item.get("download_speed") or 0))
+                previous_upload_speed = max(0.0, float(item.get("upload_speed") or 0))
+                if elapsed > 0 and downloaded >= previous_download and item_status in {"downloading", "downloaded", "waiting_upload", "uploading", "completed"}:
+                    delta_speed = (downloaded - previous_download) / elapsed
+                    item["download_speed"] = delta_speed if previous_download_speed <= 0 else previous_download_speed * 0.7 + delta_speed * 0.3
+                elif elapsed >= 4:
+                    item["download_speed"] = 0.0
+                if elapsed > 0 and uploaded >= previous_upload and item_status in {"uploading", "completed"}:
+                    delta_speed = (uploaded - previous_upload) / elapsed
+                    item["upload_speed"] = delta_speed if previous_upload_speed <= 0 else previous_upload_speed * 0.7 + delta_speed * 0.3
+                elif elapsed >= 4:
+                    item["upload_speed"] = 0.0
+                item["download_eta"] = max(0.0, (size - downloaded) / item["download_speed"]) if size > downloaded and item["download_speed"] > 0 else None
+                item["upload_eta"] = max(0.0, (size - uploaded) / item["upload_speed"]) if size > uploaded and item["upload_speed"] > 0 else None
+                item["_sample_at"] = sample_time
+                item["_sample_download"] = downloaded
+                item["_sample_upload"] = uploaded
+                aggregate_download += downloaded
+                aggregate_upload += uploaded
 
-                aggregate_transfer += current_transfer
-
+            progress.ingestion_type = "torrent"
+            progress.download_active = True
+            progress.download_transfer = min(total_upload_bytes, aggregate_download)
+            progress.download_total = total_upload_bytes
             progress.name = torrent_name
-            progress.transfer = min(total_upload_bytes, aggregate_transfer)
+            progress.transfer = min(total_upload_bytes, aggregate_upload)
             progress.total = total_upload_bytes
             progress.torrent_items = [dict(item) for item in tray_items]
 
