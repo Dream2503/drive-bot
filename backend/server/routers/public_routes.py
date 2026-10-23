@@ -751,7 +751,13 @@ async def public_hls_segment(
 
 
 @router.get("/hls/{token}/subtitles/{stream_index}.srt")
-async def public_hls_subtitles(token: str, stream_index: int, request: Request) -> Response:
+async def public_hls_subtitles(
+    token: str,
+    stream_index: int,
+    request: Request,
+    start_seconds: float = Query(default=0, ge=0),
+    duration_seconds: float = Query(default=120, gt=0, le=120),
+) -> Response:
     """Stream one extracted WebVTT track as FFmpeg produces cues; no sidecar file is stored."""
 
     file = await _owned_public_file(token, request)
@@ -767,12 +773,23 @@ async def public_hls_subtitles(token: str, stream_index: int, request: Request) 
     if not subtitle["selectable"]:
         raise HTTPException(status_code=415, detail="This bitmap subtitle format cannot be converted to selectable text captions.")
 
+    media_duration = float(media_info["duration"])
+    if start_seconds >= media_duration:
+        return Response(
+            content="WEBVTT\\n\\n",
+            media_type="text/vtt; charset=utf-8",
+            headers=_media_response_headers(request),
+        )
+
+    segment_duration = min(duration_seconds, media_duration - start_seconds)
     ffmpeg_path, _ = _media_tool_paths()
     command = [
         ffmpeg_path,
         "-hide_banner", "-loglevel", "error", "-nostdin",
         "-rw_timeout", "300000000",
+        "-ss", f"{start_seconds:.6f}",
         "-i", _media_source_url(token),
+        "-t", f"{segment_duration:.6f}",
         "-map", f"0:{stream_index}",
         "-vn", "-an", "-dn",
         "-c:s", "webvtt",
