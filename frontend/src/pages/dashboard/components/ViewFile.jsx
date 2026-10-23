@@ -647,8 +647,10 @@ export default function ViewFile() {
 
                         for (let attempt = 0; attempt < 5; attempt += 1) {
                             try {
+                                // Keep this a CORS-safelisted single-range request. If-Range
+                                // forces a preflight, and some browsers reject the API's
+                                // redirect to the active public file server after preflight.
                                 const headers = {Range: `bytes=${offset}-${end}`};
-                                if (etag) headers["If-Range"] = etag;
                                 const requestSignal = typeof AbortSignal.any === "function" && typeof AbortSignal.timeout === "function"
                                     ? AbortSignal.any([controller.signal, AbortSignal.timeout(180000)])
                                     : controller.signal;
@@ -661,6 +663,11 @@ export default function ViewFile() {
                                         : `Download range failed (${response.status}).`);
                                 }
 
+                                const responseEtag = response.headers.get("etag") || "";
+                                if (etag && responseEtag && responseEtag !== etag) {
+                                    await response.body?.cancel();
+                                    throw new Error("The file changed during download. Retry to fetch a consistent copy.");
+                                }
                                 const expectedRange = `bytes ${offset}-${end}/${total}`;
                                 const receivedRange = response.headers.get("content-range") || "";
                                 if (receivedRange !== expectedRange) {
@@ -788,8 +795,9 @@ export default function ViewFile() {
 
                 for (let attempt = 0; attempt < 5; attempt += 1) {
                     try {
+                        // Range is CORS-safelisted for a single byte range. Avoid If-Range,
+                        // which triggers a preflight before the API's cross-origin redirect.
                         const headers = {Range: `bytes=${offset}-${end}`};
-                        if (etag) headers["If-Range"] = etag;
                         const requestSignal = typeof AbortSignal.any === "function" && typeof AbortSignal.timeout === "function"
                             ? AbortSignal.any([controller.signal, AbortSignal.timeout(180000)])
                             : controller.signal;
@@ -799,6 +807,11 @@ export default function ViewFile() {
                             throw new Error(response.status === 200
                                 ? "The server did not honor the byte-range request; refusing an unsafe staged download."
                                 : `Download range failed (${response.status}).`);
+                        }
+                        const responseEtag = response.headers.get("etag") || "";
+                        if (etag && responseEtag && responseEtag !== etag) {
+                            await response.body?.cancel();
+                            throw new Error("The file changed during download. Retry to fetch a consistent copy.");
                         }
                         const expectedRange = `bytes ${offset}-${end}/${total}`;
                         const receivedRange = response.headers.get("content-range") || "";
