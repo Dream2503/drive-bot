@@ -262,11 +262,12 @@ function VideoPlayer({file, streamUrl, publicToken, heightClass = "h-[70vh]"}) {
                 if (Hls.isSupported()) {
                     hlsInstance = new Hls({
                         enableWorker: true,
-                        maxBufferLength: 30,
+                        // Keep more media ahead of playback so background segment generation
+                        // has time to finish before the playhead reaches those fragments.
+                        maxBufferLength: 60,
+                        maxMaxBufferLength: 120,
                         backBufferLength: 30,
-                        // StoreLimitless generates each HLS segment on demand using FFmpeg.
-                        // The segment endpoint buffers the encoded segment before responding,
-                        // so on a cold remote-storage cache the first byte can take >10 seconds.
+                        startFragPrefetch: true,
                         fragLoadPolicy: {
                             default: {
                                 maxTimeToFirstByteMs: 90000,
