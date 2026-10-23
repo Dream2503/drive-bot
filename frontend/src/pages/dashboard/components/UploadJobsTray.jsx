@@ -161,7 +161,7 @@ function formatEta(seconds) {
 function TransferDetails({transfer, total, status, compact = false, inline = false, speed = 0, eta = null}) {
     if (num(total) <= 0) return null;
 
-    const transferLabel = status === "downloading" ? "Downloaded" : "Transferred";
+    const transferLabel = status === "downloading" ? "Downloaded" : status === "uploading" ? "Uploaded" : "Transferred";
     const done = status === "completed" || num(transfer) >= num(total);
     const layoutClass = inline
         ? "min-w-0 flex-nowrap gap-x-1.5 whitespace-nowrap text-[11px] leading-snug"
@@ -803,11 +803,18 @@ function UploadJobCard({job, onSelectFiles, onCancel, onDismiss}) {
                             <span className="font-mono tabular-nums text-[#c5d8cc]">{(isQueued ? 0 : torrentDownloadPercent).toFixed(1)}%</span>
                         </div>
                         <ProgressBar percent={isQueued ? 0 : torrentDownloadPercent} muted={isQueued}/>
-                        <p className="text-[11px] tabular-nums text-[#789083]">
-                            {total > 0
-                                ? `${formatFileSize(isQueued ? 0 : torrentDownloadTransfer)} / ${formatFileSize(total)} downloaded`
-                                : `${downloadedCount} of ${itemCount} files downloaded`}
-                        </p>
+                                                {total > 0
+                            ? <TransferDetails
+                                transfer={isQueued ? 0 : torrentDownloadTransfer}
+                                total={total}
+                                status="downloading"
+                                inline
+                                speed={isQueued ? 0 : downloadSpeed}
+                                eta={isQueued ? null : downloadEta}
+                            />
+                            : <p className="text-[11px] tabular-nums text-[#789083]">
+                                {downloadedCount} of {itemCount} files downloaded · {formatRate(downloadSpeed)} · {formatEta(downloadEta)}
+                            </p>}
                     </div>
                     <div className="space-y-1">
                         <div className="flex items-center justify-between gap-2 text-[11px]">
@@ -819,11 +826,18 @@ function UploadJobCard({job, onSelectFiles, onCancel, onDismiss}) {
                             muted={isQueued}
                             fillClassName="bg-gradient-to-r from-[#3387c7] to-[#56c7db]"
                         />
-                        <p className="text-[11px] tabular-nums text-[#789083]">
-                            {total > 0
-                                ? `${formatFileSize(isQueued ? 0 : torrentUploadTransfer)} / ${formatFileSize(total)} uploaded`
-                                : `${finished} of ${itemCount} files uploaded`}
-                        </p>
+                                                {total > 0
+                            ? <TransferDetails
+                                transfer={isQueued ? 0 : torrentUploadTransfer}
+                                total={total}
+                                status="uploading"
+                                inline
+                                speed={isQueued ? 0 : uploadSpeed}
+                                eta={isQueued ? null : uploadEta}
+                            />
+                            : <p className="text-[11px] tabular-nums text-[#789083]">
+                                {finished} of {itemCount} files uploaded · {formatRate(uploadSpeed)} · {formatEta(uploadEta)}
+                            </p>}
                     </div>
                 </div> : showConcurrentProgress ? <div className="mt-2.5 min-w-0 space-y-3">
                     <div className="min-w-0 space-y-1">
