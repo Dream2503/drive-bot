@@ -786,6 +786,10 @@ async def public_hls_subtitles(
     command = [
         ffmpeg_path,
         "-hide_banner", "-loglevel", "error", "-nostdin",
+        # Keep subtitle packet timestamps aligned to the original media timeline
+        # while seeking to a bounded window. -start_at_zero removes any container
+        # start-time offset but retains the requested seek position (e.g. 120 seconds).
+        "-copyts", "-start_at_zero",
         "-rw_timeout", "300000000",
         "-ss", f"{start_seconds:.6f}",
         "-i", _media_source_url(token),
