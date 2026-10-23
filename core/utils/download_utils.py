@@ -1525,11 +1525,18 @@ async def download_torrent(file: File, link: str, selected_indices: set[int] | N
                     continue
 
                 del active_uploads[index]
-                saved_file: File = task.result()
+                try:
+                    saved_file: File = task.result()
+                except Exception:
+                    # One file's provider failure must not cancel downloads/uploads for
+                    # other selected torrent files. The worker already recorded its error.
+                    processed_indices.add(index)
+                    continue
+
                 processed_indices.add(index)
                 saved_count += 1
 
-                if first_saved_id is None and saved_file is file:
+                if first_saved_id is None:
                     first_saved_id = saved_file.id
 
             start_pending_uploads()
@@ -1545,12 +1552,17 @@ async def download_torrent(file: File, link: str, selected_indices: set[int] | N
                 size = file_sizes[index]
 
                 if index in processed_indices:
-                    item.update({
-                        "transfer": size,
-                        "total": size,
-                        "status": "completed",
-                        "message": "Completed",
-                    })
+                    if item.get("status") != "error":
+                        item.update({
+                            "transfer": size,
+                            "total": size,
+                            "download_transfer": size,
+                            "download_total": size,
+                            "upload_transfer": size,
+                            "upload_total": size,
+                            "status": "completed",
+                            "message": "Completed",
+                        })
                     continue
 
                 if index in active_uploads or index in pending_uploads:
@@ -1731,8 +1743,12 @@ async def download_torrent(file: File, link: str, selected_indices: set[int] | N
             seeds = int(getattr(status, "num_seeds", 0) or 0)
             if peers:
                 progress.message = f"Downloading torrent files ({peers} peers, {seeds} seeds)"
+            elif any(item.get("status") == "uploading" for item in tray_items):
+                progress.message = "Uploading completed files"
+            elif any(item.get("status") == "waiting_upload" for item in tray_items):
+                progress.message = "Waiting for upload slot"
             else:
-                progress.message = "Uploading completed files" if active_uploads else "Searching for peers"
+                progress.message = "Searching for peers"
 
             yield progress
 
@@ -1756,19 +1772,29 @@ async def download_torrent(file: File, link: str, selected_indices: set[int] | N
             await sleep(0.5)
 
         file.id = first_saved_id
-        final_progress: Progress = Progress(torrent_name, f"Upload Complete: {saved_count} torrent file(s)", total_upload_bytes)
-        final_progress.transfer = total_upload_bytes
+        failed_count = sum(item.get("status") == "error" for item in tray_items)
+        final_message = (
+            f"Upload failed: {failed_count} of {len(selected_order)} torrent files failed; "
+            f"{saved_count} completed"
+            if failed_count else f"Upload Complete: {saved_count} torrent file(s)"
+        )
+        final_progress: Progress = Progress(torrent_name, final_message, total_upload_bytes)
+        final_progress.transfer = sum(
+            min(file_sizes[int(item["file_index"])], max(0, int(item.get("upload_transfer") or 0)))
+            for item in tray_items
+            if int(item["file_index"]) in file_sizes
+        )
         final_progress.download_transfer = total_upload_bytes
         final_progress.download_total = total_upload_bytes
         final_progress.download_active = True
         final_progress.ingestion_type = "torrent"
         final_progress.torrent_items = [dict(item) for item in tray_items]
         write_log(
-            "INFO",
+            "INFO" if not failed_count else "WARNING",
             data_center,
             "TORRENT",
             file.username,
-            f"Torrent download and concurrent upload complete: {saved_count} file(s), {total_upload_bytes} bytes",
+            f"Torrent download and sequential upload finished: {saved_count} succeeded, {failed_count} failed, {total_upload_bytes} bytes selected",
         )
         yield final_progress
 
