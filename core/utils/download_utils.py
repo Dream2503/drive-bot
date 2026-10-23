@@ -827,7 +827,7 @@ def is_google_drive_folder_url(link: str) -> bool:
     return (
         parsed.scheme.lower() in {"http", "https"}
         and (parsed.hostname or "").lower().removeprefix("www.") == "drive.google.com"
-        and re.search(r"/drive/folders/[-\\w]+(?:/view)?/?$", parsed.path or "") is not None
+        and re.search(r"/drive/folders/[-\w]+(?:/view)?/?$", parsed.path or "") is not None
     )
 
 
@@ -835,7 +835,7 @@ def _public_google_drive_folder_title(link: str) -> str:
     """Resolve a public folder title when its public listing contains no files."""
 
     parsed = urlparse(link)
-    folder_match = re.search(r"/drive/folders/([-\\w]+)", parsed.path or "")
+    folder_match = re.search(r"/drive/folders/([-\w]+)", parsed.path or "")
     if folder_match is None:
         raise ValueError("Could not determine the Google Drive folder ID from the URL")
     folder_id = folder_match.group(1)
