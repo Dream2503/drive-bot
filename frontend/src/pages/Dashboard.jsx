@@ -3023,7 +3023,7 @@ function MultiSelectionDetailsModal({items, onClose}) {
     const selected = Array.isArray(items) ? items : [];
     const files = selected.filter((item) => item.type === "file");
     const folders = selected.filter((item) => item.type === "folder");
-    const getFolderPath = (item) => String(item.path ?? item.object?.path ?? "").replace(/\\/g, "/").replace(/\\/+$/, "");
+    const getFolderPath = (item) => String(item.path ?? item.object?.path ?? "").replace(/\\/g, "/").replace(/\/+$/, "");
     const selectedFolderPaths = folders.map(getFolderPath).filter(Boolean);
     const topLevelFolders = folders.filter((item) => {
         const path = getFolderPath(item);
@@ -3039,7 +3039,7 @@ function MultiSelectionDetailsModal({items, onClose}) {
         return Number.isFinite(bytes) && bytes > 0 ? bytes : 0;
     };
     const fileIsInsideSelectedFolder = (item) => {
-        const directory = String(item.directory ?? item.object?.directory ?? "").replace(/\\/g, "/").replace(/\\/+$/, "");
+        const directory = String(item.directory ?? item.object?.directory ?? "").replace(/\\/g, "/").replace(/\/+$/, "");
         return selectedFolderPaths.some((folderPath) => directory === folderPath || directory.startsWith(`${folderPath}/`));
     };
     // Folder sizes are already calculated from the complete dashboard tree. Only add
