@@ -166,7 +166,8 @@ function VideoPlayer({file, streamUrl, publicToken, heightClass = "h-[70vh]"}) {
     const tracksUrl = publicToken ? API_URL + "/public/tracks/" + encodeURIComponent(publicToken) : "";
     // Embedded subtitles are requested in bounded windows, not by scanning the whole
     // media file into one response. This lets long videos produce useful captions promptly.
-    const subtitleWindowStart = Math.floor(Math.max(0, current) / 120) * 120;
+    const SUBTITLE_WINDOW_SECONDS = 30;
+    const subtitleWindowStart = Math.floor(Math.max(0, current) / SUBTITLE_WINDOW_SECONDS) * SUBTITLE_WINDOW_SECONDS;
 
     useEffect(() => {
         retryCountRef.current = 0;
@@ -349,7 +350,7 @@ function VideoPlayer({file, streamUrl, publicToken, heightClass = "h-[70vh]"}) {
 
         const subtitleUrl = API_URL + "/public/hls/" + encodeURIComponent(publicToken)
             + "/subtitles/" + selectedSubtitleTrack + ".srt?start_seconds=" + subtitleWindowStart
-            + "&duration_seconds=120";
+            + "&duration_seconds=" + SUBTITLE_WINDOW_SECONDS;
         const maxAttempts = 3;
 
         (async () => {
