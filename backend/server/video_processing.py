@@ -10,16 +10,17 @@ import shutil
 import tempfile
 from pathlib import Path
 from dataclasses import dataclass
-from time import monotonic
+from time import monotonic, time
 from typing import Any
 
 import aiofiles
 from psycopg.types.json import Jsonb
 
 from backend.database.connection import POOL
+from backend.database.redis_server import Redis
 from backend.database.models.file import File, is_video_file
 from core.config import TRANSFER_PATH
-from core.data_center import DataCenter
+from core.data_center import DataCenter, Database
 from core.stream import Stream
 from core.utils import sanitize_sensitive_urls, write_log
 from core.utils.binaries import get_ffmpeg_path
@@ -44,6 +45,130 @@ _VIDEO_BITMAP_SUBTITLE_CODECS = {
 }
 _JOB_POLL_SECONDS = 1.0
 _MAX_PROCESSING_PROGRESS = 99.0
+
+_JOB_QUEUE = "video:processing:queue"
+_JOB_SEQUENCE = "video:processing:sequence"
+_JOB_INDEX = "video:processing:index"
+_JOB_PREFIX = "video:processing:job:"
+_JOB_REQUEUE_INTERVAL = 30.0
+
+_ENQUEUE_VIDEO_JOB = """
+if redis.call('EXISTS', KEYS[1]) == 1 then return 0 end
+local sequence = redis.call('INCR', KEYS[3])
+redis.call('HSET', KEYS[1],
+    'file_id', ARGV[1], 'status', ARGV[2], 'stage', ARGV[3],
+    'progress', '0', 'message', ARGV[4], 'processed_seconds', '0',
+    'duration', '0', 'bytes_downloaded', '0', 'source_size', ARGV[6],
+    'completed_segments', '0', 'total_segments', '0', 'attempts', '0',
+    'error', '', 'created_at', ARGV[5], 'updated_at', ARGV[5],
+    'started_at', '', 'finished_at', '')
+redis.call('SADD', KEYS[4], ARGV[1])
+if ARGV[2] == 'queued' then redis.call('ZADD', KEYS[2], sequence, ARGV[1]) end
+return 1
+"""
+
+_CLAIM_VIDEO_JOB = """
+local head = redis.call('ZRANGE', KEYS[1], 0, 0)
+while #head > 0 do
+    local file_id = head[1]
+    local job_key = ARGV[1] .. file_id
+    if redis.call('EXISTS', job_key) == 0 then
+        redis.call('ZREM', KEYS[1], file_id)
+    elseif redis.call('HGET', job_key, 'status') ~= 'queued' then
+        redis.call('ZREM', KEYS[1], file_id)
+    else
+        local attempts = tonumber(redis.call('HGET', job_key, 'attempts')) or 0
+        redis.call('HSET', job_key, 'status', 'processing', 'stage', 'downloading_source',
+            'progress', '0', 'message', 'Downloading the original from storage for processing.',
+            'attempts', attempts + 1, 'started_at', ARGV[2], 'finished_at', '',
+            'error', '', 'updated_at', ARGV[2])
+        redis.call('ZREM', KEYS[1], file_id)
+        return file_id
+    end
+    head = redis.call('ZRANGE', KEYS[1], 0, 0)
+end
+return ''
+"""
+
+_RETRY_VIDEO_JOB = """
+if redis.call('HGET', KEYS[1], 'status') ~= 'failed' then return 0 end
+local sequence = redis.call('INCR', KEYS[3])
+redis.call('HSET', KEYS[1], 'status', 'queued', 'stage', 'queued', 'progress', '0',
+    'message', 'Waiting to retry video processing.', 'processed_seconds', '0',
+    'completed_segments', '0', 'total_segments', '0', 'error', '',
+    'updated_at', ARGV[2], 'started_at', '', 'finished_at', '')
+redis.call('SADD', KEYS[4], ARGV[1])
+redis.call('ZADD', KEYS[2], sequence, ARGV[1])
+return 1
+"""
+
+_REQUEUE_STALE_VIDEO_JOB = """
+if redis.call('HGET', KEYS[1], 'status') ~= 'processing' then return 0 end
+if redis.call('HGET', KEYS[1], 'updated_at') ~= ARGV[2] then return 0 end
+local sequence = redis.call('INCR', KEYS[3])
+redis.call('HSET', KEYS[1], 'status', 'queued', 'stage', 'queued', 'progress', '0',
+    'message', 'Resuming after an interrupted processing attempt.',
+    'processed_seconds', '0', 'completed_segments', '0', 'total_segments', '0',
+    'error', '', 'updated_at', ARGV[3], 'started_at', '', 'finished_at', '')
+redis.call('ZADD', KEYS[2], sequence, ARGV[1])
+return 1
+"""
+
+_MIGRATE_LEGACY_VIDEO_JOB = """
+if redis.call('EXISTS', KEYS[1]) == 1 then return 0 end
+local file_id = ARGV[1]
+local status = ARGV[2]
+for index = 3, #ARGV, 2 do
+    redis.call('HSET', KEYS[1], ARGV[index], ARGV[index + 1])
+end
+redis.call('SADD', KEYS[4], file_id)
+if status == 'queued' then
+    local sequence = redis.call('INCR', KEYS[3])
+    redis.call('ZADD', KEYS[2], sequence, file_id)
+end
+return 1
+"""
+
+
+def _video_job_key(file_id: int) -> str:
+    """Return the Redis hash key for one video's processing state."""
+
+    return f"{_JOB_PREFIX}{int(file_id)}"
+
+
+async def enqueue_video_processing_job(
+    file_id: int,
+    *,
+    status: str = "queued",
+    message: str = "Waiting for video processing.",
+    source_size: int = 0,
+    username: str = "system",
+    name: str = "",
+) -> bool:
+    """Create video processing state in Redis and enqueue it when remote processing is needed."""
+
+    if status not in {"queued", "preparing"}:
+        raise ValueError(f"Unsupported initial video processing status: {status!r}")
+    now = str(time())
+    created = await Redis.redis.eval(
+        _ENQUEUE_VIDEO_JOB, 4, _video_job_key(file_id), _JOB_QUEUE, _JOB_SEQUENCE, _JOB_INDEX,
+        str(file_id), status, status, message, now, max(0, int(source_size or 0)),
+    )
+    if created:
+        write_log(
+            "INFO", DataCenter, "VIDEO PROCESSING", username,
+            f"Registered Redis video job file_id={file_id} name={name!r} status={status}.",
+        )
+    return bool(created)
+
+
+async def delete_video_processing_job(file_id: int) -> None:
+    """Remove a video's processing state and pending queue entry from Redis."""
+
+    await Redis.redis.zrem(_JOB_QUEUE, str(file_id))
+    await Redis.redis.srem(_JOB_INDEX, str(file_id))
+    await Redis.redis.delete(_video_job_key(file_id))
+
 
 
 @dataclass(slots=True)
@@ -122,8 +247,9 @@ async def start_local_video_preprocessing(file: File, source_path: Path) -> None
     )
 
 
-def notify_video_file_saved(file: File) -> None:
-    """Persist preparation progress accumulated before the original file received its ID."""
+
+async def notify_video_file_saved(file: File) -> None:
+    """Publish preparation progress accumulated before the original file received its ID."""
 
     context = _LOCAL_VIDEO_PREPARATIONS.get(id(file))
     if context is None:
@@ -133,22 +259,17 @@ def notify_video_file_saved(file: File) -> None:
         f"Original upload finalized file_id={file.id} name={file.name!r} size={file.size} "
         f"chunks={len(file.links)}; synchronizing locally accumulated progress.",
     )
-    if file.id is not None:
-        _update_job(
-            int(file.id),
-            status="preparing",
-            stage=context.stage,
-            progress=context.progress,
-            message=context.message,
-            processed_seconds=context.processed_seconds,
-            duration=context.duration,
-            bytes_downloaded=context.bytes_downloaded,
-            source_size=context.source_size,
-            completed_segments=context.completed_segments,
-            total_segments=context.total_segments,
-        )
-    context.original_saved.set()
-
+    try:
+        if file.id is not None:
+            await _update_job(
+                int(file.id), status="preparing", stage=context.stage, progress=context.progress,
+                message=context.message, processed_seconds=context.processed_seconds,
+                duration=context.duration, bytes_downloaded=context.bytes_downloaded,
+                source_size=context.source_size, completed_segments=context.completed_segments,
+                total_segments=context.total_segments,
+            )
+    finally:
+        context.original_saved.set()
 
 async def abort_local_video_preparation(file: File, reason: str) -> None:
     """Cancel local preparation only when the original never reached a durable database row."""
@@ -196,125 +317,90 @@ def get_processed_video(file_id: int) -> dict[str, Any] | None:
     return dict(row) if row else None
 
 
-def get_video_processing_status(file_id: int) -> dict[str, Any]:
-    """Return the current processing job or an untracked state for legacy videos."""
+
+async def get_video_processing_status(file_id: int) -> dict[str, Any]:
+    """Return completed derivative metadata or the current processing state from Redis."""
+
     processed = get_processed_video(file_id)
     if processed is not None:
         media_info = processed.get("media_info") or {}
         duration = float(media_info.get("duration") or 0)
+        segment_count = sum(
+            len(segments)
+            for tracks in (processed.get("assets") or {}).values()
+            if isinstance(tracks, dict)
+            for segments in tracks.values()
+            if isinstance(segments, list)
+        )
         return {
-            "file_id": file_id,
-            "status": "ready",
-            "stage": "ready",
-            "progress": 100.0,
-            "message": "Streaming version is ready.",
-            "processed_seconds": duration,
-            "duration": duration,
-            "completed_segments": sum(
-                len(segments)
-                for tracks in (processed.get("assets") or {}).values()
-                if isinstance(tracks, dict)
-                for segments in tracks.values()
-                if isinstance(segments, list)
-            ),
-            "total_segments": sum(
-                len(segments)
-                for tracks in (processed.get("assets") or {}).values()
-                if isinstance(tracks, dict)
-                for segments in tracks.values()
-                if isinstance(segments, list)
-            ),
-            "error": None,
+            "file_id": file_id, "status": "ready", "stage": "ready", "progress": 100.0,
+            "message": "Streaming version is ready.", "processed_seconds": duration,
+            "duration": duration, "completed_segments": segment_count,
+            "total_segments": segment_count, "error": None,
         }
 
-    with POOL.connection() as connection:
-        row = connection.execute(
-            """
-            SELECT file_id, status, stage, progress, message, processed_seconds,
-                   duration, bytes_downloaded, source_size, completed_segments,
-                   total_segments, attempts, error, updated_at
-            FROM video_processing_jobs
-            WHERE file_id = %s;
-            """,
-            (file_id,),
-        ).fetchone()
-
-    if row is None:
+    job = await Redis.redis.hgetall(_video_job_key(file_id))
+    if not job:
         return {
-            "file_id": file_id,
-            "status": "untracked",
-            "stage": "untracked",
-            "progress": 0.0,
+            "file_id": file_id, "status": "untracked", "stage": "untracked", "progress": 0.0,
             "message": "This video has not entered the permanent processing pipeline yet.",
-            "processed_seconds": 0.0,
-            "duration": 0.0,
-            "completed_segments": 0,
-            "total_segments": 0,
-            "bytes_downloaded": 0,
-            "source_size": 0,
-            "error": None,
+            "processed_seconds": 0.0, "duration": 0.0, "completed_segments": 0,
+            "total_segments": 0, "bytes_downloaded": 0, "source_size": 0,
+            "attempts": 0, "error": None,
         }
 
-    result = dict(row)
-    result["progress"] = max(0.0, min(100.0, float(result.get("progress") or 0)))
-    result["processed_seconds"] = max(0.0, float(result.get("processed_seconds") or 0))
-    result["duration"] = max(0.0, float(result.get("duration") or 0))
-    result["completed_segments"] = max(0, int(result.get("completed_segments") or 0))
-    result["total_segments"] = max(0, int(result.get("total_segments") or 0))
-    result["bytes_downloaded"] = max(0, int(result.get("bytes_downloaded") or 0))
-    result["source_size"] = max(0, int(result.get("source_size") or 0))
-    result.pop("updated_at", None)
-    return result
+    try:
+        progress = float(job.get("progress") or 0)
+        processed_seconds = float(job.get("processed_seconds") or 0)
+        duration_value = float(job.get("duration") or 0)
+    except (TypeError, ValueError):
+        progress, processed_seconds, duration_value = 0.0, 0.0, 0.0
 
-
-def retry_video_processing(file_id: int) -> bool:
-    """Queue a failed job again without touching the original uploaded file."""
-    with POOL.connection() as connection:
+    def integer_field(key: str) -> int:
         try:
-            processed = connection.execute(
-                "SELECT 1 FROM processed_videos WHERE id = %s;",
-                (file_id,),
-            ).fetchone()
-            if processed is not None:
-                connection.commit()
-                return False
+            return max(0, int(float(job.get(key) or 0)))
+        except (TypeError, ValueError):
+            return 0
 
-            result = connection.execute(
-                """
-                UPDATE video_processing_jobs
-                SET status = 'queued',
-                    stage = 'queued',
-                    progress = 0,
-                    message = 'Waiting to retry video processing.',
-                    processed_seconds = 0,
-                    completed_segments = 0,
-                    total_segments = 0,
-                    error = NULL,
-                    updated_at = NOW(),
-                    started_at = NULL,
-                    finished_at = NULL
-                WHERE file_id = %s
-                  AND status = 'failed'
-                RETURNING file_id;
-                """,
-                (file_id,),
-            ).fetchone()
-            connection.commit()
-            return result is not None
-        except Exception:
-            connection.rollback()
-            raise
+    return {
+        "file_id": file_id, "status": job.get("status") or "queued",
+        "stage": job.get("stage") or "queued",
+        "progress": max(0.0, min(100.0, progress)),
+        "message": job.get("message") or "Waiting for video processing.",
+        "processed_seconds": max(0.0, processed_seconds), "duration": max(0.0, duration_value),
+        "completed_segments": integer_field("completed_segments"),
+        "total_segments": integer_field("total_segments"),
+        "bytes_downloaded": integer_field("bytes_downloaded"),
+        "source_size": integer_field("source_size"),
+        "attempts": integer_field("attempts"), "error": job.get("error") or None,
+    }
 
 
-def _update_for_original(original: File, fallback_file_id: int | None = None, **updates: Any) -> None:
-    """Persist progress when possible and retain a snapshot before the original ID exists."""
+async def retry_video_processing(file_id: int) -> bool:
+    """Atomically requeue a failed job in Redis without touching the original uploaded file."""
+
+    if get_processed_video(file_id) is not None:
+        return False
+    result = await Redis.redis.eval(
+        _RETRY_VIDEO_JOB, 4, _video_job_key(file_id), _JOB_QUEUE, _JOB_SEQUENCE, _JOB_INDEX,
+        str(file_id), str(time()),
+    )
+    if result:
+        write_log(
+            "INFO", DataCenter, "VIDEO PROCESSING", str(file_id),
+            f"Video processing retry queued file_id={file_id}.",
+        )
+    return bool(result)
+
+
+async def _update_for_original(original: File, fallback_file_id: int | None = None, **updates: Any) -> None:
+    """Persist progress to Redis when the original has an ID and retain pre-ID snapshots locally."""
 
     context = _LOCAL_VIDEO_PREPARATIONS.get(id(original))
     if context is not None:
         if updates.get("status") == "processing":
             # Active local preparation must not be mistaken for abandoned worker work.
             updates["status"] = "preparing"
-
         for key in (
             "stage", "progress", "message", "processed_seconds", "duration",
             "bytes_downloaded", "source_size", "completed_segments", "total_segments",
@@ -325,12 +411,12 @@ def _update_for_original(original: File, fallback_file_id: int | None = None, **
     file_id = original.id if original.id is not None else fallback_file_id
     if file_id is None:
         return
+    await _update_job(int(file_id), **updates)
 
-    _update_job(int(file_id), **updates)
 
+async def _update_job(file_id: int, **updates: Any) -> None:
+    """Persist an allow-listed video progress snapshot to a Redis hash."""
 
-def _update_job(file_id: int, **updates: Any) -> None:
-    """Persist an allow-listed progress snapshot for a background video job."""
     allowed = {
         "status", "stage", "progress", "message", "processed_seconds", "duration",
         "bytes_downloaded", "source_size", "completed_segments", "total_segments",
@@ -340,93 +426,168 @@ def _update_job(file_id: int, **updates: Any) -> None:
     if not values:
         return
 
-    set_finished_now = values.pop("finished_at", None) == "NOW()"
-    assignments = [f"{key} = %s" for key in values]
-    if set_finished_now:
-        assignments.append("finished_at = NOW()")
-    assignments.append("updated_at = NOW()")
-    with POOL.connection() as connection:
-        connection.execute(
-            f"UPDATE video_processing_jobs SET {', '.join(assignments)} WHERE file_id = %s;",
-            (*values.values(), file_id),
-        )
-        connection.commit()
+    now = time()
+    mapping: dict[str, str] = {"updated_at": str(now)}
+    for key, value in values.items():
+        if key in {"started_at", "finished_at"}:
+            if value == "NOW()":
+                value = now
+            elif value is None:
+                value = ""
+        elif value is None:
+            value = ""
+        mapping[key] = str(value)
+
+    job_key = _video_job_key(file_id)
+    await Redis.redis.hset(job_key, mapping=mapping)
+    await Redis.redis.sadd(_JOB_INDEX, str(file_id))
+    status = mapping.get("status")
+    if status == "queued":
+        sequence = await Redis.redis.incr(_JOB_SEQUENCE)
+        await Redis.redis.zadd(_JOB_QUEUE, {str(file_id): sequence})
+    elif status in {"preparing", "processing", "ready", "failed"}:
+        await Redis.redis.zrem(_JOB_QUEUE, str(file_id))
 
 
-def _requeue_stale_jobs() -> None:
-    """Recover jobs whose worker stopped updating its lease during a crash or restart."""
-    with POOL.connection() as connection:
-        connection.execute(
-            """
-            UPDATE video_processing_jobs
-            SET status = 'queued',
-                stage = 'queued',
-                message = 'Resuming after an interrupted processing attempt.',
-                updated_at = NOW()
-            WHERE status = 'processing'
-              AND updated_at < NOW() - INTERVAL '10 minutes';
-            """
-        )
-        connection.commit()
+async def _requeue_stale_jobs() -> None:
+    """Requeue abandoned processing jobs whose Redis progress lease is stale."""
 
-
-def _recover_interrupted_jobs() -> None:
-    """Return jobs left in processing by a stopped API process to the durable queue."""
-    with POOL.connection() as connection:
-        connection.execute(
-            """
-            UPDATE video_processing_jobs
-            SET status = 'queued',
-                stage = 'queued',
-                message = 'Resuming after server restart; source will be recovered from the stored original.',
-                updated_at = NOW()
-            WHERE status IN ('processing', 'preparing');
-            """
-        )
-        connection.commit()
-
-
-def _claim_next_job() -> int | None:
-    """Atomically claim the next queued job without blocking other workers."""
-    with POOL.connection() as connection:
+    now = time()
+    for value in await Redis.redis.smembers(_JOB_INDEX):
+        job = await Redis.redis.hgetall(_video_job_key(int(value)))
+        if not job or job.get("status") != "processing":
+            continue
+        updated_at = job.get("updated_at", "")
         try:
-            row = connection.execute(
-                """
-                SELECT file_id
-                FROM video_processing_jobs
-                WHERE status = 'queued'
-                ORDER BY created_at, file_id
-                FOR UPDATE SKIP LOCKED
-                LIMIT 1;
-                """
-            ).fetchone()
-            if row is None:
-                connection.commit()
-                return None
-
-            file_id = int(row["file_id"])
-            connection.execute(
-                """
-                UPDATE video_processing_jobs
-                SET status = 'processing',
-                    stage = 'downloading_source',
-                    progress = 0,
-                    message = 'Downloading the original from storage for processing.',
-                    attempts = attempts + 1,
-                    started_at = NOW(),
-                    finished_at = NULL,
-                    error = NULL,
-                    updated_at = NOW()
-                WHERE file_id = %s;
-                """,
-                (file_id,),
+            stale = now - float(updated_at) > 600
+        except (TypeError, ValueError):
+            stale = True
+        if not stale:
+            continue
+        requeued = await Redis.redis.eval(
+            _REQUEUE_STALE_VIDEO_JOB, 3, _video_job_key(int(value)),
+            _JOB_QUEUE, _JOB_SEQUENCE, str(value), updated_at, str(now),
+        )
+        if requeued:
+            write_log(
+                "WARNING", DataCenter, "VIDEO PROCESSING", str(value),
+                f"Requeued stale Redis video job file_id={value}.",
             )
-            connection.commit()
-            return file_id
-        except Exception:
-            connection.rollback()
-            raise
 
+
+async def _recover_interrupted_jobs(startup_time: float) -> None:
+    """Recover jobs left mid-processing before this worker started and repair missing queue entries."""
+
+    for value in await Redis.redis.smembers(_JOB_INDEX):
+        file_id = int(value)
+        key = _video_job_key(file_id)
+        job = await Redis.redis.hgetall(key)
+        if not job:
+            await Redis.redis.srem(_JOB_INDEX, str(file_id))
+            continue
+        status = job.get("status") or "queued"
+        try:
+            updated_at = float(job.get("updated_at") or 0)
+        except (TypeError, ValueError):
+            updated_at = 0.0
+
+        if status in {"processing", "preparing"} and updated_at <= startup_time:
+            now = str(time())
+            await Redis.redis.hset(key, mapping={
+                "status": "queued", "stage": "queued", "progress": "0",
+                "message": "Resuming after server restart; source will be recovered from the stored original.",
+                "processed_seconds": "0", "completed_segments": "0", "total_segments": "0",
+                "error": "", "updated_at": now, "started_at": "", "finished_at": "",
+            })
+            sequence = await Redis.redis.incr(_JOB_SEQUENCE)
+            await Redis.redis.zadd(_JOB_QUEUE, {str(file_id): sequence})
+            write_log(
+                "INFO", DataCenter, "VIDEO PROCESSING", str(file_id),
+                f"Recovered interrupted Redis video job file_id={file_id}.",
+            )
+        elif status == "queued" and await Redis.redis.zscore(_JOB_QUEUE, str(file_id)) is None:
+            sequence = await Redis.redis.incr(_JOB_SEQUENCE)
+            await Redis.redis.zadd(_JOB_QUEUE, {str(file_id): sequence})
+
+
+async def _claim_next_job() -> int | None:
+    """Atomically claim the next queued video job from Redis."""
+
+    value = await Redis.redis.eval(
+        _CLAIM_VIDEO_JOB, 1, _JOB_QUEUE, _JOB_PREFIX, str(time()),
+    )
+    return int(value) if value else None
+
+async def _migrate_legacy_video_jobs() -> None:
+    """Move pre-existing PostgreSQL processing jobs into Redis, then remove the old table."""
+
+    with POOL.connection() as connection:
+        table = connection.execute(
+            "SELECT to_regclass('public.video_processing_jobs') AS table_name;"
+        ).fetchone()
+        if not table or table.get("table_name") is None:
+            return
+        rows = connection.execute(
+            """
+            SELECT file_id, status, stage, progress, message, processed_seconds,
+                   duration, bytes_downloaded, source_size, completed_segments,
+                   total_segments, attempts, error, created_at, updated_at,
+                   started_at, finished_at
+            FROM video_processing_jobs
+            ORDER BY created_at, file_id;
+            """
+        ).fetchall()
+
+    migrated = 0
+    for row in rows:
+        file_id = int(row["file_id"])
+        status = str(row.get("status") or "queued")
+        if status not in {"queued", "preparing", "processing", "ready", "failed"}:
+            status = "queued"
+
+        def as_timestamp(value: Any) -> str:
+            if value is None:
+                return str(time())
+            if hasattr(value, "timestamp"):
+                return str(float(value.timestamp()))
+            try:
+                return str(float(value))
+            except (TypeError, ValueError):
+                return str(time())
+
+        mapping = {
+            "file_id": str(file_id), "status": status,
+            "stage": str(row.get("stage") or status),
+            "progress": str(row.get("progress") or 0),
+            "message": str(row.get("message") or "Waiting for video processing."),
+            "processed_seconds": str(row.get("processed_seconds") or 0),
+            "duration": str(row.get("duration") or 0),
+            "bytes_downloaded": str(row.get("bytes_downloaded") or 0),
+            "source_size": str(row.get("source_size") or 0),
+            "completed_segments": str(row.get("completed_segments") or 0),
+            "total_segments": str(row.get("total_segments") or 0),
+            "attempts": str(row.get("attempts") or 0),
+            "error": str(row.get("error") or ""),
+            "created_at": as_timestamp(row.get("created_at")),
+            "updated_at": as_timestamp(row.get("updated_at")),
+            "started_at": as_timestamp(row.get("started_at")) if row.get("started_at") is not None else "",
+            "finished_at": as_timestamp(row.get("finished_at")) if row.get("finished_at") is not None else "",
+        }
+        arguments: list[str] = [str(file_id), status]
+        for key, value in mapping.items():
+            arguments.extend((key, value))
+        migrated += int(await Redis.redis.eval(
+            _MIGRATE_LEGACY_VIDEO_JOB, 4, _video_job_key(file_id), _JOB_QUEUE,
+            _JOB_SEQUENCE, _JOB_INDEX, *arguments,
+        ))
+
+    with POOL.connection() as connection:
+        connection.execute("DROP TABLE IF EXISTS video_processing_jobs;")
+        connection.commit()
+    write_log(
+        "INFO", Database, "VIDEO PROCESSING", "system",
+        f"Migrated {migrated} legacy video job(s) to Redis and removed the PostgreSQL job table.",
+    )
 
 def _load_original(file_id: int) -> File | None:
     """Read original-file metadata from PostgreSQL rather than a possibly stale cache."""
@@ -639,7 +800,7 @@ async def _run_ffmpeg_track(
             )
             now = monotonic()
             if now - last_report >= 0.4 or value == "end":
-                _update_for_original(
+                await _update_for_original(
                     original,
                     status="processing",
                     stage="processing",
@@ -686,7 +847,7 @@ async def _download_original(file: File, destination: Path) -> None:
             now = monotonic()
             if downloaded - last_report_bytes >= 4 * 1024 * 1024 or now - last_report_time >= 1.5:
                 percent = min(15.0, 15.0 * downloaded / max(1, file.size))
-                _update_job(
+                await _update_job(
                     int(file.id),
                     stage="downloading_source",
                     progress=round(percent, 2),
@@ -702,7 +863,7 @@ async def _download_original(file: File, destination: Path) -> None:
         "INFO", DataCenter(file.data_center) or DataCenter, "VIDEO PROCESSING", file.username,
         f"Recovery source read complete file_id={file.id} bytes={downloaded}.",
     )
-    _update_job(
+    await _update_job(
         int(file.id),
         stage="probing",
         progress=15.0,
@@ -734,7 +895,7 @@ async def _process_video(
     current_file_id = int(original.id) if original.id is not None else file_id
     if original.deleted_at is not None:
         if current_file_id is not None:
-            _update_for_original(
+            await _update_for_original(
                 original, current_file_id,
                 status="failed",
                 stage="failed",
@@ -748,7 +909,7 @@ async def _process_video(
         raise RuntimeError("The original file is missing storage links or has an invalid size.")
     if not is_video_file(original.name, original.type):
         if current_file_id is not None:
-            _update_for_original(
+            await _update_for_original(
                 original, current_file_id,
                 status="failed",
                 stage="failed",
@@ -777,7 +938,7 @@ async def _process_video(
         if source_path_override is not None:
             source_path = source_path_override
             source_size = source_path.stat().st_size
-            _update_for_original(
+            await _update_for_original(
                 original, current_file_id,
                 status="preparing",
                 stage="probing",
@@ -807,7 +968,7 @@ async def _process_video(
         )
         expected_segments_per_track = math.ceil(duration / VIDEO_SEGMENT_SECONDS)
         total_segments = expected_segments_per_track * (1 + len(audio_tracks))
-        _update_for_original(
+        await _update_for_original(
             original, current_file_id,
             status="preparing" if original_saved_event is not None and not original_saved_event.is_set() else "processing",
             stage="processing",
@@ -894,7 +1055,7 @@ async def _process_video(
                     "path": str(segment_path),
                     "duration": segment_duration,
                 })
-            _update_for_original(
+            await _update_for_original(
                 original, current_file_id,
                 status="preparing" if original_saved_event is not None and not original_saved_event.is_set() else "processing",
                 progress=round(min(75.0, 20.0 + 55.0 * track_number / max(1, len(track_specs))), 2),
@@ -933,7 +1094,7 @@ async def _process_video(
                     pack_offset = offset + segment_size
                     current_asset += 1
                     packaging_progress = 75.0 + (5.0 * current_asset / max(1, asset_count))
-                    _update_for_original(
+                    await _update_for_original(
                         original, current_file_id,
                         status="preparing" if original_saved_event is not None and not original_saved_event.is_set() else "processing",
                         stage="packaging",
@@ -951,7 +1112,7 @@ async def _process_video(
                 "INFO", data_center, "VIDEO PROCESSING", original.username,
                 f"Processing finished before original upload {file_label}; holding derivative locally until original finalization.",
             )
-            _update_for_original(
+            await _update_for_original(
                 original, current_file_id,
                 status="preparing",
                 stage="waiting_for_original_upload",
@@ -981,7 +1142,7 @@ async def _process_video(
             if len(await verify_pack.read(1)) != 1:
                 raise RuntimeError("The streaming package could not be read back from staging.")
 
-        _update_job(
+        await _update_job(
             file_id,
             status="preparing",
             stage="waiting_for_upload",
@@ -998,7 +1159,7 @@ async def _process_video(
         )
         try:
             async with ingestion_upload_slot(ticket):
-                _update_job(
+                await _update_job(
                     file_id,
                     status=upload_job_status,
                     stage="storing",
@@ -1014,7 +1175,7 @@ async def _process_video(
                 async for progress in upload_growing_file(packed_file, pack_path, data_center, upload_progress):
                     transferred = min(pack_offset, max(0, int(progress.transfer or 0)))
                     percentage = 80.0 + 18.0 * transferred / max(1, pack_offset)
-                    _update_job(
+                    await _update_job(
                         file_id,
                         status=upload_job_status,
                         stage="storing",
@@ -1061,27 +1222,23 @@ async def _process_video(
                         Jsonb(asset_index),
                     ),
                 )
-                connection.execute(
-                    """
-                    UPDATE video_processing_jobs
-                    SET status = 'ready',
-                        stage = 'ready',
-                        progress = 100,
-                        message = 'Streaming version is ready.',
-                        processed_seconds = duration,
-                        completed_segments = total_segments,
-                        error = NULL,
-                        finished_at = NOW(),
-                        updated_at = NOW()
-                    WHERE file_id = %s;
-                    """,
-                    (file_id,),
-                )
                 connection.commit()
             except Exception:
                 connection.rollback()
                 raise
 
+        await _update_job(
+            file_id,
+            status="ready",
+            stage="ready",
+            progress=100,
+            message="Streaming version is ready.",
+            processed_seconds=duration,
+            completed_segments=total_segments,
+            total_segments=total_segments,
+            error=None,
+            finished_at="NOW()",
+        )
         write_log(
             "INFO", data_center, "VIDEO PROCESSING", original.username,
             f"Video is ready file_id={file_id} name={original.name!r} duration={duration:.3f}s segments={asset_count}.",
@@ -1109,7 +1266,7 @@ async def _run_local_video_preparation(context: LocalVideoPreparation) -> None:
             await context.original_saved.wait()
         if file.id is not None:
             try:
-                _update_job(
+                await _update_job(
                     int(file.id),
                     status="failed",
                     stage="failed",
@@ -1141,7 +1298,7 @@ async def _process_job(file_id: int) -> None:
     except Exception as error:
         detail = " ".join(str(error).split())[:1800] or type(error).__name__
         try:
-            _update_job(
+            await _update_job(
                 file_id,
                 status="failed",
                 stage="failed",
@@ -1154,17 +1311,24 @@ async def _process_job(file_id: int) -> None:
         write_log("ERROR", DataCenter, "VIDEO PROCESSING", str(file_id), f"Persistent processing failed file_id={file_id}: {detail}")
 
 
+
 async def run_video_processing_worker() -> None:
-    """Poll the persistent queue and process one video at a time with bounded resource use."""
+    """Recover and process Redis-backed video jobs, one at a time."""
+
     recovered = False
+    startup_time = time()
+    next_stale_check = startup_time
     while True:
         try:
             if not recovered:
-                _recover_interrupted_jobs()
+                await _migrate_legacy_video_jobs()
+                await _recover_interrupted_jobs(startup_time)
                 recovered = True
-
-            _requeue_stale_jobs()
-            file_id = _claim_next_job()
+            now = time()
+            if now >= next_stale_check:
+                await _requeue_stale_jobs()
+                next_stale_check = now + _JOB_REQUEUE_INTERVAL
+            file_id = await _claim_next_job()
             if file_id is None:
                 await asyncio.sleep(_JOB_POLL_SECONDS)
                 continue
@@ -1172,11 +1336,9 @@ async def run_video_processing_worker() -> None:
         except asyncio.CancelledError:
             raise
         except Exception as error:
-            # Keep the worker alive if the database or storage provider is briefly
-            # unavailable during startup or queue polling.
+            # Keep the worker alive if Redis, the database, or the storage provider is briefly unavailable.
             print(f"Video processing worker encountered an error: {error}")
             await asyncio.sleep(2)
-
 
 async def read_processed_segment(
         original: File,

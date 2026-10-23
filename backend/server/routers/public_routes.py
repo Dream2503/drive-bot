@@ -664,7 +664,7 @@ async def public_video_processing_status(token: str, request: Request) -> JSONRe
     file = await _owned_public_file(token, request)
     if file.id is None:
         raise HTTPException(status_code=404, detail="File not found.")
-    return JSONResponse(get_video_processing_status(int(file.id)), headers=_media_response_headers(request))
+    return JSONResponse(await get_video_processing_status(int(file.id)), headers=_media_response_headers(request))
 
 
 @router.post("/video-processing/{token}/retry")
@@ -675,14 +675,14 @@ async def public_retry_video_processing(token: str, request: Request) -> JSONRes
     if file.id is None:
         raise HTTPException(status_code=404, detail="File not found.")
 
-    current = get_video_processing_status(int(file.id))
+    current = await get_video_processing_status(int(file.id))
     if current.get("status") == "ready":
         return JSONResponse(current, headers=_media_response_headers(request))
     if current.get("status") != "failed":
         return JSONResponse(current, headers=_media_response_headers(request))
-    if not retry_video_processing(int(file.id)):
+    if not await retry_video_processing(int(file.id)):
         raise HTTPException(status_code=409, detail="This video is not eligible for retry.")
-    return JSONResponse(get_video_processing_status(int(file.id)), headers=_media_response_headers(request))
+    return JSONResponse(await get_video_processing_status(int(file.id)), headers=_media_response_headers(request))
 
 
 @router.get("/tracks/{token}")
