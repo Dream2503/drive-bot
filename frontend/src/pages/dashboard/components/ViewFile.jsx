@@ -66,7 +66,7 @@ function subtitleTimeToSeconds(value) {
 }
 
 /** Parse complete or progressively received WebVTT/SRT subtitle cues. */
-function parseSubtitleText(source) {
+function parseSubtitleText(source, timeOffset = 0) {
     const lines = String(source || "").replace(/^\uFEFF/, "").replace(/\r\n?/g, "\n").split("\n");
     const cues = [];
 
@@ -97,7 +97,7 @@ function parseSubtitleText(source) {
             .replace(/&nbsp;/gi, "\u00a0")
             .trim();
 
-        if (body) cues.push({start, end, text: body});
+        if (body) cues.push({start: start + timeOffset, end: end + timeOffset, text: body});
     }
 
     return cues.sort((left, right) => left.start - right.start);
@@ -163,6 +163,9 @@ function VideoPlayer({file, streamUrl, publicToken, heightClass = "h-[70vh]"}) {
     const playbackUrl = streamRetryNonce > 0 ? `${streamUrl}${streamUrl.includes("?") ? "&" : "?"}_sl_stream_retry=${streamRetryNonce}` : streamUrl;
     const hlsUrl = publicToken ? API_URL + "/public/hls/" + encodeURIComponent(publicToken) + "/master.m3u8" : "";
     const tracksUrl = publicToken ? API_URL + "/public/tracks/" + encodeURIComponent(publicToken) : "";
+    // Embedded subtitles are requested in bounded windows, not by scanning the whole
+    // media file into one response. This lets long videos produce useful captions promptly.
+    const subtitleWindowStart = Math.floor(Math.max(0, current) / 120) * 120;
 
     useEffect(() => {
         retryCountRef.current = 0;
@@ -317,7 +320,8 @@ function VideoPlayer({file, streamUrl, publicToken, heightClass = "h-[70vh]"}) {
         if (!publicToken || selectedSubtitleTrack < 0) return () => controller.abort();
 
         const subtitleUrl = API_URL + "/public/hls/" + encodeURIComponent(publicToken)
-            + "/subtitles/" + selectedSubtitleTrack + ".srt";
+            + "/subtitles/" + selectedSubtitleTrack + ".srt?start_seconds=" + subtitleWindowStart
+            + "&duration_seconds=120";
 
         (async () => {
             let reader = null;
@@ -342,9 +346,7 @@ function VideoPlayer({file, streamUrl, publicToken, heightClass = "h-[70vh]"}) {
                     if (!text.trimStart().startsWith("WEBVTT")) {
                         throw new Error("The server response is not valid WebVTT subtitle data.");
                     }
-                    const cues = parseSubtitleText(text);
-                    if (!cues.length) throw new Error("This subtitle track contains no readable text captions.");
-                    if (!cancelled) setSubtitleCues(cues);
+                    if (!cancelled) setSubtitleCues(parseSubtitleText(text, subtitleWindowStart));
                     return;
                 }
 
@@ -370,7 +372,7 @@ function VideoPlayer({file, streamUrl, publicToken, heightClass = "h-[70vh]"}) {
                     // Parse received bytes immediately so captions can appear while
                     // FFmpeg continues scanning the source video for later cues.
                     if (trimmed.startsWith("WEBVTT")) {
-                        setSubtitleCues(parseSubtitleText(subtitleText));
+                        setSubtitleCues(parseSubtitleText(subtitleText, subtitleWindowStart));
                     }
                 }
 
@@ -380,11 +382,9 @@ function VideoPlayer({file, streamUrl, publicToken, heightClass = "h-[70vh]"}) {
                     throw new Error("The server returned an empty or invalid WebVTT subtitle stream.");
                 }
 
-                const cues = parseSubtitleText(subtitleText);
-                if (!cues.length) {
-                    throw new Error("This subtitle track contains no readable text captions.");
-                }
-                setSubtitleCues(cues);
+                // An interval without dialogue is valid. Later playback windows will
+                // request their own cues as the timeline advances.
+                setSubtitleCues(parseSubtitleText(subtitleText, subtitleWindowStart));
             } catch (loadError) {
                 if (!cancelled && loadError?.name !== "AbortError") {
                     setSubtitleLoadError(loadError instanceof Error ? loadError.message : "Could not load this subtitle track.");
@@ -400,7 +400,7 @@ function VideoPlayer({file, streamUrl, publicToken, heightClass = "h-[70vh]"}) {
             cancelled = true;
             controller.abort();
         };
-    }, [publicToken, selectedSubtitleTrack]);
+    }, [publicToken, selectedSubtitleTrack, subtitleWindowStart]);
 
 
 
