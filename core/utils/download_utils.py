@@ -1276,6 +1276,8 @@ async def download_torrent(file: File, link: str, selected_indices: set[int] | N
     temp_dir: Path = TRANSFER_PATH / file.username / "torrent-download" / uuid4().hex
     temp_dir.mkdir(parents=True, exist_ok=True)
     progress: Progress = Progress(file.name or "Torrent", "Connecting to torrent network", 0)
+    progress.ingestion_type = "torrent"
+    progress.download_active = True
     torrent_session: Any | None = None
     handle: Any | None = None
     active_uploads: dict[int, Task[File]] = {}
@@ -1323,6 +1325,7 @@ async def download_torrent(file: File, link: str, selected_indices: set[int] | N
                     await sleep(0)
 
                 await torrent_file.save()
+                local_path.unlink(missing_ok=True)
             item.update({
                 "transfer": local_size,
                 "total": local_size,
@@ -1671,6 +1674,10 @@ async def download_torrent(file: File, link: str, selected_indices: set[int] | N
         file.id = first_saved_id
         final_progress: Progress = Progress(torrent_name, f"Upload Complete: {saved_count} torrent file(s)", total_upload_bytes)
         final_progress.transfer = total_upload_bytes
+        final_progress.download_transfer = total_upload_bytes
+        final_progress.download_total = total_upload_bytes
+        final_progress.download_active = True
+        final_progress.ingestion_type = "torrent"
         final_progress.torrent_items = [dict(item) for item in tray_items]
         write_log(
             "INFO",
