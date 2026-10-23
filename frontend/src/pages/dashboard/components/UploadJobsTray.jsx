@@ -8,7 +8,16 @@ import DownloadJobsTray from "./DownloadJobsTray.jsx";
 /*  Pure helpers                                                              */
 /* -------------------------------------------------------------------------- */
 
-const num = (value) => Math.max(0, Number(value) || 0);
+const num = (value) => {
+    const numeric = Number(value);
+    return Number.isFinite(numeric) ? Math.max(0, numeric) : 0;
+};
+const MAX_REASONABLE_ETA_SECONDS = 365 * 24 * 60 * 60;
+const nullableMetric = (value, maximum = Number.MAX_VALUE) => {
+    if (value == null || value === "") return null;
+    const numeric = Number(value);
+    return Number.isFinite(numeric) && numeric >= 0 && numeric <= maximum ? numeric : null;
+};
 const normalizePath = (value) => String(value ?? "").trim().replaceAll("\\", "/").replace(/\/+$/, "");
 const leafOf = (value) => normalizePath(value).split("/").filter(Boolean).at(-1) || "";
 
@@ -134,12 +143,14 @@ function ProgressBar({percent, muted = false, className = "", fillClassName = FI
 }
 
 function formatRate(bytesPerSecond) {
-    return `${formatFileSize(bytesPerSecond)}/s`;
+    // Bad telemetry must never leak negative values into the file-size formatter.
+    return `${formatFileSize(num(bytesPerSecond))}/s`;
 }
 
 function formatEta(seconds) {
-    if (!Number.isFinite(seconds) || seconds < 0) return "Calculating ETA";
-    const value = Math.ceil(seconds);
+    const eta = nullableMetric(seconds, MAX_REASONABLE_ETA_SECONDS);
+    if (eta === null) return "Calculating ETA";
+    const value = Math.ceil(eta);
     if (value < 60) return `${value}s left`;
     if (value < 3600) return `${Math.floor(value / 60)}m ${value % 60}s left`;
     const hours = Math.floor(value / 3600);
@@ -188,9 +199,9 @@ function ItemRow({
             ? item.upload_speed == null ? num(defaultUploadSpeed) : num(item.upload_speed)
             : 0;
     const eta = downloading
-        ? item.download_eta == null ? defaultDownloadEta : num(item.download_eta)
+        ? nullableMetric(item.download_eta == null ? defaultDownloadEta : item.download_eta, MAX_REASONABLE_ETA_SECONDS)
         : status === "uploading"
-            ? item.upload_eta == null ? defaultUploadEta : num(item.upload_eta)
+            ? nullableMetric(item.upload_eta == null ? defaultUploadEta : item.upload_eta, MAX_REASONABLE_ETA_SECONDS)
             : null;
     const showPercent = Boolean(meta.transferring);
 
@@ -294,7 +305,21 @@ function mergeTorrentProgress(items, owns, progressItems) {
             : status === "downloading"
                 ? "Downloading"
                 : String(p.message || item.message || (status === "uploading" ? "Uploading" : status));
-        return {...item, status, message, transfer: num(p.transfer), total: num(p.total) || num(item.size)};
+        return {
+            ...item,
+            status,
+            message,
+            transfer: num(p.transfer),
+            total: num(p.total) || num(item.size),
+            download_transfer: num(p.download_transfer ?? p.transfer),
+            download_total: num(p.download_total ?? p.total) || num(item.size),
+            download_speed: num(p.download_speed),
+            download_eta: nullableMetric(p.download_eta, MAX_REASONABLE_ETA_SECONDS),
+            upload_transfer: num(p.upload_transfer),
+            upload_total: num(p.upload_total ?? p.total) || num(item.size),
+            upload_speed: num(p.upload_speed),
+            upload_eta: nullableMetric(p.upload_eta, MAX_REASONABLE_ETA_SECONDS),
+        };
     });
 }
 
