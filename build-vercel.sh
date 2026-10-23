@@ -225,31 +225,61 @@ deploy_and_alias() {
     fi
 }
 
-# The backend Vercel project has a repository-relative Root Directory
-# (backend/storelimitlessbackend). Deploying from BACKEND_DIR uploads only that
-# subdirectory, so Vercel then incorrectly looks for the same path inside it.
-# Temporarily use the backend project link at the repository root so the CLI
-# uploads the monorepo and Vercel can resolve the configured Root Directory.
-ROOT_PROJECT_LINK="$ROOT_VERCEL_DIR/project.json"
+# Vercel monorepo deployments must be launched from the repository root so each
+# project's configured Root Directory (frontend or backend/storelimitlessbackend)
+# is resolved relative to the repository, not appended to an already-nested upload.
+# Keep the root .vercel/project.json linked to the frontend; select the backend via
+# its project ID environment variables instead of swapping the root link.
 BACKEND_PROJECT_LINK="$BACKEND_VERCEL_DIR/project.json"
-FRONTEND_LINK_BACKUP="$(mktemp)"
-cp "$ROOT_PROJECT_LINK" "$FRONTEND_LINK_BACKUP"
 
-restore_frontend_project_link() {
-    if [[ -f "$FRONTEND_LINK_BACKUP" ]]; then
-        cp "$FRONTEND_LINK_BACKUP" "$ROOT_PROJECT_LINK"
-        rm -f "$FRONTEND_LINK_BACKUP"
-    fi
+project_field_from_link() {
+    local project_json="$1" field="$2"
+    node -e 'try { process.stdout.write(String(require(process.argv[1])[process.argv[2]] || "")); } catch {}' "$project_json" "$field"
 }
-trap restore_frontend_project_link EXIT
 
-cp "$BACKEND_PROJECT_LINK" "$ROOT_PROJECT_LINK"
-deploy_and_alias "$REPO_ROOT" "StoreLimitless backend" "$BACKEND_DOMAIN" deploy --prod --yes
+BACKEND_ORG_ID="$(project_field_from_link "$BACKEND_PROJECT_LINK" "orgId")"
+BACKEND_PROJECT_ID="$(project_field_from_link "$BACKEND_PROJECT_LINK" "projectId")"
+[[ -n "$BACKEND_ORG_ID" ]] || fail "Could not read orgId from $BACKEND_PROJECT_LINK"
+[[ -n "$BACKEND_PROJECT_ID" ]] || fail "Could not read projectId from $BACKEND_PROJECT_LINK"
 
-# Restore the frontend link before its prebuilt deployment. The EXIT trap above
-# also restores it if the backend deployment or alias assignment fails.
-restore_frontend_project_link
+# Exclude every unrelated repository file during the backend upload. This keeps
+# large frontend dependencies and build artifacts out of the Next.js deployment.
+# Preserve and restore a user-provided .vercelignore, even if deployment fails.
+BACKEND_IGNORE_FILE="$REPO_ROOT/.vercelignore"
+BACKEND_IGNORE_BACKUP="$(mktemp)"
+BACKEND_IGNORE_EXISTED=0
+if [[ -f "$BACKEND_IGNORE_FILE" ]]; then
+    cp "$BACKEND_IGNORE_FILE" "$BACKEND_IGNORE_BACKUP"
+    BACKEND_IGNORE_EXISTED=1
+fi
+
+restore_backend_vercelignore() {
+    if [[ "$BACKEND_IGNORE_EXISTED" == "1" ]]; then
+        cp "$BACKEND_IGNORE_BACKUP" "$BACKEND_IGNORE_FILE"
+    else
+        rm -f "$BACKEND_IGNORE_FILE"
+    fi
+    rm -f "$BACKEND_IGNORE_BACKUP"
+}
+trap restore_backend_vercelignore EXIT
+
+cat > "$BACKEND_IGNORE_FILE" <<'IGNORE'
+/*
+!/backend/
+/backend/*
+!/backend/storelimitlessbackend/
+/backend/storelimitlessbackend/*
+!/backend/storelimitlessbackend/**
+IGNORE
+
+log "Deploying backend from the repository root using the existing backend project ID"
+VERCEL_ORG_ID="$BACKEND_ORG_ID" VERCEL_PROJECT_ID="$BACKEND_PROJECT_ID" \
+    deploy_and_alias "$REPO_ROOT" "StoreLimitless backend" "$BACKEND_DOMAIN" deploy --prod --yes
+
+restore_backend_vercelignore
 trap - EXIT
+
+# The frontend project link at the repository root is untouched.
 deploy_and_alias "$REPO_ROOT" "StoreLimitless frontend" "$FRONTEND_DOMAIN" deploy --prebuilt --prod --yes
 
 cat <<MESSAGE
