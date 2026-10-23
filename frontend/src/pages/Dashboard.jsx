@@ -344,10 +344,13 @@ export default function DashboardPage() {
                 // the next byte range rather than truncating the file on every retry.
                 const initialFile = await handle.getFile();
                 let offset = Math.max(0, initialFile.size || 0);
+                // Without the validator saved from the first response, we cannot safely
+                // prove that a partial archive still matches the current selection.
+                if (offset > 0 && !job.etag) offset = 0;
                 const requestHeaders = {};
                 if (offset > 0) {
                     requestHeaders.Range = "bytes=" + offset + "-";
-                    if (job.etag) requestHeaders["If-Range"] = job.etag;
+                    requestHeaders["If-Range"] = job.etag;
                 }
 
                 const response = await fetch(job.url, {
