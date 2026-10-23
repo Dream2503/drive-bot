@@ -315,7 +315,8 @@ async def _get_or_generate_media_segment(
         task = _MEDIA_SEGMENT_IN_FLIGHT.get(cache_key)
         if task is None:
             async def generate_and_cache() -> bytes | None:
-                nonlocal cache_key
+                global _MEDIA_SEGMENT_CACHE_BYTES
+
                 try:
                     segment = await producer()
                     if segment and len(segment) <= _MEDIA_SEGMENT_CACHE_MAX_ENTRY_BYTES:
