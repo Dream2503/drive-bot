@@ -31,7 +31,7 @@ from core.utils.download_utils import (
 )
 from core.utils.env import GOOGLE_API_KEY
 from core.utils.progress import Progress, upload_growing_file
-from core.utils.ingestion_queue import (
+from core.utils.upload_manager import (
     IngestionUploadTicket,
     cancel_ingestion_upload,
     enqueue_ingestion_upload,
