@@ -291,15 +291,16 @@ async def _run_media_tool(command: list[str], *, timeout: float, output_limit: i
             if not done:
                 if process.returncode is None:
                     process.kill()
-                await process.communicate()
+                await asyncio.gather(communicate_task, return_exceptions=True)
                 raise HTTPException(status_code=504, detail="Preparing this media track timed out. Try again.")
 
             # If the client has gone away, stop expensive probing/transcoding instead of
-            # returning a large response to a socket that is already closed.
-            if disconnect_task is not None and disconnect_task in done and communicate_task not in done:
+            # returning a large response to a socket that is already closed. Prefer the
+            # disconnect result even if FFmpeg finished in the same event-loop tick.
+            if disconnect_task is not None and disconnect_task in done:
                 if process.returncode is None:
                     process.kill()
-                await process.communicate()
+                await asyncio.gather(communicate_task, return_exceptions=True)
                 return None
 
             stdout, stderr = communicate_task.result()
@@ -308,7 +309,7 @@ async def _run_media_tool(command: list[str], *, timeout: float, output_limit: i
             # Also reap FFmpeg if the ASGI request itself is cancelled during shutdown.
             if process.returncode is None:
                 process.kill()
-            await process.communicate()
+            await asyncio.gather(communicate_task, return_exceptions=True)
             raise
         finally:
             if disconnect_task is not None and not disconnect_task.done():
