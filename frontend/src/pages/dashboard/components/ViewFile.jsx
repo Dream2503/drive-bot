@@ -143,6 +143,7 @@ function VideoPlayer({file, streamUrl, publicToken, heightClass = "h-[70vh]"}) {
     const [selectedAudioTrack, setSelectedAudioTrack] = useState(-1);
     const [subtitleTracks, setSubtitleTracks] = useState([]);
     const [selectedSubtitleTrack, setSelectedSubtitleTrack] = useState(-1);
+    const [subtitleWindowSeconds, setSubtitleWindowSeconds] = useState(6);
     const [subtitleReloadNonce, setSubtitleReloadNonce] = useState(0);
     const [subtitleCues, setSubtitleCues] = useState([]);
     const [subtitleLoadError, setSubtitleLoadError] = useState("");
@@ -164,10 +165,9 @@ function VideoPlayer({file, streamUrl, publicToken, heightClass = "h-[70vh]"}) {
     const playbackUrl = streamRetryNonce > 0 ? `${streamUrl}${streamUrl.includes("?") ? "&" : "?"}_sl_stream_retry=${streamRetryNonce}` : streamUrl;
     const hlsUrl = publicToken ? API_URL + "/public/hls/" + encodeURIComponent(publicToken) + "/master.m3u8" : "";
     const tracksUrl = publicToken ? API_URL + "/public/tracks/" + encodeURIComponent(publicToken) : "";
-    // Embedded subtitles are requested in bounded windows, not by scanning the whole
-    // media file into one response. This lets long videos produce useful captions promptly.
-    const SUBTITLE_WINDOW_SECONDS = 30;
-    const subtitleWindowStart = Math.floor(Math.max(0, current) / SUBTITLE_WINDOW_SECONDS) * SUBTITLE_WINDOW_SECONDS;
+    // Subtitle requests share the backend's HLS segment duration, keeping video,
+    // audio, and subtitle windows aligned even if the segment size changes.
+    const subtitleSegmentIndex = Math.floor(Math.max(0, current) / subtitleWindowSeconds);
 
     useEffect(() => {
         retryCountRef.current = 0;
@@ -222,6 +222,11 @@ function VideoPlayer({file, streamUrl, publicToken, heightClass = "h-[70vh]"}) {
                 if (!response.ok) throw new Error("Track metadata is unavailable.");
                 const trackInfo = await response.json();
                 if (cancelled) return;
+
+                const segmentDuration = Number(trackInfo.segment_duration);
+                if (Number.isFinite(segmentDuration) && segmentDuration > 0) {
+                    setSubtitleWindowSeconds(segmentDuration);
+                }
 
                 setSubtitleTracks((trackInfo.subtitles || []).filter((track) => track.selectable));
                 setAudioTracks((trackInfo.audio || []).map((track, index) => ({
@@ -341,16 +346,19 @@ function VideoPlayer({file, streamUrl, publicToken, heightClass = "h-[70vh]"}) {
     }, [hlsUrl, playbackUrl, publicToken, tracksUrl]);
 
     useEffect(() => {
+        setSubtitleCues([]);
+        setSubtitleLoadError("");
+    }, [publicToken, selectedSubtitleTrack]);
+
+    useEffect(() => {
         let cancelled = false;
         const controller = new AbortController();
-        setSubtitleCues([]);
         setSubtitleLoadError("");
 
         if (!publicToken || selectedSubtitleTrack < 0) return () => controller.abort();
 
         const subtitleUrl = API_URL + "/public/hls/" + encodeURIComponent(publicToken)
-            + "/subtitles/" + selectedSubtitleTrack + ".srt?start_seconds=" + subtitleWindowStart
-            + "&duration_seconds=" + SUBTITLE_WINDOW_SECONDS;
+            + "/segment/subtitle/" + selectedSubtitleTrack + "/" + subtitleSegmentIndex;
         const maxAttempts = 3;
 
         (async () => {
@@ -415,7 +423,8 @@ function VideoPlayer({file, streamUrl, publicToken, heightClass = "h-[70vh]"}) {
                             // Parse received bytes immediately so captions can appear while
                             // FFmpeg continues scanning the source video for later cues.
                             if (trimmed.startsWith("WEBVTT")) {
-                                setSubtitleCues(parseSubtitleText(subtitleText));
+                                const receivedCues = parseSubtitleText(subtitleText);
+                                if (receivedCues.length) setSubtitleCues(receivedCues);
                             }
                         }
                     }
@@ -426,9 +435,10 @@ function VideoPlayer({file, streamUrl, publicToken, heightClass = "h-[70vh]"}) {
                         throw new Error("The server returned an empty or invalid WebVTT subtitle stream.");
                     }
 
-                    // An interval without dialogue is valid. Later playback windows will
-                    // request their own cues as the timeline advances.
-                    setSubtitleCues(parseSubtitleText(subtitleText));
+                    // An interval without dialogue is valid. Keep the last parsed cues;
+                    // timestamps determine whether they are visible at the current position.
+                    const extractedCues = parseSubtitleText(subtitleText);
+                    if (extractedCues.length) setSubtitleCues(extractedCues);
                     setSubtitleLoadError("");
                     return;
                 } catch (loadError) {
@@ -446,7 +456,6 @@ function VideoPlayer({file, streamUrl, publicToken, heightClass = "h-[70vh]"}) {
                         // A stream can be interrupted while FFmpeg is still writing.
                         // Retry the same selected track twice instead of requiring the
                         // user to toggle subtitles off and on to trigger another request.
-                        setSubtitleCues([]);
                         await new Promise((resolve) => window.setTimeout(resolve, 300 * (attempt + 1)));
                         if (cancelled || controller.signal.aborted) return;
                         continue;
@@ -468,7 +477,7 @@ function VideoPlayer({file, streamUrl, publicToken, heightClass = "h-[70vh]"}) {
             cancelled = true;
             controller.abort();
         };
-    }, [publicToken, selectedSubtitleTrack, subtitleWindowStart, subtitleReloadNonce]);
+    }, [publicToken, selectedSubtitleTrack, subtitleSegmentIndex, subtitleWindowSeconds, subtitleReloadNonce]);
 
 
 
