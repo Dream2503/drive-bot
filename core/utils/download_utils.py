@@ -67,13 +67,15 @@ def download_google_drive_file(link: str, output: Path) -> None:
     # concurrent reader immediately.
     try:
         with output.open("wb", buffering=0) as destination:
-            gdown.download(
+            downloaded = gdown.download(
                 url=link,
                 output=destination,
                 quiet=True,
                 use_cookies=False,
             )
             destination.flush()
+            if downloaded is None:
+                raise OSError("Google Drive download failed")
     except Exception:
         output.unlink(missing_ok=True)
         raise
