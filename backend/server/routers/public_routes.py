@@ -75,6 +75,9 @@ async def upload_status(job_id: str, user: User = Depends(get_current_user)) -> 
         "name": name,
         "transfer": progress.transfer,
         "total": max(progress.total, int(metadata.get("total") or 0)),
+        "download_transfer": max(0, int(getattr(progress, "download_transfer", 0) or 0)),
+        "download_total": max(0, int(getattr(progress, "download_total", 0) or 0)),
+        "download_active": bool(getattr(progress, "download_active", False)),
         "torrent_items": list(getattr(progress, "torrent_items", []) or []),
         "file_id": file_id,
     })
