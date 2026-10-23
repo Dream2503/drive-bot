@@ -24,6 +24,7 @@ from backend.server.jwt_handler import get_current_user
 from backend.server.security import verify_public_stream_token, verify_public_zip_token
 from backend.server.zip_stream import ZipStreamEntry, stream_zip64, zip64_stored_content_length
 from core.stream import Stream
+from core.utils.binaries import get_ffmpeg_path
 from core.utils.discord_ import Discord
 from core.utils.progress import Progress
 from .upload_state import get_upload_job_metadata
@@ -221,24 +222,25 @@ _BITMAP_SUBTITLE_CODECS = {
 
 
 def _media_tool_paths() -> tuple[str, str]:
-    """Return FFmpeg and FFprobe executables without installing software from a public request."""
+    """Ensure FFmpeg and FFprobe are installed, then return both executable paths."""
 
-    ffmpeg_path = shutil.which("ffmpeg")
-    ffprobe_path = shutil.which("ffprobe")
+    try:
+        ffmpeg_path: Path = get_ffmpeg_path()
+    except (OSError, RuntimeError) as error:
+        raise HTTPException(status_code=503, detail=str(error)) from error
 
-    if ffmpeg_path and not ffprobe_path:
-        candidate = Path(ffmpeg_path).with_name(f"ffprobe{Path(ffmpeg_path).suffix}")
-        if candidate.is_file():
-            ffprobe_path = str(candidate)
+    # Prefer the FFprobe bundled beside FFmpeg so both tools come from the same installation.
+    probe_name = "ffprobe.exe" if platform.system() == "Windows" else "ffprobe"
+    adjacent_probe = ffmpeg_path.with_name(probe_name)
+    ffprobe_executable: str | None = str(adjacent_probe) if adjacent_probe.is_file() else shutil.which("ffprobe")
 
-    if not ffmpeg_path or not ffprobe_path:
+    if ffprobe_executable is None:
         raise HTTPException(
             status_code=503,
-            detail="Track-aware playback requires FFmpeg and FFprobe on the StoreLimitless server.",
+            detail="FFprobe could not be found after installation. Install FFmpeg and FFprobe on the StoreLimitless server.",
         )
 
-    return ffmpeg_path, ffprobe_path
-
+    return str(ffmpeg_path), ffprobe_executable
 
 def _media_source_url(token: str) -> str:
     """Return the local byte-range endpoint used by FFmpeg to read the original stored chunks."""
