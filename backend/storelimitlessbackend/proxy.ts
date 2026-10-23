@@ -26,7 +26,7 @@ function applyCorsHeaders(response: NextResponse, request: NextRequest): NextRes
         response.headers.set(
             "Access-Control-Allow-Headers",
             request.headers.get("access-control-request-headers")
-            || "Authorization, Content-Type, Range, Accept, Origin, X-Requested-With, X-Data-Center, X-Directory, X-File-Name, X-File-Size, X-Upload-Batch-Id",
+            || "Authorization, Content-Type, Range, If-Range, If-None-Match, If-Modified-Since, Accept, Origin, X-Requested-With, X-Data-Center, X-Directory, X-File-Name, X-File-Size, X-Upload-Batch-Id",
         );
         response.headers.set(
             "Access-Control-Expose-Headers",
@@ -36,6 +36,76 @@ function applyCorsHeaders(response: NextResponse, request: NextRequest): NextRes
     }
 
     return response;
+}
+
+/**
+ * Keep streamed media responses on the stable Vercel origin.
+ *
+ * Browser-staged downloads use fetch() to read the response body. Redirecting
+ * them to the temporary Cloudflare hostname makes browser CORS depend on that
+ * tunnel's response headers, so proxy the response body and relevant headers
+ * through this stable host instead. Preserve Range requests and cancellation.
+ */
+async function proxyMediaResponse(
+    request: NextRequest,
+    destination: URL,
+): Promise<NextResponse> {
+    let upstreamResponse: Response;
+
+    try {
+        upstreamResponse = await fetch(destination, {
+            method: request.method,
+            headers: request.headers,
+            cache: "no-store",
+            redirect: "manual",
+            signal: request.signal,
+        });
+    } catch (error) {
+        console.error("Media upstream request failed:", error);
+        return applyCorsHeaders(
+            NextResponse.json(
+                {error: "The media backend is temporarily unavailable."},
+                {
+                    status: 502,
+                    headers: {"Cache-Control": "no-store"},
+                },
+            ),
+            request,
+        );
+    }
+
+    const headers = new Headers();
+    const forwardedHeaders = [
+        "accept-ranges",
+        "cache-control",
+        "content-disposition",
+        "content-length",
+        "content-range",
+        "content-type",
+        "etag",
+        "last-modified",
+        "x-content-type-options",
+        "x-accel-buffering",
+    ];
+
+    for (const name of forwardedHeaders) {
+        const value = upstreamResponse.headers.get(name);
+        if (value !== null) headers.set(name, value);
+    }
+
+    headers.set("Cache-Control", "no-store, no-cache, must-revalidate, no-transform");
+    headers.set("Referrer-Policy", "no-referrer");
+
+    const response = new NextResponse(
+        request.method === "HEAD" ? null : upstreamResponse.body,
+        {
+            status: upstreamResponse.status,
+            statusText: upstreamResponse.statusText,
+            headers,
+        },
+    );
+
+    return applyCorsHeaders(response, request);
 }
 
 export async function proxy(request: NextRequest) {
@@ -94,18 +164,13 @@ export async function proxy(request: NextRequest) {
         `${upstream}/`,
     );
 
-    // Do not proxy long-lived media bodies through Vercel. Return a short, uncached
-    // redirect so the browser/player streams byte ranges directly from cloudflared.
     const isMediaStream =
         pathname.startsWith("/public/stream/")
         || pathname.startsWith("/public/download/")
         || pathname.startsWith("/public/download-zip/");
 
     if (isMediaStream) {
-        const redirect = NextResponse.redirect(destination, 307);
-        redirect.headers.set("Cache-Control", "no-store, no-cache, must-revalidate");
-        redirect.headers.set("Referrer-Policy", "no-referrer");
-        return applyCorsHeaders(redirect, request);
+        return proxyMediaResponse(request, destination);
     }
 
     // Preserve the stable URL while forwarding to the registered tunnel. Add CORS
