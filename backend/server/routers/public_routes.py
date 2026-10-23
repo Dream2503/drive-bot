@@ -698,7 +698,7 @@ async def public_hls_segment(
 
 @router.get("/hls/{token}/subtitles/{stream_index}.srt")
 async def public_hls_subtitles(token: str, stream_index: int, request: Request) -> Response:
-    """Extract one text subtitle track to SubRip in memory; no sidecar file is stored."""
+    """Extract one text subtitle track to WebVTT in memory; no sidecar file is stored."""
 
     file = await _owned_public_file(token, request)
     media_info = await _public_media_info(file, token, request)
@@ -719,12 +719,11 @@ async def public_hls_subtitles(token: str, stream_index: int, request: Request) 
             ffmpeg_path,
             "-hide_banner", "-loglevel", "error", "-nostdin",
             "-rw_timeout", "300000000",
-            "-fix_sub_duration",
             "-i", _media_source_url(token),
             "-map", f"0:{stream_index}",
             "-vn", "-an", "-dn",
-            "-c:s", "srt",
-            "-f", "srt",
+            "-c:s", "webvtt",
+            "-f", "webvtt",
             "pipe:1",
         ],
         timeout=300,
@@ -733,15 +732,15 @@ async def public_hls_subtitles(token: str, stream_index: int, request: Request) 
     )
     if output is None:
         return Response(status_code=204, headers=_media_response_headers(request))
-    if not re.search(rb"\d+:\d{2}:\d{2}[,.]\d{3}\s+-->\s+\d+:\d{2}:\d{2}[,.]\d{3}", output):
+    if not output.lstrip().startswith(b"WEBVTT"):
         raise HTTPException(
             status_code=502,
-            detail="FFmpeg could not extract timed text from this subtitle track. It may be empty or an unsupported bitmap format.",
+            detail="FFmpeg could not extract WebVTT captions from this subtitle track. It may be empty or an unsupported bitmap format.",
         )
 
     return Response(
         content=output,
-        media_type="application/x-subrip; charset=utf-8",
+        media_type="text/vtt; charset=utf-8",
         headers=_media_response_headers(request),
     )
 
