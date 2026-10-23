@@ -44,18 +44,25 @@ function applyCorsHeaders(response: NextResponse, request: NextRequest): NextRes
  * Browser-staged downloads use fetch() to read the response body. Redirecting
  * them to the temporary Cloudflare hostname makes browser CORS depend on that
  * tunnel's response headers, so proxy the response body and relevant headers
- * through this stable host instead. Preserve Range requests and cancellation.
+ * through this stable host instead. Forward only byte-range and cache validators,
+ * not hop-by-hop or host headers from the Vercel request.
  */
 async function proxyMediaResponse(
     request: NextRequest,
     destination: URL,
 ): Promise<NextResponse> {
     let upstreamResponse: Response;
+    const requestHeaders = new Headers();
+
+    for (const name of ["range", "if-range", "if-none-match", "if-modified-since", "accept"]) {
+        const value = request.headers.get(name);
+        if (value !== null) requestHeaders.set(name, value);
+    }
 
     try {
         upstreamResponse = await fetch(destination, {
             method: request.method,
-            headers: request.headers,
+            headers: requestHeaders,
             cache: "no-store",
             redirect: "manual",
             signal: request.signal,
@@ -86,6 +93,7 @@ async function proxyMediaResponse(
         "last-modified",
         "x-content-type-options",
         "x-accel-buffering",
+        "location",
     ];
 
     for (const name of forwardedHeaders) {
