@@ -87,13 +87,14 @@ def get_ffmpeg_path() -> Path:
             "FFmpeg or FFprobe is missing. Installing the FFmpeg package, which provides both tools...",
         )
         is_root: bool = hasattr(os, "geteuid") and os.geteuid() == 0
-        apt_prefix: list[str] = [] if is_root else ["sudo"]
+        # Avoid hanging a server request on an interactive sudo password prompt.
+        apt_prefix: list[str] = [] if is_root else ["sudo", "-n"]
 
         try:
-            run(apt_prefix + ["apt-get", "update"], check=True)
-            run(apt_prefix + ["apt-get", "install", "-y", "ffmpeg"], check=True)
+            run(apt_prefix + ["apt-get", "update"], check=True, timeout=180)
+            run(apt_prefix + ["apt-get", "install", "-y", "ffmpeg"], check=True, timeout=180)
 
-        except (CalledProcessError, FileNotFoundError) as error:
+        except (CalledProcessError, FileNotFoundError, TimeoutExpired) as error:
             raise RuntimeError(
                 "FFmpeg and FFprobe are required for track-aware streaming, but StoreLimitless "
                 "could not install them automatically. Please install them manually by running:\n"
