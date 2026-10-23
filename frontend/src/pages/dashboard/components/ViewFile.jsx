@@ -175,6 +175,19 @@ function VideoPlayer({file, streamUrl, publicToken, heightClass = "h-[70vh]"}) {
         stallTimerRef.current = null;
     }, [streamUrl]);
 
+    // Reset track selection only when the underlying shared file changes.
+    // Playback retries change playbackUrl after the 20-second stall watchdog fires;
+    // clearing the selected subtitle track in that retry effect aborts the in-flight
+    // subtitle request and leaves captions disabled even after video/audio recover.
+    useEffect(() => {
+        setAudioTracks([]);
+        setSelectedAudioTrack(-1);
+        setSubtitleTracks([]);
+        setSelectedSubtitleTrack(-1);
+        setSubtitleCues([]);
+        setSubtitleLoadError("");
+    }, [publicToken]);
+
     useEffect(() => {
         const video = videoRef.current;
         if (!video) return;
@@ -184,10 +197,6 @@ function VideoPlayer({file, streamUrl, publicToken, heightClass = "h-[70vh]"}) {
 
         setError(null);
         setBuffering(true);
-        setAudioTracks([]);
-        setSelectedAudioTrack(-1);
-        setSubtitleTracks([]);
-        setSelectedSubtitleTrack(-1);
         video.removeAttribute("src");
         video.load();
 
