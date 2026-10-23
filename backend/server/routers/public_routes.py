@@ -604,6 +604,60 @@ async def public_hls_audio_playlist(
     )
 
 
+@router.get("/hls/{token}/audio.m3u8")
+async def public_hls_audio_playlist_legacy(
+    token: str,
+    request: Request,
+    track: int | None = Query(default=None),
+    tr: str | None = Query(default=None),
+) -> Response:
+    """Support older HLS manifests that pass the selected audio track in the query string."""
+
+    file = await _owned_public_file(token, request)
+    media_info = await _public_media_info(file, token, request)
+    if media_info is None:
+        return Response(status_code=204, headers=_media_response_headers(request))
+
+    audio_tracks = media_info["audio"]
+    if not audio_tracks:
+        raise HTTPException(status_code=404, detail="Audio track not found.")
+
+    # Older manifests were generated with either ?track=<index> or the shorter ?tr
+    # parameter. A bare ?tr has no index, so use the marked default track or first track.
+    selected_index = track
+    if selected_index is None and tr:
+        try:
+            selected_index = int(tr)
+        except ValueError:
+            selected_index = None
+
+    selected_track = None
+    if selected_index is not None:
+        selected_track = next(
+            (item for item in audio_tracks if int(item["index"]) == selected_index),
+            None,
+        )
+        if selected_track is None and 0 <= selected_index < len(audio_tracks):
+            selected_track = audio_tracks[selected_index]
+
+    if selected_track is None:
+        selected_track = next(
+            (item for item in audio_tracks if item["default"]),
+            audio_tracks[0],
+        )
+
+    return Response(
+        content=_hls_media_playlist(
+            token,
+            media_info,
+            kind="audio",
+            stream_index=int(selected_track["index"]),
+        ),
+        media_type="application/vnd.apple.mpegurl",
+        headers=_media_response_headers(request),
+    )
+
+
 @router.get("/hls/{token}/segment/{kind}/{track}/{index}")
 async def public_hls_segment(
     token: str,
