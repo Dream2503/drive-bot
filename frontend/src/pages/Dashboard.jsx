@@ -2922,7 +2922,7 @@ export default function DashboardPage() {
         {contextMenu && (<DashboardContextMenu
             menu={contextMenu}
             multipleSelected={Boolean(contextMenu.item && selectedItems.has(contextMenu.item.key) && selectableItems.filter((item) => selectedItems.has(item.key)).length > 1)}
-            multipleFilesSelected={Boolean(contextMenu.item && activeTab !== "trash" && selectedItems.has(contextMenu.item.key) && selectableItems.filter((item) => selectedItems.has(item.key)).length > 1 && selectableItems.filter((item) => selectedItems.has(item.key)).every((item) => item.type === "file" && !item.is_deleted))}
+            canDownloadZip={Boolean(contextMenu.canDownloadZip)}
             onClose={() => setContextMenu(null)}
             onAction={performContextMenuAction}
         />)}
