@@ -8,11 +8,25 @@ from json import JSONDecodeError, dumps, loads
 from time import time
 
 from passlib.context import CryptContext
+from jose import JWTError, jwt
 
 from backend.database.models import File
-from backend.server.jwt_handler import SECRET_KEY
+from backend.server.jwt_handler import ALGORITHM, SECRET_KEY
 
 pwd_context: CryptContext = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+def _session_expiration(session_token: str) -> int:
+    """Read the expiration of the validated bearer token used to mint a private link."""
+
+    try:
+        payload = jwt.decode(session_token, SECRET_KEY, algorithms=[ALGORITHM])
+    except JWTError as error:
+        raise ValueError("Invalid login session") from error
+
+    expires_at = payload.get("exp")
+    if not isinstance(expires_at, int) or isinstance(expires_at, bool):
+        raise ValueError("Login session has no valid expiration")
+    return expires_at
 
 
 def hash_password(password: str) -> str:
@@ -41,11 +55,12 @@ def create_public_zip_token(
         "file_ids": list(dict.fromkeys(int(file_id) for file_id in file_ids)),
         "folder_ids": list(dict.fromkeys(int(folder_id) for folder_id in (folder_ids or []))),
         "username": username,
-        "exp": int(time()) + max(60, int(expires_in)),
+        "exp": min(int(time()) + max(60, int(expires_in)), _session_expiration(session_token)),
         "type": "zip",
     }
     if session_token:
         payload["session_hash"] = sha256(session_token.encode("utf-8")).hexdigest()
+        payload["exp"] = min(int(payload["exp"]), _session_expiration(session_token))
     encoded_payload = urlsafe_b64encode(dumps(payload, separators=(",", ":"), sort_keys=True).encode()).rstrip(b"=")
     signature = urlsafe_b64encode(hmac.new(SECRET_KEY.encode(), encoded_payload, sha256).digest()).rstrip(b"=")
     return f"{encoded_payload.decode()}.{signature.decode()}"
@@ -79,7 +94,7 @@ def verify_public_zip_token(token: str) -> dict[str, object]:
             raise ValueError("Invalid ZIP folder ID")
         if len(set(file_ids)) != len(file_ids) or len(set(folder_ids)) != len(folder_ids):
             raise ValueError("Duplicate ZIP selection ID")
-        if not isinstance(expires_at, int) or expires_at < int(time()):
+        if not isinstance(expires_at, int) or isinstance(expires_at, bool) or expires_at <= int(time()):
             raise ValueError("ZIP download token has expired")
         session_hash = data.get("session_hash")
         if session_hash is not None and (not isinstance(session_hash, str) or len(session_hash) != 64):
@@ -157,7 +172,7 @@ def verify_public_stream_token(token: str) -> dict[str, str | int]:
                 raise ValueError("Invalid stream token type")
             expires_at = data.get("exp")
             session_hash = data.get("session_hash")
-            if not isinstance(expires_at, int) or isinstance(expires_at, bool) or expires_at < int(time()):
+            if not isinstance(expires_at, int) or isinstance(expires_at, bool) or expires_at <= int(time()):
                 raise ValueError("Private stream token has expired")
             if not isinstance(session_hash, str) or len(session_hash) != 64:
                 raise ValueError("Invalid session binding")
