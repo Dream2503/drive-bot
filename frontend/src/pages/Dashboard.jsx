@@ -903,7 +903,7 @@ export default function DashboardPage({active = true} = {}) {
 
             if (handle) {
                 try {
-                    const response = await fetch(`${API_URL}/auth/file/${fileId}/public-link`, {
+                    const response = await fetch(`${API_URL}/auth/file/${fileId}/download-link`, {
                         method: "POST", headers: {Authorization: `Bearer ${token}`},
                     });
                     if (getToken() !== token) return;
