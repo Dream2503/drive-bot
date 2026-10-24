@@ -22,8 +22,16 @@ async def log_request_flow(request: Request, call_next):
     context_token = set_log_context(request_id)
     started_at: float = perf_counter()
     status_code: int = 500
+    request_path: str = request.url.path.rstrip("/") or "/"
+    is_upload_batch_poll: bool = (
+        request.method == "GET"
+        and request_path.rsplit("/", 1)[-1].lower() == "upload-batches"
+    )
 
-    write_log("INFO", Database, "HTTP", "anonymous", f"request started method={request.method}")
+    # Batch polling is frequent by design. Keep its errors visible, but omit
+    # successful request-boundary logs so they do not drown out useful events.
+    if not is_upload_batch_poll:
+        write_log("INFO", Database, "HTTP", "anonymous", f"request started method={request.method}")
 
     try:
         response = await call_next(request)
@@ -50,14 +58,15 @@ async def log_request_flow(request: Request, call_next):
         route_path = getattr(route, "path", "<unmatched>")
         duration_ms: float = (perf_counter() - started_at) * 1000
         level: str = "INFO" if status_code < 400 else "WARNING" if status_code < 500 else "ERROR"
-        write_log(
-            level,
-            Database,
-            "HTTP",
-            "anonymous",
-            f"request completed method={request.method} route={route_path} "
-            f"status={status_code} duration_ms={duration_ms:.1f}",
-        )
+        if not is_upload_batch_poll or status_code >= 400:
+            write_log(
+                level,
+                Database,
+                "HTTP",
+                "anonymous",
+                f"request completed method={request.method} route={route_path} "
+                f"status={status_code} duration_ms={duration_ms:.1f}",
+            )
         reset_log_context(context_token)
 
 
