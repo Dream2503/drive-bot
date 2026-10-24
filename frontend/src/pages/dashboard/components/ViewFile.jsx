@@ -1,5 +1,5 @@
 import {useCallback, useEffect, useRef, useState} from "react";
-import {useNavigate, useParams, useSearchParams} from "react-router-dom";
+import {useLocation, useNavigate} from "react-router-dom";
 import FileContentPreview, {MediaPreview} from "./FileContentPreview.jsx";
 import UploadJobsTray from "./UploadJobsTray.jsx";
 import {createUniqueId, getFileKind} from "../utils.js";
@@ -27,7 +27,7 @@ const PLAYER_STYLES = ".ytp-player{--accent:#3ecf8e;position:relative;isolation:
 
 const PLAYER_SPEED_OPTIONS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
 
-function VideoPlayer({file, streamUrl, sources = Array.isArray(file?.sources) ? file.sources : []}) {
+function VideoPlayer({file, streamUrl, active = true, sources = Array.isArray(file?.sources) ? file.sources : []}) {
     const wrapRef = useRef(null);
     const videoRef = useRef(null);
     const progressRef = useRef(null);
@@ -136,6 +136,14 @@ function VideoPlayer({file, streamUrl, sources = Array.isArray(file?.sources) ? 
         }
         revealControls();
     }, [revealControls, showCenterFeedback]);
+
+    // Keep hidden persistent viewers silent while their download tray remains mounted.
+    useEffect(() => {
+        if (!active) {
+            videoRef.current?.pause();
+            setControlsVisible(true);
+        }
+    }, [active]);
 
     const seekTo = useCallback((time) => {
         const video = videoRef.current;
@@ -633,9 +641,22 @@ function VideoPlayer({file, streamUrl, sources = Array.isArray(file?.sources) ? 
  * Resolve a signed stream URL and render the selected preview.
  * @returns {import("react").ReactElement}
  */
-export default function ViewFile() {
-    const {fileId: routeId} = useParams();
-    const [searchParams] = useSearchParams();
+export default function ViewFile({active = true} = {}) {
+    const location = useLocation();
+    const viewRouteMatch = location.pathname.match(/^\/view\/([^/]+)\/?$/);
+    const lastViewContextRef = useRef(null);
+    if (viewRouteMatch) {
+        lastViewContextRef.current = {
+            routeId: decodeURIComponent(viewRouteMatch[1]),
+            search: location.search,
+        };
+    }
+    const routeId = viewRouteMatch
+        ? decodeURIComponent(viewRouteMatch[1])
+        : lastViewContextRef.current?.routeId ?? null;
+    const searchParams = new URLSearchParams(
+        viewRouteMatch ? location.search : lastViewContextRef.current?.search || "",
+    );
     const navigate = useNavigate();
     const isNumericFileId = /^\d+$/.test(String(routeId || ""));
     const fileId = isNumericFileId ? routeId : null;
@@ -1290,8 +1311,12 @@ export default function ViewFile() {
         };
     }, [fileId, kind, navigate, publicToken]);
 
-    return (<div className="flex h-screen flex-col bg-[#0b0f0c] text-[#f3f7f4]"
-                 style={{fontFamily: "Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif"}}>
+    return (<div className="absolute inset-0 flex h-screen flex-col bg-[#0b0f0c] text-[#f3f7f4]"
+                 style={{
+                     fontFamily: "Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif",
+                     visibility: active ? "visible" : "hidden",
+                     pointerEvents: active ? "auto" : "none",
+                 }}>
         <header className="flex h-14 shrink-0 items-center gap-3 border-b border-[#243229] bg-[#0b0f0c] px-5">
             <div
                 className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-[#3ecf8e]/20 bg-[#3ecf8e]/10 text-[#3ecf8e]">
@@ -1359,11 +1384,12 @@ export default function ViewFile() {
                         {status}
                     </div>) : (<div className="flex h-full w-full min-h-0 flex-col">
                         <div className="min-h-0 min-w-0 flex-1">
-                            <VideoPlayer file={{name}} streamUrl={source.streamUrl} heightClass="h-full"/>
+                            <VideoPlayer file={{name}} streamUrl={source.streamUrl} heightClass="h-full" active={active}/>
                         </div>
                     </div>)}
         </main>
         <UploadJobsTray
+            traySide={active ? "right" : "left"}
             uploadJobs={[]}
             downloadJobs={downloadTrayJobs}
             pauseDownload={(jobId) => {
