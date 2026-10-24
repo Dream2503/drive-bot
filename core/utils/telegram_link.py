@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from asyncio import Lock, Queue, TimeoutError as AsyncTimeoutError, run, to_thread, wait_for
+import json
 from pathlib import Path
 import re
 from time import monotonic
@@ -10,8 +11,9 @@ from typing import Any
 from urllib.parse import SplitResult, urlsplit
 
 from core.config import BASE_DIR
-from core.utils import env as env_config
+from core.utils import env as env_config, write_log
 from core.utils.env import TELEGRAM_API_HASH, TELEGRAM_API_ID
+from core.utils.telegram_ import Telegram
 
 TELEGRAM_PROCESSING_BOT: str = "PremiumFiletoLink_Bot"
 TELEGRAM_PROCESSING_TIMEOUT: float = 90.0
@@ -260,12 +262,49 @@ async def _resolve_telegram_message_link(link: str) -> tuple[str, str]:
     responses: Queue[Any] = Queue()
 
     async def receive_bot_message(event: Any) -> None:
-        """Queue new or edited messages sent by the configured processing bot."""
+        """Log and queue the full new or edited message from the processing bot."""
 
         try:
             sender = await event.get_sender()
-            if str(getattr(sender, "username", "") or "").casefold() == TELEGRAM_PROCESSING_BOT.casefold():
-                responses.put_nowait(event.message)
+            if str(getattr(sender, "username", "") or "").casefold() != TELEGRAM_PROCESSING_BOT.casefold():
+                return
+
+            message = event.message
+            message_buttons = _message_buttons(message)
+            response_details = {
+                "message_id": getattr(message, "id", None),
+                "sender_username": getattr(sender, "username", None),
+                "sender_id": getattr(sender, "id", None),
+                "chat_id": getattr(event, "chat_id", None),
+                "date": str(getattr(message, "date", None)),
+                "raw_text": getattr(message, "raw_text", None),
+                "message_text": getattr(message, "message", None),
+                "entities": [repr(entity) for entity in (getattr(message, "entities", None) or [])],
+                "buttons": [
+                    {
+                        "text": _button_label(button),
+                        "url": _button_url(button),
+                        "raw_button": repr(getattr(button, "button", button)),
+                    }
+                    for button in message_buttons
+                ],
+                "reply_markup": repr(getattr(message, "reply_markup", None)),
+                "full_message_repr": repr(message),
+            }
+
+            try:
+                write_log(
+                    "INFO",
+                    Telegram,
+                    "FILETOLINK RESPONSE",
+                    str(getattr(sender, "username", None) or getattr(sender, "id", "unknown")),
+                    json.dumps(response_details, ensure_ascii=False, indent=2, default=repr),
+                )
+            except Exception:
+                # Diagnostics must never prevent a valid bot response from being processed.
+                pass
+
+            responses.put_nowait(message)
         except Exception:
             # Ignore unrelated incoming messages and entity-resolution failures.
             return
