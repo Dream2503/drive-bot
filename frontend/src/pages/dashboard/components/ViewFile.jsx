@@ -2,7 +2,7 @@ import {useCallback, useEffect, useRef, useState} from "react";
 import {useLocation, useNavigate} from "react-router-dom";
 import FileContentPreview, {MediaPreview} from "./FileContentPreview.jsx";
 import UploadJobsTray from "./UploadJobsTray.jsx";
-import {createUniqueId, getFileKind} from "../utils.js";
+import {AUTH_SESSION_END_EVENT, createUniqueId, endAuthSession, getFileKind, getToken} from "../utils.js";
 import {listResumableDownloadChunks, removeResumableDownloadChunks, removeResumableDownloadChunksFrom, saveResumableDownloadChunk} from "../utils/resumableDownloads.js";
 import {API_URL} from "../../../api.js";
 
@@ -731,7 +731,7 @@ export default function ViewFile({active = true} = {}) {
                 );
                 const data = await response.json().catch(() => ({}));
                 if (response.status === 401) {
-                    localStorage.removeItem("token");
+                    endAuthSession();
                     navigate("/");
                     return;
                 }
@@ -829,7 +829,7 @@ export default function ViewFile({active = true} = {}) {
                 });
                 const data = await response.json().catch(() => ({}));
                 if (response.status === 401) {
-                    localStorage.removeItem("token");
+                    endAuthSession();
                     throw new Error("Your session has expired. Sign in again to download this file.");
                 }
                 if (!response.ok) throw new Error(data.detail || "Could not prepare the download.");
@@ -861,6 +861,37 @@ export default function ViewFile({active = true} = {}) {
         };
     }, []);
 
+    useEffect(() => {
+        const handleSessionEnded = () => {
+            downloadDismissedRef.current = true;
+            downloadControllerRef.current?.abort();
+            downloadControllerRef.current = null;
+            const session = downloadSessionRef.current;
+            if (session.tempName && typeof navigator.storage?.getDirectory === "function") {
+                const tempName = session.tempName;
+                navigator.storage.getDirectory().then((root) => root.removeEntry(tempName)).catch(() => {});
+            }
+            session.tempName = "";
+            session.total = 0;
+            session.etag = "";
+            session.transferred = 0;
+            removeResumableDownloadChunks(session.id).catch(() => {});
+            setDownloadState({status: "idle", transferred: 0, total: 0, message: ""});
+            setDownloadError("");
+            if (!publicToken) {
+                setDownloadUrl("");
+                setDownloadPending(false);
+                setPrivateFileMetadata(null);
+                setPrivateFilePending(false);
+                setPrivateFileError("Sign in to download this file.");
+                setSource(null);
+            }
+        };
+
+        window.addEventListener(AUTH_SESSION_END_EVENT, handleSessionEnded);
+        return () => window.removeEventListener(AUTH_SESSION_END_EVENT, handleSessionEnded);
+    }, [publicToken]);
+
     /**
      * Stage the file in StoreLimitless temporary storage before triggering the browser save.
      * This deliberately avoids a direct link to the download endpoint.
@@ -868,6 +899,13 @@ export default function ViewFile({active = true} = {}) {
      */
     const startStagedDownload = useCallback(async () => {
         if (!downloadUrl || downloadControllerRef.current) return;
+        const sessionToken = publicToken ? null : getToken();
+        if (!publicToken && !sessionToken) {
+            setDownloadUrl("");
+            setDownloadPending(false);
+            setDownloadError("Sign in to download this file.");
+            return;
+        }
         downloadDismissedRef.current = false;
         const controller = new AbortController();
         downloadControllerRef.current = controller;
@@ -879,9 +917,15 @@ export default function ViewFile({active = true} = {}) {
         const updateState = (next) => {
             if (downloadMountedRef.current && !downloadDismissedRef.current) setDownloadState(next);
         };
+        const ensureSession = () => {
+            if (controller.signal.aborted || (!publicToken && (!sessionToken || getToken() !== sessionToken))) {
+                throw new DOMException("The session ended", "AbortError");
+            }
+        };
 
         updateState({status: "downloading", transferred: session.transferred || 0, total: session.total || 0, message: "Preparing StoreLimitless download"});
         try {
+            ensureSession();
             if (typeof navigator.storage?.getDirectory !== "function") {
                 // Stage verified ranges in IndexedDB when OPFS is unavailable. Keep
                 // completed chunks across Pause so Resume continues from the last range.
@@ -932,7 +976,7 @@ export default function ViewFile({active = true} = {}) {
                 });
 
                 while (offset < total) {
-                    if (controller.signal.aborted) throw new DOMException("Download paused", "AbortError");
+                    ensureSession();
                     const end = Math.min(offset + chunkSize, total) - 1;
                     let chunk = null;
                     let lastError = null;
@@ -1019,7 +1063,9 @@ export default function ViewFile({active = true} = {}) {
                 anchor.download = name || "download";
                 anchor.rel = "noreferrer";
                 document.body.appendChild(anchor);
-                anchor.click();
+                ensureSession();
+                ensureSession();
+            anchor.click();
                 anchor.remove();
                 window.setTimeout(() => URL.revokeObjectURL(objectUrl), 5 * 60 * 1000);
                 await removeResumableDownloadChunks(stagedDownloadId).catch((error) => {
@@ -1082,7 +1128,7 @@ export default function ViewFile({active = true} = {}) {
             });
             const chunkSize = 8 * 1024 * 1024;
             while (offset < total) {
-                if (controller.signal.aborted) throw new DOMException("Download cancelled", "AbortError");
+                ensureSession();
                 const end = Math.min(offset + chunkSize, total) - 1;
                 let chunk = null;
                 let lastError = null;
@@ -1155,6 +1201,7 @@ export default function ViewFile({active = true} = {}) {
             anchor.download = name || stagedFile.name || "download";
             anchor.rel = "noreferrer";
             document.body.appendChild(anchor);
+            ensureSession();
             anchor.click();
             anchor.remove();
             window.setTimeout(() => {
@@ -1294,7 +1341,7 @@ export default function ViewFile({active = true} = {}) {
                     method: "POST", headers: {Authorization: `Bearer ${token}`},
                 });
                 if (response.status === 401) {
-                    localStorage.removeItem("token");
+                    endAuthSession();
                     navigate("/");
                     return;
                 }
