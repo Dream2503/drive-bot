@@ -2674,7 +2674,7 @@ export default function DashboardPage({active = true} = {}) {
          * @returns {void}
          */
         const onKeyDown = (event) => {
-            if (showUploadModal || moveDialogItems || detailsSelection || detailsTarget) return;
+            if (!active || showUploadModal || moveDialogItems || detailsSelection || detailsTarget) return;
             if (contextMenu && event.key === "Escape") {
                 event.preventDefault();
                 setContextMenu(null);
@@ -2871,7 +2871,7 @@ export default function DashboardPage({active = true} = {}) {
 
         window.addEventListener("keydown", onKeyDown);
         return () => window.removeEventListener("keydown", onKeyDown);
-    }, [activeTab, bulkActionLoading, cancelBulkConfirmation, confirmAction, confirmFocus, contextMenu, currentFolder, detailsSelection, detailsTarget, moveDialogItems, navigate, renameTarget, searchQuery, selectableItems, selectedItems, showUploadModal]);
+    }, [active, activeTab, bulkActionLoading, cancelBulkConfirmation, confirmAction, confirmFocus, contextMenu, currentFolder, detailsSelection, detailsTarget, moveDialogItems, navigate, renameTarget, searchQuery, selectableItems, selectedItems, showUploadModal]);
 
     const breadcrumbSegments = useMemo(() => {
         // Keep the internal folder paths for navigation, but show `home` as the top-level location label.
