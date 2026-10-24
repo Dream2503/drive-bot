@@ -146,6 +146,8 @@ function PersistentRoutePages() {
     const isViewRoute = /^\/view\/[^/]+\/?$/.test(location.pathname);
     const [keepDashboardMounted, setKeepDashboardMounted] = useState(isDashboardRoute);
     const [keepViewMounted, setKeepViewMounted] = useState(isViewRoute);
+    const shouldMountDashboard = keepDashboardMounted || isDashboardRoute;
+    const shouldMountView = keepViewMounted || isViewRoute;
 
     useEffect(() => {
         if (isDashboardRoute) setKeepDashboardMounted(true);
@@ -153,8 +155,8 @@ function PersistentRoutePages() {
     }, [isDashboardRoute, isViewRoute]);
 
     return (<>
-        {keepDashboardMounted && <DashboardPage active={isDashboardRoute}/>}
-        {keepViewMounted && <ViewFile active={isViewRoute}/>}
+        {shouldMountDashboard && <DashboardPage active={isDashboardRoute}/>}
+        {shouldMountView && <ViewFile active={isViewRoute}/>}
         <Routes>
             <Route path="/" element={<Landing/>}/>
             <Route path="/login" element={<Auth initialMode="login"/>}/>
