@@ -894,81 +894,7 @@ export default function DashboardPage({active = true} = {}) {
             }
         }
 
-        // Browsers without OPFS fall back to the existing resumable save-file flow.
-        // File System Access API lets us commit verified byte ranges to the chosen file.
-        if (typeof window.showSaveFilePicker === "function") {
-            let handle;
-            try {
-                const file = files.find((item) => String(item.id) === String(fileId));
-                handle = await window.showSaveFilePicker({suggestedName: file?.name || "download"});
-                if (getToken() !== token) return;
-            } catch (error) {
-                if (error?.name === "AbortError") return;
-                console.warn("Save picker unavailable; falling back to browser download:", error);
-            }
-
-            if (handle) {
-                try {
-                    const response = await fetch(`${API_URL}/auth/file/${fileId}/download-link`, {
-                        method: "POST", headers: {Authorization: `Bearer ${token}`},
-                    });
-                    if (getToken() !== token) return;
-                    const data = await response.json().catch(() => ({}));
-                    if (getToken() !== token) return;
-                    if (!response.ok) {
-                        if (response.status === 401) {
-                            if (getToken() === token && endAuthSession(token)) navigate("/");
-                            return;
-                        }
-                        throw new Error(data.detail || "Failed to prepare the download.");
-                    }
-                    if (!data.public_token) throw new Error("The server did not return a download token.");
-                    const url = `${API_URL}/public/download/${data.public_token}`;
-                    const head = await fetch(url, {method: "HEAD"});
-                    if (getToken() !== token) return;
-                    if (!head.ok) throw new Error(`Could not prepare download (${head.status}).`);
-                    const total = Number(head.headers.get("content-length") || file?.size || 0);
-                    const writable = await handle.createWritable();
-                    await writable.truncate(0);
-                    await writable.close();
-                    if (getToken() !== token) return;
-                    const job = {
-                        id: createUniqueId(),
-                        fileId: String(fileId),
-                        name: file?.name || handle.name || "download",
-                        handle,
-                        url,
-                        total,
-                        etag: head.headers.get("etag") || "",
-                        transferred: 0,
-                        status: "paused",
-                        message: "Queued",
-                        createdAt: Date.now(),
-                    };
-                    if (getToken() !== token) {
-                        removeStagedFile(job);
-                        return;
-                    }
-                    const next = [job, ...downloadJobsRef.current];
-                    downloadJobsRef.current = next;
-                    setDownloadJobs(next);
-                    await saveResumableDownload(job);
-                    if (getToken() !== token) {
-                        removeStagedFile(job);
-                        removeResumableDownload(job.id).catch(() => {});
-                        removeResumableDownloadChunks(job.id).catch(() => {});
-                        return;
-                    }
-                    runResumableDownload(job, token);
-                    return;
-                } catch (error) {
-                    console.error("Could not start resumable download:", error);
-                    alert(error.message || "Could not start the download.");
-                    return;
-                }
-            }
-        }
-
+        // Without OPFS, stage verified byte ranges in IndexedDB and start the browser save only after completion.
         // Last-resort fallback for browsers without OPFS or a save-file picker.
         // Keep the transfer in the Downloads tray and delay the browser save until it is complete.
         try {
@@ -997,7 +923,7 @@ export default function DashboardPage({active = true} = {}) {
                 transferred: 0,
                 status: "paused",
                 blobFallback: true,
-                message: "Queued · browser storage staging is unavailable",
+                message: "Queued · staging in browser storage",
                 createdAt: Date.now(),
             };
             if (getToken() !== token) {
@@ -1158,22 +1084,36 @@ export default function DashboardPage({active = true} = {}) {
             }
             if (!data.public_token) throw new Error("The server did not return a ZIP download token.");
 
-            const filenameQuery = new URLSearchParams({filename: downloadName}).toString();
+            const archiveName = downloadName.toLowerCase().endsWith(".zip") ? downloadName : `${downloadName}.zip`;
+            const filenameQuery = new URLSearchParams({filename: archiveName}).toString();
             const url = `${API_URL}/public/download-zip/${encodeURIComponent(data.public_token)}?${filenameQuery}`;
 
             if (typeof navigator.storage?.getDirectory !== "function") {
-                // The server already streams the ZIP with Content-Length and
-                // Content-Disposition headers. Let the browser's native download
-                // manager stream it to disk when OPFS staging is unavailable.
+                // Use the same in-app resumable staging queue as ordinary files.
+                // Only start the browser download once every ZIP byte is stored.
+                const job = {
+                    id: createUniqueId(),
+                    name: archiveName,
+                    url,
+                    total: 0,
+                    etag: "",
+                    transferred: 0,
+                    status: "paused",
+                    blobFallback: true,
+                    message: "Queued · staging in browser storage",
+                    createdAt: Date.now(),
+                };
                 if (getToken() !== token) return;
-                const anchor = document.createElement("a");
-                anchor.href = url;
-                anchor.download = downloadName.toLowerCase().endsWith(".zip") ? downloadName : `${downloadName}.zip`;
-                anchor.rel = "noreferrer";
-                anchor.style.display = "none";
-                document.body.appendChild(anchor);
-                anchor.click();
-                anchor.remove();
+                const next = [job, ...downloadJobsRef.current];
+                downloadJobsRef.current = next;
+                setDownloadJobs(next);
+                await saveResumableDownload(job);
+                if (getToken() !== token) {
+                    removeResumableDownload(job.id).catch(() => {});
+                    removeResumableDownloadChunks(job.id).catch(() => {});
+                    return;
+                }
+                runResumableDownload(job, token);
                 return;
             }
             if (typeof navigator.storage.persist === "function") {
@@ -1199,7 +1139,7 @@ export default function DashboardPage({active = true} = {}) {
 
             const job = {
                 id: createUniqueId(),
-                name: downloadName,
+                name: archiveName,
                 tempName,
                 streamOnly: true,
                 url,
