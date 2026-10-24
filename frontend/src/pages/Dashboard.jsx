@@ -894,9 +894,8 @@ export default function DashboardPage({active = true} = {}) {
             }
         }
 
-        // Without OPFS, stage verified byte ranges in IndexedDB and start the browser save only after completion.
-        // Last-resort fallback for browsers without OPFS or a save-file picker.
-        // Keep the transfer in the Downloads tray and delay the browser save until it is complete.
+        // Without OPFS, stage verified byte ranges in IndexedDB, keep progress in the Downloads tray,
+        // and start the browser save only after the complete file has been verified.
         try {
             const response = await fetch(`${API_URL}/auth/file/${encodeURIComponent(String(fileId))}/download-link`, {
                 method: "POST", headers: {Authorization: `Bearer ${token}`},
