@@ -21,7 +21,7 @@ if TYPE_CHECKING:
     from backend.ftp.filesystem.download import FTPDownloadFile
     from backend.ftp.filesystem.filesystem import StoreLimitlessFS
 
-T: TypeVar = TypeVar("T")
+T = TypeVar("T")
 
 
 async def request_async(self: FTPDownloadFile, start: int, end: int) -> bytes:

@@ -11,7 +11,7 @@ from asyncio import Semaphore, Task, create_task, gather
 from collections.abc import AsyncGenerator, Awaitable, Callable
 from typing import Final, TypeVar
 
-T: TypeVar = TypeVar("T")
+T = TypeVar("T")
 
 DOWNLOAD_CONCURRENCY: Final[int] = 1
 _DOWNLOAD_SLOTS: Final[Semaphore] = Semaphore(DOWNLOAD_CONCURRENCY)

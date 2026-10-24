@@ -5,6 +5,7 @@ table when the format argument is pretty.
 
 import os
 from argparse import ArgumentParser, Namespace
+from collections.abc import Iterable
 from pathlib import Path
 from typing import cast
 
@@ -67,12 +68,13 @@ for table in tables:
             DATABASE_URL
         )
 
+        filename: Path
         if args.format == "pretty":
-            filename: Path = BACKUP_DIR / f"{table}.txt"
-            filename.write_text(tabulate(df, headers="keys", tablefmt="pretty", showindex=False), encoding="utf-8")
+            filename = BACKUP_DIR / f"{table}.txt"
+            filename.write_text(tabulate(cast(Iterable[Iterable[object]], df), headers="keys", tablefmt="pretty", showindex=False), encoding="utf-8")
 
         else:
-            filename: Path = BACKUP_DIR / f"{table}.csv"
+            filename = BACKUP_DIR / f"{table}.csv"
             df.to_csv(filename, index=False)
 
         print(f"Saved {len(df)} rows to {filename}")

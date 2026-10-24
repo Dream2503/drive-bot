@@ -6,7 +6,7 @@ from datetime import datetime
 from time import monotonic, time
 from json import dumps, loads
 from pathlib import Path
-from typing import Literal, Never, cast, TYPE_CHECKING
+from typing import Literal, cast, TYPE_CHECKING
 
 import redis.asyncio
 
@@ -60,7 +60,7 @@ def _file_progress_counts(items: list[JsonObject]) -> dict[str, int]:
 class Redis:
     """Manage the shared asynchronous Redis client and serialize application model objects to and from Redis keys and hashes."""
 
-    def __new__(cls, *args: object, **kwargs: object) -> Never:
+    def __new__(cls, *args: object, **kwargs: object) -> Redis:
         """Prevent instantiation because Redis exposes class-level operations only."""
 
         raise TypeError("Redis cannot be instantiated")
