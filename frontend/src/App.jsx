@@ -6,7 +6,7 @@ import DashboardPage from "./pages/Dashboard.jsx";
 import UploadPage from "./pages/dashboard/components/UploadModal.jsx";
 import ViewFile from "./pages/dashboard/components/ViewFile.jsx";
 import UploadTrayPage from "./pages/dashboard/components/UploadTrayPage.jsx";
-import {AUTH_SESSION_END_EVENT} from "./pages/dashboard/utils.js";
+import {AUTH_SESSION_END_EVENT, AUTH_SESSION_START_EVENT} from "./pages/dashboard/utils.js";
 
 
 /**
@@ -175,9 +175,11 @@ function PersistentRoutePages() {
             syncSession();
         };
 
+        window.addEventListener(AUTH_SESSION_START_EVENT, syncSession);
         window.addEventListener(AUTH_SESSION_END_EVENT, syncSession);
         window.addEventListener("storage", handleStorage);
         return () => {
+            window.removeEventListener(AUTH_SESSION_START_EVENT, syncSession);
             window.removeEventListener(AUTH_SESSION_END_EVENT, syncSession);
             window.removeEventListener("storage", handleStorage);
         };
