@@ -48,15 +48,15 @@ function VideoPlayer({file, streamUrl, heightClass = "h-[70vh]"}) {
             : `${minutes}:${seconds}`;
     };
 
-    const togglePlayback = () => {
+    const togglePlayback = useCallback(() => {
         const video = videoRef.current;
         if (!video) return;
-        if (video.paused) {
+        if (video.paused || video.ended) {
             void video.play().catch(() => {});
         } else {
             video.pause();
         }
-    };
+    }, []);
 
     const seekBy = (seconds) => {
         const video = videoRef.current;
@@ -109,10 +109,8 @@ function VideoPlayer({file, streamUrl, heightClass = "h-[70vh]"}) {
             return;
         }
 
-        // Desktop clicks only toggle play/pause in the center, never on the edges.
-        if (event.pointerType === "mouse" && event.button === 0 && centerTap) {
-            togglePlayback();
-        }
+        // Keep desktop video clicks inert. Playback is controlled by the center button or Space.
+        // Touch retains the existing center-tap and double-tap seek behavior.
     };
 
     const toggleFullscreen = async () => {
@@ -137,15 +135,42 @@ function VideoPlayer({file, streamUrl, heightClass = "h-[70vh]"}) {
             window.clearTimeout(feedbackTimeoutRef.current);
         };
     }, []);
+    
+    // Capture Space at the player level, but let normal form controls keep their native behavior.
+    useEffect(() => {
+        const handleKeyDown = (event) => {
+            if (event.code !== "Space" || event.altKey || event.ctrlKey || event.metaKey) return;
+            const player = wrapRef.current;
+            const target = event.target;
+            if (!player || !player.contains(target)) return;
+
+            const tagName = target?.tagName?.toLowerCase();
+            const isInteractive = tagName === "button" || tagName === "input" || tagName === "select"
+                || tagName === "textarea" || target?.isContentEditable;
+            if (isInteractive) return;
+
+            event.preventDefault();
+            event.stopPropagation();
+            togglePlayback();
+        };
+
+        const player = wrapRef.current;
+        if (!player) return undefined;
+        player.addEventListener("keydown", handleKeyDown);
+        return () => player.removeEventListener("keydown", handleKeyDown);
+    }, [togglePlayback]);
 
     return (
         <div
             ref={wrapRef}
-            className={`relative ${heightClass} min-h-0 w-full overflow-hidden bg-black text-white select-none`}
+            className={`group/player relative ${heightClass} min-h-0 w-full overflow-hidden bg-[#080b09] text-white select-none outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#3ecf8e]`}
+            tabIndex={0}
+            role="region"
+            aria-label="Video player. Press Space to play or pause."
         >
             <video
                 ref={videoRef}
-                className="absolute inset-0 h-full w-full bg-black object-contain touch-manipulation"
+                className="absolute inset-0 h-full w-full bg-[#080b09] object-contain touch-manipulation"
                 src={streamUrl}
                 preload="metadata"
                 playsInline
@@ -173,13 +198,25 @@ function VideoPlayer({file, streamUrl, heightClass = "h-[70vh]"}) {
                 onRateChange={(event) => setPlaybackRate(event.currentTarget.playbackRate)}
             />
 
+            <button
+                type="button"
+                onClick={togglePlayback}
+                className={`absolute left-1/2 top-1/2 z-10 flex h-16 w-16 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-white/20 bg-[#123d2b]/90 text-white shadow-[0_8px_36px_rgba(0,0,0,0.45)] backdrop-blur-sm transition-all duration-200 hover:scale-105 hover:bg-[#17643d] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#3ecf8e] sm:h-20 sm:w-20 ${playing ? "pointer-events-none scale-95 opacity-0 group-hover/player:pointer-events-auto group-hover/player:scale-100 group-hover/player:opacity-100 group-focus-within/player:pointer-events-auto group-focus-within/player:opacity-100" : "scale-100 opacity-100"}`}
+                aria-label={playing ? "Pause video" : "Play video"}
+                title={playing ? "Pause (Space)" : "Play (Space)"}
+            >
+                <span className="material-symbols-outlined text-[42px] sm:text-[50px]" aria-hidden="true">
+                    {playing ? "pause" : "play_arrow"}
+                </span>
+            </button>
+
             {seekFeedback && (
                 <div className={`pointer-events-none absolute inset-y-0 flex w-1/3 items-center justify-center ${seekFeedback.startsWith("+") ? "right-0" : "left-0"}`}>
                     <span className="rounded-full bg-black/70 px-4 py-2 text-lg font-semibold">{seekFeedback}</span>
                 </div>
             )}
 
-            <div className="absolute inset-x-0 bottom-6 bg-gradient-to-t from-black/95 via-black/65 to-transparent px-3 pb-3 pt-12 sm:px-5">
+            <div className="absolute inset-x-0 bottom-6 z-20 bg-gradient-to-t from-[#050705]/[0.98] via-[#050705]/80 to-transparent px-3 pb-3 pt-14 transition-opacity duration-200 sm:px-5">
                 <div className="mb-2 flex items-center gap-3">
                     <span className="w-11 shrink-0 text-right text-xs tabular-nums text-white/90">{formatTime(currentTime)}</span>
                     <input
@@ -195,7 +232,7 @@ function VideoPlayer({file, streamUrl, heightClass = "h-[70vh]"}) {
                             video.currentTime = Number(event.target.value);
                             setCurrentTime(video.currentTime);
                         }}
-                        className="h-1.5 min-w-0 flex-1 cursor-pointer accent-[#3ecf8e]"
+                        className="h-1 min-w-0 flex-1 cursor-pointer accent-[#3ecf8e] hover:h-1.5"
                     />
                     <span className="w-11 shrink-0 text-xs tabular-nums text-white/90">{formatTime(duration)}</span>
                 </div>
@@ -204,7 +241,7 @@ function VideoPlayer({file, streamUrl, heightClass = "h-[70vh]"}) {
                     <button
                         type="button"
                         onClick={togglePlayback}
-                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-white transition-colors hover:bg-white/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#3ecf8e]"
+                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white transition-colors hover:bg-white/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#3ecf8e]"
                         aria-label={playing ? "Pause video" : "Play video"}
                         title={playing ? "Pause" : "Play"}
                     >
@@ -292,7 +329,7 @@ function VideoPlayer({file, streamUrl, heightClass = "h-[70vh]"}) {
                 </div>
             </div>
 
-            <p className="pointer-events-none absolute inset-x-0 bottom-0 border-t border-white/10 bg-[#171717]/95 px-4 py-1.5 text-center text-[11px] text-[#a7a7a7]">
+            <p className="pointer-events-none absolute inset-x-0 bottom-0 border-t border-white/10 bg-[#080b09]/95 px-4 py-1.5 text-center text-[11px] text-[#a7b2aa]">
                 If this format does not play in your browser, copy the stream URL above and open it in VLC.
             </p>
         </div>
@@ -960,9 +997,9 @@ export default function ViewFile() {
         };
     }, [fileId, kind, navigate, publicToken]);
 
-    return (<div className="flex h-screen flex-col bg-[#171717] text-[#fafafa]"
+    return (<div className="flex h-screen flex-col bg-[#0b0f0c] text-[#f3f7f4]"
                  style={{fontFamily: "Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif"}}>
-        <header className="flex h-14 shrink-0 items-center gap-3 border-b border-[#2e2e2e] px-5">
+        <header className="flex h-14 shrink-0 items-center gap-3 border-b border-[#243229] bg-[#0b0f0c] px-5">
             <div
                 className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-[#3ecf8e]/20 bg-[#3ecf8e]/10 text-[#3ecf8e]">
                 <span className="material-symbols-outlined text-[19px]"
