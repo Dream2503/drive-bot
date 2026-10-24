@@ -689,7 +689,7 @@ export default function ViewFile({active = true} = {}) {
     const privateFile = privateFileMetadata?.routeId === String(fileId) ? privateFileMetadata : null;
     const name = searchParams.get("name") || publicFile?.name || privateFile?.name || "Untitled";
     const kind = searchParams.get("kind") || getFileKind(publicFile?.name || privateFile?.name || name);
-    const downloadTrayJobs = downloadError || downloadState.status !== "idle" ? [{
+    const downloadTrayJobs = (fileId || publicToken) && (downloadError || downloadState.status !== "idle") ? [{
         id: downloadTrayJobId,
         name,
         status: downloadError && downloadState.status === "idle" ? "error" : downloadState.status,
@@ -804,7 +804,9 @@ export default function ViewFile({active = true} = {}) {
         }
 
         if (!fileId) {
-            setDownloadError("No file was selected.");
+            // Persistent pages can be mounted in the background after login.
+            // An inactive viewer without a route target is not a failed download.
+            if (active) setDownloadError("No file was selected.");
             setDownloadPending(false);
             return () => {
                 cancelled = true;
@@ -845,7 +847,7 @@ export default function ViewFile({active = true} = {}) {
         return () => {
             cancelled = true;
         };
-    }, [fileId, navigate, publicFile, publicFileError, publicToken]);
+    }, [active, fileId, navigate, publicFile, publicFileError, publicToken]);
 
     useEffect(() => {
         downloadMountedRef.current = true;
