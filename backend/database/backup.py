@@ -71,7 +71,7 @@ for table in tables:
         filename: Path
         if args.format == "pretty":
             filename = BACKUP_DIR / f"{table}.txt"
-            filename.write_text(tabulate(cast(Iterable[Iterable[object]], df), headers="keys", tablefmt="pretty", showindex=False), encoding="utf-8")
+            filename.write_text(tabulate(cast("Iterable[Iterable[object]]", df), headers="keys", tablefmt="pretty", showindex=False), encoding="utf-8")
 
         else:
             filename = BACKUP_DIR / f"{table}.csv"
