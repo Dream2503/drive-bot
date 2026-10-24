@@ -124,9 +124,18 @@ def _fast_download_target(message: Any) -> str | None:
     buttons = _message_buttons(message)
     matching_button_found = False
 
-    # The STREAM button points to the web player (/watch/...), which returns
-    # HTML. Prefer the DOWNLOAD button's file endpoint for an actual import.
-    # Labels are normalized first because FiletoLink renders them in small caps.
+    # Prefer the exact DOWNLOAD button over STREAM or any other download-labelled
+    # button. This is the file endpoint the import pipeline needs, not the web player.
+    # Normalize Unicode small caps because the bot renders labels in stylized text.
+    for button in buttons:
+        label = _normalized_link_label(_button_label(button))
+        target = _button_url(button)
+
+        if label == "download" and target:
+            return target
+
+    # Keep compatibility with bot variants that add emoji or extra words to the
+    # download button label, but only after checking for the exact DOWNLOAD label.
     for button in buttons:
         label = _normalized_link_label(_button_label(button))
         target = _button_url(button)
