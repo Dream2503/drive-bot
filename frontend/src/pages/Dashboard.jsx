@@ -821,10 +821,9 @@ export default function DashboardPage({active = true} = {}) {
                 if (getToken() !== token) return;
                 if (!linkResponse.ok) {
                     if (linkResponse.status === 401) {
-                        endAuthSession();
-                        navigate("/");
-                        return;
-                    }
+                    if (getToken() === token && endAuthSession(token)) navigate("/");
+                    return;
+                }
                     throw new Error(linkData.detail || "Failed to prepare the download.");
                 }
                 if (!linkData.public_token) throw new Error("The server did not return a download token.");
@@ -918,10 +917,9 @@ export default function DashboardPage({active = true} = {}) {
                     if (getToken() !== token) return;
                     if (!response.ok) {
                         if (response.status === 401) {
-                            endAuthSession();
-                            navigate("/");
-                            return;
-                        }
+                    if (getToken() === token && endAuthSession(token)) navigate("/");
+                    return;
+                }
                         throw new Error(data.detail || "Failed to prepare the download.");
                     }
                     if (!data.public_token) throw new Error("The server did not return a download token.");
@@ -982,8 +980,7 @@ export default function DashboardPage({active = true} = {}) {
             if (getToken() !== token) return;
             if (!response.ok) {
                 if (response.status === 401) {
-                    endAuthSession();
-                    navigate("/");
+                    if (getToken() === token && endAuthSession(token)) navigate("/");
                     return;
                 }
                 throw new Error(data.detail || "Failed to prepare the download.");
@@ -1049,9 +1046,10 @@ export default function DashboardPage({active = true} = {}) {
 
             if (!response.ok) {
                 if (response.status === 401) {
-                    endAuthSession();
-                    setShareDialog(null);
-                    navigate("/");
+                    if (getToken() === token && endAuthSession(token)) {
+                        setShareDialog(null);
+                        navigate("/");
+                    }
                     return;
                 }
                 throw new Error(data.detail || "Could not create a share link.");
@@ -1153,8 +1151,7 @@ export default function DashboardPage({active = true} = {}) {
             if (getToken() !== token) return;
             if (!response.ok) {
                 if (response.status === 401) {
-                    endAuthSession();
-                    navigate("/");
+                    if (getToken() === token && endAuthSession(token)) navigate("/");
                     return;
                 }
                 throw new Error(data.detail || "Could not prepare the ZIP download.");
