@@ -40,8 +40,8 @@ export default function DownloadJobsTray({jobs, onPause, onResume, onRemove, onC
                             <p className="truncate text-xs font-medium" title={job.name}>{job.name}</p>
                             <p className="mt-1 text-[11px] text-[#9bad9f]">{job.status === "queued" ? job.message || "Queued · waiting for the previous download" : job.status === "downloading" ? (job.streamOnly || job.blobFallback || job.viewerDownload) && job.total <= 0 ? `${job.message || "Downloading"} · ${formatBytes(job.transferred)} downloaded` : `${formatBytes(job.transferred)} / ${formatBytes(job.total)} · ${percent}%` : job.status === "paused" ? job.streamOnly ? job.message || "Paused · ZIP will restart from the beginning" : job.blobFallback ? "Paused · resume continues from saved progress" : job.viewerDownload ? job.message || "Paused" : `Paused · ${formatBytes(job.transferred)} of ${formatBytes(job.total)}` : job.status === "completed" ? `Completed · ${formatBytes(job.total || job.transferred)}` : job.message || "Download failed"}</p>
                         </div>
-                        {!readOnly && !terminal && job.status === "downloading" &&
-                            <button type="button" onClick={() => onPause(job.id)} title="Pause download" aria-label={`Pause ${job.name}`}
+                        {!readOnly && !terminal && ["downloading", "queued"].includes(job.status) &&
+                            <button type="button" onClick={() => onPause(job.id)} title={job.status === "queued" ? "Pause queued download" : "Pause download"} aria-label={`Pause ${job.name}`}
                                     className="rounded p-1 text-[#a8b7ad] hover:bg-[#27342b] hover:text-white"><span
                                 className="material-symbols-outlined text-[17px]">pause</span></button>}
                         {!readOnly && !terminal && job.status === "paused" &&
