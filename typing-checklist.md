@@ -2,12 +2,13 @@
 
 ## Discovery record
 
-- Runtime target: Python 3.13.7 (from the Windows build script); annotations use Python 3.10+ syntax.
+- Runtime target: Python 3.13.7 (from the Windows build script and CI).
 - Stack: FastAPI, Pydantic, psycopg 3 / psycopg-pool, async Redis, pyftpdlib, asyncio, Discord.py, Telethon, libtorrent, yt-dlp, gdown, Requests.
-- Existing type-checker configuration: none found before this pass.
-- Test suite and migrations: no tracked test directory, test modules, migrations, or migration files were found.
-- Stub files: no tracked `.pyi` files found.
-- Generated Python files skipped: none found. Virtualenv, cache, build, and dependency directories are excluded by repository inventory rules.
+- Type checking: strict mypy is configured in `pyproject.toml`; Ruff selects `ANN`, `UP`, and `TCH`.
+- CI executes compileall, Ruff annotation checks, Ruff rules, and strict mypy.
+- No tracked `.pyi` files, tests, test directory, migrations, or migration files were found in the repository inventory.
+- Generated Python files skipped: none found. Excluded inventory directories: virtualenvs, `.git`, `__pycache__`, `node_modules`, and build/dist folders.
+- Safety note: CI must validate only; it must not automatically rewrite or push files, so annotation-related changes remain reviewable and runtime changes are not introduced by automated fixes.
 
 ## Source-file checklist
 
@@ -59,4 +60,4 @@
 - [ ] `core/utils/upload_manager.py`
 - [ ] `core/utils_.py`
 
-The checklist is ticked only after the signatures, attributes, ambiguous locals, and checker results have been reviewed.
+The checkbox for a module is marked only after its annotations have been reviewed and the CI type/lint checks pass. Merely reading the file or compiling it is not sufficient.
