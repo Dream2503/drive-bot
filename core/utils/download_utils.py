@@ -554,7 +554,7 @@ async def wait_for_torrent_metadata(handle: TorrentHandle, progress: Progress, f
 
 
 async def wait_for_torrent_download(
-        handle: object,
+        handle: TorrentHandle,
         progress: Progress,
         torrent_name: str,
         expected_total: int,
@@ -693,9 +693,9 @@ async def preview_torrent_files(link: str, timeout_seconds: int = 120) -> JsonOb
             await sleep(0.5)
 
         info: TorrentInfo = handle.torrent_file()
-        torrent_files: object = info.files()
+        torrent_files: TorrentFileStorage = info.files()
         torrent_name: str = safe_torrent_component(str(info.name()))
-        padding_check: Callable = cast(Callable, getattr(torrent_files, "pad_file_at", None))
+        padding_check: Callable[[int], bool] | None = cast(Callable[[int], bool] | None, getattr(torrent_files, "pad_file_at", None))
         entries: list[JsonObject] = []
 
         for index in range(int(torrent_files.num_files())):
@@ -734,7 +734,7 @@ def get_downloadable_torrent_files(
     download_root: Path = temp_dir.resolve()
     downloadable_files: list[tuple[int, Path, tuple[str, ...]]] = []
     file_count: int = int(torrent_files.num_files())
-    padding_check: Callable = cast(Callable, getattr(torrent_files, "pad_file_at", None))
+    padding_check: Callable[[int], bool] | None = cast(Callable[[int], bool] | None, getattr(torrent_files, "pad_file_at", None))
 
     for index in range(file_count):
         if (selected_indices is not None and index not in selected_indices) or callable(padding_check) and padding_check(index):
@@ -797,7 +797,7 @@ async def download_torrent_to_disk(
         raise RuntimeError("Torrent downloads require the optional 'python-libtorrent' dependency") from error
 
     torrent_session: TorrentSession | None = None
-    handle: object | None = None
+    handle: TorrentHandle | None = None
     processed_download: bool = False
 
     try:
@@ -807,14 +807,14 @@ async def download_torrent_to_disk(
             "enable_lsd": True,
             "enable_upnp": True,
             "enable_natpmp": True,
-        })
+        }))
         handle = torrent_session.add_torrent({"url": link, "save_path": str(temp_dir)})
 
         async for progress_value in wait_for_torrent_metadata(handle, progress, fallback_name):
             yield progress_value
 
         torrent_info: TorrentInfo = handle.torrent_file()
-        torrent_files: object = torrent_info.files()
+        torrent_files: TorrentFileStorage = torrent_info.files()
         torrent_name_raw: str = str(torrent_info.name())
         torrent_name_parts: tuple[str, ...] = torrent_relative_parts(torrent_name_raw)
 
@@ -825,7 +825,7 @@ async def download_torrent_to_disk(
         torrent_name: str = safe_torrent_component(torrent_name_raw)
         file_count: int = int(torrent_files.num_files())
         expected_total: int = 0
-        padding_check: Callable = cast(Callable, getattr(torrent_files, "pad_file_at", None))
+        padding_check: Callable[[int], bool] | None = cast(Callable[[int], bool] | None, getattr(torrent_files, "pad_file_at", None))
         if selected_indices is not None:
             if not selected_indices or any(index < 0 or index >= file_count for index in selected_indices):
                 raise ValueError("Torrent file selection is empty or contains invalid file indexes")
@@ -1392,8 +1392,8 @@ async def download_torrent(file: File, link: str, selected_indices: set[int] | N
     progress: Progress = Progress(file.name or "Torrent", "Connecting to torrent network", 0)
     progress.ingestion_type = "torrent"
     progress.download_active = True
-    torrent_session: object | None = None
-    handle: object | None = None
+    torrent_session: TorrentSession | None = None
+    handle: TorrentHandle | None = None
     active_uploads: dict[int, Task[File]] = {}
     pending_uploads: dict[int, tuple[File, Path, JsonObject, str, int, int, IngestionUploadTicket]] = {}
     max_concurrent_file_uploads: int = max(1, min(2, int(data_center.MAX_PARALLEL_UPLOADS)))
@@ -1499,20 +1499,20 @@ async def download_torrent(file: File, link: str, selected_indices: set[int] | N
 
     try:
         write_log("INFO", data_center, "TORRENT", file.username, f"Starting magnet download: {safe_link}")
-        torrent_session = libtorrent.session({
+        torrent_session = cast(TorrentSession, libtorrent.session({
             "listen_interfaces": "0.0.0.0:0",
             "enable_dht": True,
             "enable_lsd": True,
             "enable_upnp": True,
             "enable_natpmp": True,
-        })
+        }))
         handle = torrent_session.add_torrent({"url": link, "save_path": str(temp_dir)})
 
         async for progress_value in wait_for_torrent_metadata(handle, progress, file.name or "Torrent"):
             yield progress_value
 
-        torrent_info: object = handle.torrent_file()
-        torrent_files: object = torrent_info.files()
+        torrent_info: TorrentInfo = handle.torrent_file()
+        torrent_files: TorrentFileStorage = torrent_info.files()
         torrent_name_raw: str = str(torrent_info.name())
         torrent_name_parts: tuple[str, ...] = torrent_relative_parts(torrent_name_raw)
 
@@ -1522,7 +1522,7 @@ async def download_torrent(file: File, link: str, selected_indices: set[int] | N
         torrent_name_raw = torrent_name_parts[0]
         torrent_name: str = safe_torrent_component(torrent_name_raw)
         file_count: int = int(torrent_files.num_files())
-        padding_check: Callable = cast(Callable, getattr(torrent_files, "pad_file_at", None))
+        padding_check: Callable[[int], bool] | None = cast(Callable[[int], bool] | None, getattr(torrent_files, "pad_file_at", None))
         selected: set[int] = set(selected_indices) if selected_indices is not None else {
             index for index in range(file_count)
             if not callable(padding_check) or not padding_check(index)
