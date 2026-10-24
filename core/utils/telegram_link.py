@@ -6,6 +6,7 @@ from asyncio import Lock, Queue, TimeoutError as AsyncTimeoutError, run, to_thre
 import json
 from pathlib import Path
 import re
+import unicodedata
 from time import monotonic
 from typing import Any
 from urllib.parse import SplitResult, urlsplit
@@ -29,9 +30,10 @@ def _message_entity_text(text: str, offset: int, length: int) -> str:
 
 
 def _normalized_link_label(value: Any) -> str:
-    """Normalize button/entity labels so emoji and spacing differences do not matter."""
+    """Normalize stylized Unicode button labels so matching ignores font variants."""
 
-    return "".join(character for character in str(value or "").casefold() if character.isalnum())
+    normalized = unicodedata.normalize("NFKC", str(value or "")).casefold()
+    return "".join(character for character in normalized if character.isalnum())
 
 
 def _message_buttons(message: Any) -> list[Any]:
@@ -93,6 +95,15 @@ def _fast_download_target(message: Any) -> str | None:
     normalized_text = _normalized_link_label(text)
     buttons = _message_buttons(message)
     matching_button_found = False
+
+    # FiletoLink currently labels its usable file URL as "STREAM" (often
+    # rendered in small-cap Unicode). Prefer that button's URL explicitly.
+    for button in buttons:
+        label = _normalized_link_label(_button_label(button))
+        target = _button_url(button)
+
+        if "stream" in label and target:
+            return target
 
     for button in buttons:
         label = _normalized_link_label(_button_label(button))
