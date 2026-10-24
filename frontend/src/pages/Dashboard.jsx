@@ -90,7 +90,7 @@ function compareCaseInsensitive(left, right) {
  * Render file browsing, search, selection, and file-management interactions.
  * @returns {import("react").ReactElement}
  */
-export default function DashboardPage() {
+export default function DashboardPage({active = true} = {}) {
     const navigate = useNavigate();
     const location = useLocation();
 
@@ -98,12 +98,15 @@ export default function DashboardPage() {
     const [activeTab, setActiveTab] = useState("files");
     // The URL is the source of truth for the current folder. This keeps links
     // shareable and makes browser back/forward restore the previous folder.
+    const lastDashboardFolderRef = useRef("");
     const currentFolder = useMemo(() => {
+        if (!active) return lastDashboardFolderRef.current;
         const segments = location.pathname.split("/").filter(Boolean);
         if (segments[0] !== "home") return "";
         const folderSegments = segments.slice(1).map(decodePathSegment);
         return folderSegments.length ? `/home/${folderSegments.join("/")}` : "";
-    }, [location.pathname]);
+    }, [active, location.pathname]);
+    if (active) lastDashboardFolderRef.current = currentFolder;
 
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
@@ -2889,8 +2892,12 @@ export default function DashboardPage() {
     const isSearchBusy = isSearching && searchLoading;
 
     return (<div
-        className="flex h-screen overflow-hidden bg-[#1c1c1c] text-[#fafafa]"
-        style={{fontFamily: "Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif"}}
+        className="absolute inset-0 flex h-screen overflow-hidden bg-[#1c1c1c] text-[#fafafa]"
+        style={{
+            fontFamily: "Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif",
+            visibility: active ? "visible" : "hidden",
+            pointerEvents: active ? "auto" : "none",
+        }}
         onDragEnter={handleExternalDragEnter}
         onDragOver={handleExternalDragOver}
         onDragLeave={handleExternalDragLeave}
@@ -2999,6 +3006,7 @@ export default function DashboardPage() {
         />)}
 
         <UploadJobsTray
+            traySide={active ? "right" : "left"}
             uploadJobs={uploadJobs}
             cancelUploadJob={cancelUploadJob}
             dismissUploadJob={dismissUploadJob}
