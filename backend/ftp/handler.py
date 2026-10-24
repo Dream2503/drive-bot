@@ -13,7 +13,7 @@ from core.utils import write_log
 class StoreLimitlessHandler(FTPHandler):
     """Connect pyftpdlib commands to the StoreLimitless virtual filesystem."""
 
-    abstracted_fs = StoreLimitlessFS
+    abstracted_fs: type[StoreLimitlessFS] = StoreLimitlessFS
     event_loop: AbstractEventLoop
     store_limitless_user: User | None = None
 
