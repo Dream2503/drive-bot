@@ -861,7 +861,7 @@ async def upload_link(
             raise HTTPException(status_code=400, detail="Select at least one valid torrent file")
 
     else:
-        selected_torrent_files: set[int] | None = None
+        selected_torrent_files = None
         link = perform_validation(raw_link, "link")
         parsed_link = urlsplit(link)
         raw_name = "Telegram message" if is_telegram_message_link else (unquote(Path(parsed_link.path).name).strip() or (parsed_link.hostname or "Link import"))

@@ -17,6 +17,7 @@ from core.utils import env as env_config, write_log
 from core.utils.env import TELEGRAM_API_HASH, TELEGRAM_API_ID
 from core.utils.telegram_ import Telegram
 
+
 class TelegramEventLike(Protocol):
     """Describe the message-event interface used by the Telethon callback."""
 
@@ -39,7 +40,7 @@ def _message_entity_text(text: str, offset: int, length: int) -> str:
     return encoded[offset * 2:(offset + length) * 2].decode("utf-16-le", errors="ignore")
 
 
-_SMALL_CAPITAL_TRANSLATION = str.maketrans({
+_SMALL_CAPITAL_TRANSLATION: dict[int, str] = str.maketrans({
     "ᴀ": "a",
     "ʙ": "b",
     "ᴄ": "c",
