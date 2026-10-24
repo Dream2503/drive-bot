@@ -1158,16 +1158,29 @@ export default function DashboardPage({active = true} = {}) {
             }
             if (!data.public_token) throw new Error("The server did not return a ZIP download token.");
 
+            const filenameQuery = new URLSearchParams({filename: downloadName}).toString();
+            const url = `${API_URL}/public/download-zip/${encodeURIComponent(data.public_token)}?${filenameQuery}`;
+
             if (typeof navigator.storage?.getDirectory !== "function") {
-                throw new Error("This browser does not support staged downloads. Use a recent Chromium-based browser.");
+                // The server already streams the ZIP with Content-Length and
+                // Content-Disposition headers. Let the browser's native download
+                // manager stream it to disk when OPFS staging is unavailable.
+                if (getToken() !== token) return;
+                const anchor = document.createElement("a");
+                anchor.href = url;
+                anchor.download = downloadName.toLowerCase().endsWith(".zip") ? downloadName : `${downloadName}.zip`;
+                anchor.rel = "noreferrer";
+                anchor.style.display = "none";
+                document.body.appendChild(anchor);
+                anchor.click();
+                anchor.remove();
+                return;
             }
             if (typeof navigator.storage.persist === "function") {
                 await navigator.storage.persist().catch(() => false);
                 if (getToken() !== token) return;
             }
 
-            const filenameQuery = new URLSearchParams({filename: downloadName}).toString();
-            const url = `${API_URL}/public/download-zip/${encodeURIComponent(data.public_token)}?${filenameQuery}`;
             const root = await navigator.storage.getDirectory();
             if (getToken() !== token) return;
             const tempName = `storelimitless-zip-${createUniqueId()}.download`;
