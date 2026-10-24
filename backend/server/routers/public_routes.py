@@ -1022,6 +1022,41 @@ async def _generate_hls_media_segment(
     )
 
 
+async def _generate_hls_subtitle_segment(
+    token: str,
+    stream_index: int,
+    start_seconds: float,
+    segment_duration: float,
+    *,
+    request: Request | None,
+) -> bytes | None:
+    """Extract one bounded WebVTT subtitle window for caching and background prefetch."""
+
+    ffmpeg_path, _ = _media_tool_paths()
+    command = [
+        ffmpeg_path,
+        "-hide_banner", "-loglevel", "error", "-nostdin",
+        "-copyts", "-start_at_zero",
+        "-rw_timeout", "300000000",
+        "-ss", f"{start_seconds:.6f}",
+        "-i", _media_source_url(token),
+        "-ss", f"{start_seconds:.6f}",
+        "-t", f"{segment_duration:.6f}",
+        "-map", f"0:{stream_index}",
+        "-vn", "-an", "-dn",
+        "-c:s", "webvtt",
+        "-flush_packets", "1",
+        "-f", "webvtt",
+        "pipe:1",
+    ]
+    return await _run_media_tool(
+        command,
+        timeout=max(120.0, segment_duration * 30.0),
+        output_limit=32 * 1024 * 1024,
+        request=request,
+    )
+
+
 async def _prefetch_media_segment(
     file: File,
     token: str,
@@ -1051,6 +1086,16 @@ async def _prefetch_media_segment(
                 cache_key,
                 lambda: read_processed_segment(file, processed, kind, stream_index, index),
             )
+        elif kind == "subtitle":
+            # Subtitle cues are extracted on demand, so prefetch their next windows
+            # with one background FFmpeg process while active playback keeps priority.
+            async with _MEDIA_PREFETCH_LIMIT:
+                await _get_or_generate_media_segment(
+                    cache_key,
+                    lambda: _generate_hls_subtitle_segment(
+                        token, stream_index, start, segment_duration, request=None
+                    ),
+                )
         else:
             # Legacy media still needs FFmpeg encoding, so keep speculative encoders
             # serialized and leave most process capacity for the segment being played.
@@ -1091,7 +1136,7 @@ def _schedule_media_segment_prefetch(
 ) -> None:
     """Queue the next few segments without blocking the current response."""
 
-    if kind not in {"video", "audio"}:
+    if kind not in {"video", "audio", "subtitle"}:
         return
 
     segment_count = math.ceil(duration / _MEDIA_SEGMENT_SECONDS)
@@ -1148,6 +1193,35 @@ async def public_hls_subtitles(
         )
 
     segment_duration = min(duration_seconds, media_duration - start_seconds)
+
+    # HLS subtitle requests use aligned six-second windows. Cache those windows and
+    # prefetch upcoming cues just like the stored video/audio segments, while preserving
+    # the existing streaming path for custom subtitle ranges.
+    segment_index = round(start_seconds / _MEDIA_SEGMENT_SECONDS)
+    aligned_start = segment_index * _MEDIA_SEGMENT_SECONDS
+    expected_duration = min(_MEDIA_SEGMENT_SECONDS, media_duration - aligned_start)
+    if (
+        abs(start_seconds - aligned_start) < 0.001
+        and abs(segment_duration - expected_duration) < 0.001
+    ):
+        cache_key = _media_segment_cache_key(file, "subtitle", stream_index, segment_index)
+        subtitle_bytes = await _get_or_generate_media_segment(
+            cache_key,
+            lambda: _generate_hls_subtitle_segment(
+                token, stream_index, start_seconds, segment_duration, request=request
+            ),
+        )
+        if subtitle_bytes is None:
+            return Response(status_code=204, headers=_media_response_headers(request))
+        _schedule_media_segment_prefetch(
+            file, token, "subtitle", stream_index, segment_index, media_duration
+        )
+        return Response(
+            content=subtitle_bytes,
+            media_type="text/vtt; charset=utf-8",
+            headers=_media_response_headers(request),
+        )
+
     ffmpeg_path, _ = _media_tool_paths()
     command = [
         ffmpeg_path,
