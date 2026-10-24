@@ -23,7 +23,7 @@ import {API_URL} from "../../../api.js";
  * @param {VideoPlayerProps} props
  * @returns {import("react").ReactElement}
  */
-const PLAYER_STYLES = ".ytp-player{--red:#f00;position:relative;isolation:isolate;display:block;width:100%;max-height:100%;aspect-ratio:16/9;overflow:hidden;border-radius:12px;background:#000;color:#fff;font-family:Roboto,Arial,system-ui,sans-serif;user-select:none;outline:none;box-shadow:0 12px 38px #0003;margin:auto}.ytp-player:focus-visible{outline:2px solid #fff;outline-offset:3px}.ytp-player.ytp-theater{aspect-ratio:auto;height:min(78vh,100%);min-height:280px;border-radius:0}.ytp-player:fullscreen,.ytp-player:-webkit-full-screen{width:100vw;height:100vh;max-height:none;max-width:none;aspect-ratio:auto;border-radius:0;margin:0}.ytp-video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000;cursor:pointer}.ytp-controls{position:absolute;z-index:20;inset:auto 0 0;padding:24px 12px 8px;background:linear-gradient(0deg,rgba(0,0,0,.94),rgba(0,0,0,.66) 42%,transparent);opacity:1;transition:opacity .22s ease;pointer-events:auto}.ytp-controls-hidden .ytp-controls{opacity:0;pointer-events:none}.ytp-controls-hidden,.ytp-controls-hidden .ytp-video{cursor:none}.ytp-controls-row{display:flex;align-items:center;gap:8px;min-width:0}.ytp-button{width:34px;height:34px;flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;border:0;border-radius:4px;color:#fff;background:transparent;cursor:pointer;transition:background .16s ease;outline:none;padding:0}.ytp-button:hover{background:#ffffff24}.ytp-button:focus-visible,.ytp-speed:focus-visible,.ytp-quality:focus-visible{outline:2px solid #fff;outline-offset:2px}.ytp-button:disabled{opacity:.35;cursor:not-allowed}.ytp-volume{display:flex;align-items:center;gap:2px;flex:0 0 auto}.ytp-volume-slider{width:0;max-width:0;opacity:0;overflow:hidden;accent-color:#fff;transition:width .18s ease,max-width .18s ease,opacity .18s ease;cursor:pointer;height:3px}.ytp-volume:hover .ytp-volume-slider,.ytp-volume:focus-within .ytp-volume-slider,.ytp-player.ytp-volume-expanded .ytp-volume-slider{width:68px;max-width:68px;opacity:1}.ytp-time{font-size:12px;white-space:nowrap;color:#eee;font-variant-numeric:tabular-nums;margin-left:2px}.ytp-spacer{flex:1 1 auto;min-width:3px}.ytp-progress{position:relative;height:14px;margin:0 5px 7px;display:flex;align-items:center;cursor:pointer;touch-action:none;outline:none}.ytp-track{position:absolute;inset-inline:0;height:3px;background:#ffffff47;transition:height .12s ease}.ytp-progress:hover .ytp-track,.ytp-progress:focus-visible .ytp-track,.ytp-progress.ytp-dragging .ytp-track{height:5px}.ytp-buffered,.ytp-played{position:absolute;left:0;top:0;height:100%;pointer-events:none}.ytp-buffered{background:#ffffff85}.ytp-played{background:var(--red)}.ytp-knob{position:absolute;top:50%;width:12px;height:12px;border-radius:50%;background:var(--red);transform:translate(-50%,-50%) scale(0);transition:transform .12s ease;pointer-events:none}.ytp-progress:hover .ytp-knob,.ytp-progress:focus-visible .ytp-knob,.ytp-progress.ytp-dragging .ytp-knob{transform:translate(-50%,-50%) scale(1)}.ytp-tooltip{position:absolute;bottom:19px;transform:translateX(-50%);padding:5px 7px;border-radius:3px;background:#191919f5;color:#fff;font-size:12px;white-space:nowrap;box-shadow:0 2px 8px #0008;pointer-events:none;font-variant-numeric:tabular-nums}.ytp-center{position:absolute;z-index:8;left:50%;top:50%;width:66px;height:66px;display:flex;align-items:center;justify-content:center;transform:translate(-50%,-50%);border:1px solid #ffffff36;border-radius:50%;background:#111a;box-shadow:0 4px 24px #0007;backdrop-filter:blur(4px);color:#fff;cursor:pointer;transition:opacity .2s ease,transform .2s ease,background .18s ease;opacity:0}.ytp-center:hover{background:#303030e8;transform:translate(-50%,-50%) scale(1.06)}.ytp-center:focus-visible{opacity:1;outline:2px solid #fff;outline-offset:3px}.ytp-player:not(.ytp-playing) .ytp-center{opacity:1}.ytp-player.ytp-controls-hidden.ytp-playing .ytp-center{pointer-events:none}.ytp-feedback{position:absolute;z-index:12;left:50%;top:50%;transform:translate(-50%,-50%);display:flex;align-items:center;justify-content:center;gap:9px;min-width:80px;min-height:80px;padding:14px;border-radius:50%;background:#0009;box-shadow:0 5px 28px #0005;animation:ytp-feedback .75s ease both;pointer-events:none}.ytp-feedback span{font-size:14px;font-weight:600;white-space:nowrap}.ytp-seek{position:absolute;z-index:10;top:50%;transform:translateY(-50%);width:30%;min-width:90px;height:42%;display:flex;align-items:center;justify-content:center;gap:8px;border-radius:50%;background:radial-gradient(ellipse at center,#0009 0,transparent 72%);pointer-events:none;animation:ytp-feedback .78s ease both}.ytp-seek.left{left:2%}.ytp-seek.right{right:2%}.ytp-seek span{font-size:15px;font-weight:600;text-shadow:0 2px 4px #000}.ytp-spinner{position:absolute;z-index:11;left:50%;top:50%;width:44px;height:44px;margin:-22px;border:4px solid #ffffff36;border-top-color:#fff;border-radius:50%;animation:ytp-spin .8s linear infinite;pointer-events:none}.ytp-settings-area{position:relative;display:flex;align-items:center}.ytp-settings-menu{position:absolute;right:0;bottom:43px;z-index:35;width:248px;max-height:min(62vh,420px);overflow:auto;border-radius:10px;background:#1c1c1cf8;box-shadow:0 8px 30px #0009;padding:12px;color:#fff;border:1px solid #ffffff12}.ytp-menu-heading{font-size:13px;font-weight:600;color:#eee;margin:2px 0 8px}.ytp-menu-section+.ytp-menu-section{margin-top:12px;padding-top:11px;border-top:1px solid #ffffff1f}.ytp-speed-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px}.ytp-speed,.ytp-quality{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;padding:7px 8px;border:0;border-radius:5px;background:transparent;color:#eee;font-size:12px;cursor:pointer;text-align:left}.ytp-speed{justify-content:center}.ytp-speed:hover,.ytp-quality:hover{background:#ffffff19}.ytp-speed[aria-pressed=true],.ytp-quality[aria-pressed=true]{background:#ffffff20;color:#fff}.ytp-quality-list{display:grid;gap:2px}.ytp-modal-backdrop{position:absolute;z-index:50;inset:0;display:flex;align-items:center;justify-content:center;padding:16px;background:#000b;backdrop-filter:blur(3px)}.ytp-modal{width:min(590px,100%);max-height:90%;overflow:auto;padding:18px 20px;border:1px solid #ffffff20;border-radius:12px;background:#202020;color:#fff;box-shadow:0 16px 50px #000a}.ytp-modal-header{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:13px}.ytp-modal-title{font-size:18px;font-weight:600}.ytp-shortcuts{display:grid;grid-template-columns:1fr 1fr;gap:0 24px}.ytp-shortcut{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px solid #ffffff12;font-size:12px;color:#e6e6e6}.ytp-keys{display:flex;gap:4px;flex:0 0 auto}.ytp-keys kbd{min-width:23px;padding:4px 6px;border:1px solid #ffffff2e;border-radius:4px;background:#ffffff12;color:#fff;text-align:center;font:600 11px Roboto,Arial,sans-serif}@keyframes ytp-spin{to{transform:rotate(360deg)}}@keyframes ytp-feedback{0%{opacity:0;scale:.88}16%{opacity:1;scale:1}68%{opacity:1;scale:1}100%{opacity:0;scale:1.04}}@media(max-width:560px){.ytp-player{border-radius:7px}.ytp-controls{padding:21px 6px 5px}.ytp-controls-row{gap:2px}.ytp-button{width:30px;height:32px}.ytp-time{font-size:10px;margin-left:1px}.ytp-volume-slider{width:44px;max-width:44px;opacity:1}.ytp-volume:hover .ytp-volume-slider,.ytp-volume:focus-within .ytp-volume-slider,.ytp-player.ytp-volume-expanded .ytp-volume-slider{width:44px;max-width:44px}.ytp-center{width:56px;height:56px}.ytp-feedback{min-width:68px;min-height:68px}.ytp-shortcuts{grid-template-columns:1fr}.ytp-modal{padding:14px}.ytp-progress{margin-inline:3px}.ytp-settings-menu{right:-4px;width:228px}}@media(max-width:390px){.ytp-time{display:none}.ytp-controls-row{gap:1px}.ytp-volume-slider{width:34px;max-width:34px}.ytp-volume:hover .ytp-volume-slider,.ytp-volume:focus-within .ytp-volume-slider,.ytp-player.ytp-volume-expanded .ytp-volume-slider{width:34px;max-width:34px}.ytp-button{width:28px}}@media(prefers-reduced-motion:reduce){.ytp-player *{animation-duration:.01ms!important;transition-duration:.01ms!important}}";
+const PLAYER_STYLES = ".ytp-player{--accent:#3ecf8e;position:relative;isolation:isolate;display:block;width:100%;max-height:100%;aspect-ratio:16/9;overflow:hidden;border-radius:12px;background:#000;color:#fff;font-family:Roboto,Arial,system-ui,sans-serif;user-select:none;outline:none;box-shadow:0 12px 38px #0003;margin:auto}.ytp-player:focus-visible{outline:2px solid #fff;outline-offset:3px}.ytp-player:fullscreen,.ytp-player:-webkit-full-screen{width:100vw;height:100vh;max-height:none;max-width:none;aspect-ratio:auto;border-radius:0;margin:0}.ytp-video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000;cursor:pointer}.ytp-controls{position:absolute;z-index:20;inset:auto 0 0;padding:24px 12px 8px;background:linear-gradient(0deg,rgba(0,0,0,.94),rgba(0,0,0,.66) 42%,transparent);opacity:1;transition:opacity .22s ease;pointer-events:auto}.ytp-controls-hidden .ytp-controls{opacity:0;pointer-events:none}.ytp-controls-hidden,.ytp-controls-hidden .ytp-video{cursor:none}.ytp-controls-row{display:flex;align-items:center;gap:8px;min-width:0}.ytp-button{width:34px;height:34px;flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;border:0;border-radius:4px;color:#fff;background:transparent;cursor:pointer;transition:background .16s ease;outline:none;padding:0}.ytp-button:hover{background:#3ecf8e1a}.ytp-button:focus-visible,.ytp-speed:focus-visible,.ytp-quality:focus-visible{outline:2px solid #3ecf8e;outline-offset:2px}.ytp-button:disabled{opacity:.35;cursor:not-allowed}.ytp-volume{display:flex;align-items:center;gap:2px;flex:0 0 auto}.ytp-volume-slider{width:0;max-width:0;opacity:0;overflow:hidden;accent-color:#fff;transition:width .18s ease,max-width .18s ease,opacity .18s ease;cursor:pointer;height:3px}.ytp-volume:hover .ytp-volume-slider,.ytp-volume:focus-within .ytp-volume-slider,.ytp-player.ytp-volume-expanded .ytp-volume-slider{width:68px;max-width:68px;opacity:1}.ytp-time{font-size:12px;white-space:nowrap;color:#eee;font-variant-numeric:tabular-nums;margin-left:2px}.ytp-spacer{flex:1 1 auto;min-width:3px}.ytp-progress{position:relative;height:14px;margin:0 5px 7px;display:flex;align-items:center;cursor:pointer;touch-action:none;outline:none}.ytp-track{position:absolute;inset-inline:0;height:3px;background:#ffffff47;transition:height .12s ease}.ytp-progress:hover .ytp-track,.ytp-progress:focus-visible .ytp-track,.ytp-progress.ytp-dragging .ytp-track{height:5px}.ytp-buffered,.ytp-played{position:absolute;left:0;top:0;height:100%;pointer-events:none}.ytp-buffered{background:#ffffff85}.ytp-played{background:var(--accent)}.ytp-knob{position:absolute;top:50%;width:12px;height:12px;border-radius:50%;background:var(--accent);transform:translate(-50%,-50%) scale(0);transition:transform .12s ease;pointer-events:none}.ytp-progress:hover .ytp-knob,.ytp-progress:focus-visible .ytp-knob,.ytp-progress.ytp-dragging .ytp-knob{transform:translate(-50%,-50%) scale(1)}.ytp-tooltip{position:absolute;bottom:19px;transform:translateX(-50%);padding:5px 7px;border-radius:3px;background:#101611f5;color:#fff;font-size:12px;white-space:nowrap;box-shadow:0 2px 8px #0008;pointer-events:none;font-variant-numeric:tabular-nums}.ytp-center{position:absolute;z-index:8;left:50%;top:50%;width:66px;height:66px;display:flex;align-items:center;justify-content:center;transform:translate(-50%,-50%);border:1px solid #ffffff36;border-radius:50%;background:#111a;box-shadow:0 4px 24px #0007;backdrop-filter:blur(4px);color:#fff;cursor:pointer;transition:opacity .2s ease,transform .2s ease,background .18s ease;opacity:0}.ytp-center:hover{background:#303030e8;transform:translate(-50%,-50%) scale(1.06)}.ytp-center:focus-visible{opacity:1;outline:2px solid #fff;outline-offset:3px}.ytp-player:not(.ytp-playing) .ytp-center{opacity:1}.ytp-player.ytp-controls-hidden.ytp-playing .ytp-center{pointer-events:none}.ytp-feedback{position:absolute;z-index:12;left:50%;top:50%;transform:translate(-50%,-50%);display:flex;align-items:center;justify-content:center;gap:9px;min-width:80px;min-height:80px;padding:14px;border-radius:50%;background:#0009;box-shadow:0 5px 28px #0005;animation:ytp-feedback .75s ease both;pointer-events:none}.ytp-feedback span{font-size:14px;font-weight:600;white-space:nowrap}.ytp-seek{position:absolute;z-index:10;top:50%;transform:translateY(-50%);width:30%;min-width:90px;height:42%;display:flex;align-items:center;justify-content:center;gap:8px;border-radius:50%;background:radial-gradient(ellipse at center,#0009 0,transparent 72%);pointer-events:none;animation:ytp-feedback .78s ease both}.ytp-seek.left{left:2%}.ytp-seek.right{right:2%}.ytp-seek span{font-size:15px;font-weight:600;text-shadow:0 2px 4px #000}.ytp-spinner{position:absolute;z-index:11;left:50%;top:50%;width:44px;height:44px;margin:-22px;border:4px solid #ffffff36;border-top-color:#fff;border-radius:50%;animation:ytp-spin .8s linear infinite;pointer-events:none}.ytp-settings-area{position:relative;display:flex;align-items:center}.ytp-settings-menu{position:absolute;right:0;bottom:43px;z-index:35;width:248px;max-height:min(62vh,420px);overflow:auto;border-radius:10px;background:#111713f8;box-shadow:0 8px 30px #0009;padding:12px;color:#fff;border:1px solid #ffffff12}.ytp-menu-heading{font-size:13px;font-weight:600;color:#e4eee8;margin:2px 0 8px}.ytp-menu-section+.ytp-menu-section{margin-top:12px;padding-top:11px;border-top:1px solid #ffffff1f}.ytp-speed-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px}.ytp-speed,.ytp-quality{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;padding:7px 8px;border:0;border-radius:5px;background:transparent;color:#eee;font-size:12px;cursor:pointer;text-align:left}.ytp-speed{justify-content:center}.ytp-speed:hover,.ytp-quality:hover{background:#ffffff19}.ytp-speed[aria-pressed=true],.ytp-quality[aria-pressed=true]{background:#3ecf8e1c;color:#3ecf8e}.ytp-quality-list{display:grid;gap:2px}.ytp-modal-backdrop{position:absolute;z-index:50;inset:0;display:flex;align-items:center;justify-content:center;padding:16px;background:#000b;backdrop-filter:blur(3px)}.ytp-modal{width:min(590px,100%);max-height:90%;overflow:auto;padding:18px 20px;border:1px solid #ffffff20;border-radius:12px;background:#111713;color:#fff;box-shadow:0 16px 50px #000a}.ytp-modal-header{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:13px}.ytp-modal-title{font-size:18px;font-weight:600}.ytp-shortcuts{display:grid;grid-template-columns:1fr 1fr;gap:0 24px}.ytp-shortcut{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px solid #ffffff12;font-size:12px;color:#e6e6e6}.ytp-keys{display:flex;gap:4px;flex:0 0 auto}.ytp-keys kbd{min-width:23px;padding:4px 6px;border:1px solid #ffffff2e;border-radius:4px;background:#ffffff12;color:#fff;text-align:center;font:600 11px Roboto,Arial,sans-serif}@keyframes ytp-spin{to{transform:rotate(360deg)}}@keyframes ytp-feedback{0%{opacity:0;scale:.88}16%{opacity:1;scale:1}68%{opacity:1;scale:1}100%{opacity:0;scale:1.04}}@media(max-width:560px){.ytp-player{border-radius:7px}.ytp-controls{padding:21px 6px 5px}.ytp-controls-row{gap:2px}.ytp-button{width:30px;height:32px}.ytp-time{font-size:10px;margin-left:1px}.ytp-volume-slider{width:44px;max-width:44px;opacity:1}.ytp-volume:hover .ytp-volume-slider,.ytp-volume:focus-within .ytp-volume-slider,.ytp-player.ytp-volume-expanded .ytp-volume-slider{width:44px;max-width:44px}.ytp-center{width:56px;height:56px}.ytp-feedback{min-width:68px;min-height:68px}.ytp-shortcuts{grid-template-columns:1fr}.ytp-modal{padding:14px}.ytp-progress{margin-inline:3px}.ytp-settings-menu{right:-4px;width:228px}}@media(max-width:390px){.ytp-time{display:none}.ytp-controls-row{gap:1px}.ytp-volume-slider{width:34px;max-width:34px}.ytp-volume:hover .ytp-volume-slider,.ytp-volume:focus-within .ytp-volume-slider,.ytp-player.ytp-volume-expanded .ytp-volume-slider{width:34px;max-width:34px}.ytp-button{width:28px}}@media(prefers-reduced-motion:reduce){.ytp-player *{animation-duration:.01ms!important;transition-duration:.01ms!important}}";
 
 const PLAYER_SPEED_OPTIONS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
 
@@ -67,8 +67,6 @@ function VideoPlayer({file, streamUrl, sources = Array.isArray(file?.sources) ? 
     const [muted, setMuted] = useState(() => readSavedBoolean("storelimitless-player-muted", false));
     const [playbackRate, setPlaybackRate] = useState(() => readSavedNumber("storelimitless-player-speed", 1, 0.25, 2));
     const [fullscreen, setFullscreen] = useState(false);
-    const [theaterMode, setTheaterMode] = useState(false);
-    const [pictureInPicture, setPictureInPicture] = useState(false);
     const [controlsVisible, setControlsVisible] = useState(true);
     const [volumeExpanded, setVolumeExpanded] = useState(false);
     const [buffering, setBuffering] = useState(false);
@@ -89,10 +87,6 @@ function VideoPlayer({file, streamUrl, sources = Array.isArray(file?.sources) ? 
             src: source.src || source.url,
         }))
         .filter((source) => typeof source.src === "string" && source.src.length > 0);
-    const canUsePiP = typeof document !== "undefined"
-        && Boolean(document.pictureInPictureEnabled)
-        && Boolean(videoRef.current?.requestPictureInPicture);
-
     const formatTime = (value) => {
         if (!Number.isFinite(value) || value < 0) return "0:00";
         const hours = Math.floor(value / 3600);
@@ -187,18 +181,6 @@ function VideoPlayer({file, streamUrl, sources = Array.isArray(file?.sources) ? 
             else if (target.webkitRequestFullscreen) target.webkitRequestFullscreen();
         } catch {
             // Fullscreen can be unavailable in embedded or permission-restricted browsers.
-        }
-    }, []);
-
-    const togglePictureInPicture = useCallback(async () => {
-        const video = videoRef.current;
-        if (!video) return;
-        try {
-            if (document.pictureInPictureElement && document.exitPictureInPicture) await document.exitPictureInPicture();
-            else if (video.requestPictureInPicture) await video.requestPictureInPicture();
-            else if (video.webkitSetPresentationMode) video.webkitSetPresentationMode("picture-in-picture");
-        } catch {
-            // PiP is optional and not supported in every browser or stream configuration.
         }
     }, []);
 
@@ -396,13 +378,6 @@ function VideoPlayer({file, streamUrl, sources = Array.isArray(file?.sources) ? 
         if (key === "ArrowDown") { event.preventDefault(); changeVolume((video.muted ? 0 : video.volume) - 0.05); return; }
         if (lower === "m") { event.preventDefault(); toggleMute(); return; }
         if (lower === "f") { event.preventDefault(); void toggleFullscreen(); return; }
-        if (lower === "t") { event.preventDefault(); setTheaterMode((value) => !value); return; }
-        if (lower === "i") {
-            if (!canUsePiP && !video.webkitSetPresentationMode) return;
-            event.preventDefault();
-            void togglePictureInPicture();
-            return;
-        }
         if (lower === "c") {
             if (!textTracks.length) return;
             event.preventDefault();
@@ -421,10 +396,8 @@ function VideoPlayer({file, streamUrl, sources = Array.isArray(file?.sources) ? 
         if (key === "," && video.paused) { event.preventDefault(); seekBy(-1 / 30, false); return; }
         if (key === "." && video.paused) event.preventDefault(), seekBy(1 / 30, false);
     }, [
-        canUsePiP, captionsOn, changeVolume, duration, fullscreen, jumpChapter, playbackRate,
         revealControls, seekBy, seekTo, showSettings, showShortcuts, showCenterFeedback,
         textTracks.length, toggleCaptions, toggleFullscreen, toggleMute,
-        togglePictureInPicture, togglePlayback,
     ]);
 
     useEffect(() => {
@@ -446,27 +419,6 @@ function VideoPlayer({file, streamUrl, sources = Array.isArray(file?.sources) ? 
         };
     }, [activeSource, updateTrackState]);
 
-    useEffect(() => {
-        const handleFullscreenChange = () => setFullscreen(Boolean(document.fullscreenElement));
-        const handleEnterPiP = () => setPictureInPicture(true);
-        const handleLeavePiP = () => setPictureInPicture(false);
-        document.addEventListener("fullscreenchange", handleFullscreenChange);
-        document.addEventListener("webkitfullscreenchange", handleFullscreenChange);
-        const video = videoRef.current;
-        video?.addEventListener("enterpictureinpicture", handleEnterPiP);
-        video?.addEventListener("leavepictureinpicture", handleLeavePiP);
-        const handlePresentationChange = () => {
-            if (video?.webkitPresentationMode) setPictureInPicture(video.webkitPresentationMode === "picture-in-picture");
-        };
-        video?.addEventListener("webkitpresentationmodechanged", handlePresentationChange);
-        return () => {
-            document.removeEventListener("fullscreenchange", handleFullscreenChange);
-            document.removeEventListener("webkitfullscreenchange", handleFullscreenChange);
-            video?.removeEventListener("enterpictureinpicture", handleEnterPiP);
-            video?.removeEventListener("leavepictureinpicture", handleLeavePiP);
-            video?.removeEventListener("webkitpresentationmodechanged", handlePresentationChange);
-        };
-    }, [activeSource]);
 
     useEffect(() => {
         try {
@@ -475,6 +427,16 @@ function VideoPlayer({file, streamUrl, sources = Array.isArray(file?.sources) ? 
             window.localStorage.setItem("storelimitless-player-speed", String(playbackRate));
         } catch { /* Storage can be disabled by the browser. */ }
     }, [muted, playbackRate, volume]);
+
+    useEffect(() => {
+        const handleFullscreenChange = () => setFullscreen(Boolean(document.fullscreenElement));
+        document.addEventListener("fullscreenchange", handleFullscreenChange);
+        document.addEventListener("webkitfullscreenchange", handleFullscreenChange);
+        return () => {
+            document.removeEventListener("fullscreenchange", handleFullscreenChange);
+            document.removeEventListener("webkitfullscreenchange", handleFullscreenChange);
+        };
+    }, []);
 
     useEffect(() => {
         const handleOutsidePointer = (event) => {
@@ -521,8 +483,6 @@ function VideoPlayer({file, streamUrl, sources = Array.isArray(file?.sources) ? 
         case "volume": shape = <><path d="M11 5 6 9H3v6h3l5 4z" fill="currentColor" stroke="none" /><path d="M15.5 8.5a5 5 0 0 1 0 7M18 5.5a9 9 0 0 1 0 13" /></>; break;
         case "muted": shape = <><path d="M11 5 6 9H3v6h3l5 4z" fill="currentColor" stroke="none" /><path d="m16 9 5 6m0-6-5 6" /></>; break;
         case "settings": shape = <><circle cx="12" cy="12" r="3" /><path d="m19 13 2 1-2 4-2-1-2 1v2h-5v-2l-2-1-2 1-2-4 2-1v-2l-2-1 2-4 2 1 2-1V4h5v2l2 1 2-1 2 4-2 1z" /></>; break;
-        case "pip": shape = <><rect x="3" y="4" width="18" height="16" rx="2" /><rect x="11" y="11" width="8" height="6" rx="1" fill="currentColor" stroke="none" /></>; break;
-        case "theater": shape = <><rect x="3" y="5" width="18" height="14" rx="1" /><path d="M3 8h18M3 16h18" /></>; break;
         case "fullscreen": shape = <path d="M8 4H4v4M16 4h4v4M4 16v4h4M20 16v4h-4" />; break;
         case "exitFullscreen": shape = <path d="M4 8h4V4M16 4v4h4M20 16h-4v4M8 20v-4H4" />; break;
         case "close": shape = <path d="m6 6 12 12M18 6 6 18" />; break;
@@ -546,7 +506,7 @@ function VideoPlayer({file, streamUrl, sources = Array.isArray(file?.sources) ? 
     return (
         <div
             ref={wrapRef}
-            className={["ytp-player", playing ? "ytp-playing" : "", controlsVisible ? "" : "ytp-controls-hidden", theaterMode ? "ytp-theater" : "", volumeExpanded ? "ytp-volume-expanded" : ""].join(" ")}
+            className={["ytp-player", playing ? "ytp-playing" : "", controlsVisible ? "" : "ytp-controls-hidden", volumeExpanded ? "ytp-volume-expanded" : ""].join(" ")}
             tabIndex={0}
             role="region"
             aria-label="Video player"
@@ -653,8 +613,6 @@ function VideoPlayer({file, streamUrl, sources = Array.isArray(file?.sources) ? 
                         </div>}
                     </div>
 
-                    <button type="button" className="ytp-button" aria-label={pictureInPicture ? "Exit miniplayer" : "Miniplayer"} title="Miniplayer (I)" disabled={!canUsePiP && !videoRef.current?.webkitSetPresentationMode} onClick={() => void togglePictureInPicture()}>{icon("pip")}</button>
-                    <button type="button" className="ytp-button" aria-label={theaterMode ? "Exit theater mode" : "Theater mode"} aria-pressed={theaterMode} title="Theater mode (T)" onClick={() => setTheaterMode((value) => !value)}>{icon("theater")}</button>
                     <button type="button" className="ytp-button" aria-label={fullscreen ? "Exit fullscreen" : "Full screen"} title={fullscreen ? "Exit fullscreen (F)" : "Full screen (F)"} onClick={() => void toggleFullscreen()}>{icon(fullscreen ? "exitFullscreen" : "fullscreen")}</button>
                 </div>
             </div>
@@ -663,7 +621,7 @@ function VideoPlayer({file, streamUrl, sources = Array.isArray(file?.sources) ? 
                 <div className="ytp-modal" role="dialog" aria-modal="true" aria-labelledby="ytp-shortcuts-title">
                     <div className="ytp-modal-header"><div id="ytp-shortcuts-title" className="ytp-modal-title">Keyboard shortcuts</div><button type="button" className="ytp-button" aria-label="Close keyboard shortcuts" onClick={() => setShowShortcuts(false)}>{icon("close")}</button></div>
                     <div className="ytp-shortcuts">{[
-                        [["Space","K"],"Play / pause"],[["J"],"Rewind 10 seconds"],[["L"],"Forward 10 seconds"],[["←"],"Rewind 5 seconds"],[["→"],"Forward 5 seconds"],[["↑"],"Volume up 5%"],[["↓"],"Volume down 5%"],[["M"],"Mute / unmute"],[["F"],"Toggle fullscreen"],[["Esc"],"Close menus / exit fullscreen"],[["T"],"Toggle theater mode"],[["I"],"Toggle miniplayer"],[["C"],"Toggle captions"],[["0–9"],"Jump to 0–90%"],[["Home"],"Jump to beginning"],[["End"],"Jump to end"],[[","],"Previous frame (paused)"],[["."],"Next frame (paused)"],[["Shift",","],"Decrease playback speed"],[["Shift","."],"Increase playback speed"],[["+ / −"],"Caption text size"],[["Ctrl","← / →"],"Previous / next chapter"],[["Shift","/"],"Show shortcuts"]
+                        [["Space","K"],"Play / pause"],[["J"],"Rewind 10 seconds"],[["L"],"Forward 10 seconds"],[["←"],"Rewind 5 seconds"],[["→"],"Forward 5 seconds"],[["↑"],"Volume up 5%"],[["↓"],"Volume down 5%"],[["M"],"Mute / unmute"],[["F"],"Toggle fullscreen"],[["Esc"],"Close menus / exit fullscreen"],[["C"],"Toggle captions"],[["0–9"],"Jump to 0–90%"],[["Home"],"Jump to beginning"],[["End"],"Jump to end"],[[","],"Previous frame (paused)"],[["."],"Next frame (paused)"],[["Shift",","],"Decrease playback speed"],[["Shift","."],"Increase playback speed"],[["+ / −"],"Caption text size"],[["Ctrl","← / →"],"Previous / next chapter"],[["Shift","/"],"Show shortcuts"]
                     ].map((entry) => <div className="ytp-shortcut" key={entry[1]}><span>{entry[1]}</span><span className="ytp-keys">{entry[0].map((part) => <kbd key={part}>{part}</kbd>)}</span></div>)}</div>
                 </div>
             </div>}
