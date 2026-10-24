@@ -6,6 +6,8 @@ from time import perf_counter
 from uuid import uuid4
 
 from fastapi import FastAPI, Request
+from fastapi.responses import Response
+from starlette.types import RequestResponseEndpoint
 
 from backend.server.routers import auth, public
 from core.data_center import Database
@@ -15,7 +17,7 @@ app: FastAPI = FastAPI()
 
 
 @app.middleware("http")
-async def log_request_flow(request: Request, call_next):
+async def log_request_flow(request: Request, call_next: RequestResponseEndpoint) -> Response:
     """Log request boundaries and timing without recording credentials or signed URLs."""
 
     request_id: str = uuid4().hex[:12]

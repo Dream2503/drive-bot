@@ -8,7 +8,7 @@ import unicodedata
 from hashlib import sha256
 from pathlib import Path
 from mimetypes import guess_type
-from typing import AsyncGenerator, cast, Any
+from typing import AsyncGenerator, cast
 from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -21,7 +21,7 @@ from backend.server.security import verify_public_stream_token, verify_public_zi
 from backend.server.zip_stream import ZipStreamEntry, stream_zip64, zip64_stored_content_length
 from core.data_center import Database
 from core.stream import Stream
-from core.utils import sanitize_sensitive_urls, write_log
+from core.utils import JsonObject, sanitize_sensitive_urls, write_log
 from core.utils.discord_ import Discord
 from core.utils.progress import Progress
 from .upload_state import get_upload_job_metadata
@@ -40,7 +40,7 @@ async def ready() -> JSONResponse:
 async def upload_status(job_id: str, user: User = Depends(get_current_user)) -> JSONResponse:
     """Return progress only to the account that owns the upload job."""
 
-    metadata: dict[str, Any] | None = await get_upload_job_metadata(job_id)
+    metadata: JsonObject | None = await get_upload_job_metadata(job_id)
 
     if metadata is None or metadata.get("username") != user.username:
         raise HTTPException(status_code=404, detail="Upload job not found")
@@ -64,7 +64,7 @@ async def upload_status(job_id: str, user: User = Depends(get_current_user)) -> 
         except (ValueError, IndexError):
             file_id = None
 
-    name: str | None | Any = progress.name if progress.name not in {"update_name_from_backend", "link", ""} else metadata.get("name")
+    name: object = progress.name if progress.name not in {"update_name_from_backend", "link", ""} else metadata.get("name")
     return JSONResponse({
         "status": "cancelled" if cancelled else "completed" if completed else "error" if failed else "uploading",
         "message": " ".join(progress.message.split()[:2]) if completed else progress.message,
@@ -412,7 +412,7 @@ async def public_zip_download(
         folder_roots.append(folder)
         folder_root_paths.append(folder_path)
 
-    async def stream_file(file: File):
+    async def stream_file(file: File) -> AsyncGenerator[bytes, None]:
         try:
             source = await Stream.prepare(file)
         except (OSError, ValueError) as error:
@@ -629,7 +629,7 @@ async def public_zip_download(
             media_type="application/zip",
         )
 
-    async def stream_zip_range():
+    async def stream_zip_range() -> AsyncGenerator[bytes, None]:
         """Replay the deterministic archive and emit only the requested byte range."""
 
         position = 0

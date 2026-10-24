@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from asyncio import Task, create_task, gather, sleep, wait_for
 from bisect import bisect_right
+from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from re import Match, fullmatch
 from typing import AsyncGenerator
@@ -205,7 +206,7 @@ class Stream:
             raise
 
 
-async def _indexed_parallel_chunks(stream, first_index: int):
+async def _indexed_parallel_chunks(stream: AsyncIterator[bytes], first_index: int) -> AsyncGenerator[tuple[int, bytes], None]:
     """Attach monotonically increasing chunk indices to ordered download results."""
 
     index = first_index
