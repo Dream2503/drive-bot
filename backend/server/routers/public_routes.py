@@ -884,7 +884,7 @@ async def _generate_hls_media_segment(
         "-rw_timeout", "300000000",
     ]
     if kind == "video":
-        # On-demand legacy playback must use the same CUDA/NVENC path as stored HLS jobs.
+        # Dynamically generated playback validates CUDA/NVENC before encoding segments.
         command.extend(["-hwaccel", "cuda", "-hwaccel_output_format", "cuda"])
     command.extend([
         "-ss", f"{start:.6f}",
@@ -978,7 +978,7 @@ async def _prefetch_media_segment(
     index: int,
     duration: float,
 ) -> None:
-    """Generate one upcoming audio/video segment in the background, best-effort."""
+    """Generate an upcoming dynamic media segment or subtitle window, best-effort."""
 
     start = index * _MEDIA_SEGMENT_SECONDS
     segment_duration = min(_MEDIA_SEGMENT_SECONDS, duration - start)
@@ -998,7 +998,7 @@ async def _prefetch_media_segment(
                     ),
                 )
         else:
-            # The source is read dynamically through the original 10 MB storage chunks.
+            # Read the original through provider-sized storage chunks (10 MB for the current setup).
             # Keep speculative encoders serialized so active playback retains capacity.
             async with _MEDIA_PREFETCH_LIMIT:
                 await _get_or_generate_media_segment(
@@ -1096,7 +1096,7 @@ async def public_hls_subtitles(
     segment_duration = min(duration_seconds, media_duration - start_seconds)
 
     # HLS subtitle requests use aligned six-second windows. Cache those windows and
-    # prefetch upcoming cues just like the stored video/audio segments, while preserving
+    # prefetch upcoming cues just like dynamically generated video/audio segments, while preserving
     # the existing streaming path for custom subtitle ranges.
     segment_index = round(start_seconds / _MEDIA_SEGMENT_SECONDS)
     aligned_start = segment_index * _MEDIA_SEGMENT_SECONDS
