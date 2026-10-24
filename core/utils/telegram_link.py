@@ -80,7 +80,7 @@ def _button_url(button: Any) -> str | None:
 def _visible_http_urls(text: str) -> list[str]:
     """Extract HTTP(S) URLs written directly in a Telegram message."""
 
-    matches = re.findall(r"https?://[^\s<>""']+", text or "", flags=re.IGNORECASE)
+    matches = re.findall(r"""https?://[^\s<>"']+""", text or "", flags=re.IGNORECASE)
     return [match.rstrip(".,;:!?)]}") for match in matches if match.rstrip(".,;:!?)]}")]
 
 
