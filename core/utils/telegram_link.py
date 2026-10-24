@@ -164,10 +164,12 @@ async def _fast_download_callback_target(message: Any) -> str | None:
             or getattr(answer, "text", None)
             or ""
         )
-        if "fastdownload" in _normalized_link_label(answer_text):
-            answer_urls = _visible_http_urls(answer_text)
-            if len(answer_urls) == 1:
-                return answer_urls[0]
+        # The callback was reached through a FAST DOWNLOAD button, so an
+        # unambiguous URL in its answer is a valid result even if the bot's
+        # popup omits the button label.
+        answer_urls = _visible_http_urls(answer_text)
+        if len(answer_urls) == 1:
+            return answer_urls[0]
 
     return None
 
