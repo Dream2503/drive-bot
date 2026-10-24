@@ -111,8 +111,8 @@ function parseSubtitleText(source) {
 function alignSubtitleCueTimes(cues, segmentStart, segmentDuration) {
     if (!cues.length || segmentStart <= 0) return cues;
 
-    const latestCueEnd = Math.max(...cues.map((cue) => cue.end));
-    const timestampsAreWindowRelative = latestCueEnd <= segmentDuration + 0.05;
+    const latestCueStart = Math.max(...cues.map((cue) => cue.start));
+    const timestampsAreWindowRelative = latestCueStart <= segmentDuration + 0.05;
     if (!timestampsAreWindowRelative) return cues;
 
     return cues.map((cue) => ({
