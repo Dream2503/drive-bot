@@ -60,7 +60,7 @@ export function formatFileSize(bytes) {
     return `${(value / (1000 ** index)).toFixed(index === 0 ? 0 : 1)} ${units[index]}`;
 }
 
-/** Browser event emitted whenever the authenticated session ends. */
+/** Browser events emitted when an authenticated session starts or ends. */
 export const AUTH_SESSION_START_EVENT = "storelimitless:session-started";
 export const AUTH_SESSION_END_EVENT = "storelimitless:session-ended";
 
