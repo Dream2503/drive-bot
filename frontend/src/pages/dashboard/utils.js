@@ -74,6 +74,10 @@ export function endAuthSession() {
             headers: {Authorization: `Bearer ${token}`},
             cache: "no-store",
             keepalive: true,
+        }).then((response) => {
+            if (!response.ok) {
+                throw new Error(`Session revocation failed (HTTP ${response.status}).`);
+            }
         }).catch((error) => console.warn("Could not revoke the signed-out session on the server:", error));
     }
 
