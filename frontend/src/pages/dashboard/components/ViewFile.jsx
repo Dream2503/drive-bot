@@ -145,7 +145,7 @@ function VideoPlayer({file, streamUrl, heightClass = "h-[70vh]"}) {
         >
             <video
                 ref={videoRef}
-                className="absolute inset-0 h-full w-full bg-black object-contain"
+                className="absolute inset-0 h-full w-full bg-black object-contain touch-manipulation"
                 src={streamUrl}
                 preload="metadata"
                 playsInline
