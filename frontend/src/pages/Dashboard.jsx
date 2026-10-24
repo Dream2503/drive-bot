@@ -320,8 +320,8 @@ export default function DashboardPage({active = true} = {}) {
                 anchor.href = objectUrl;
                 anchor.download = job.name || "download";
                 anchor.rel = "noreferrer";
-                document.body.appendChild(anchor);
                 ensureSession();
+                document.body.appendChild(anchor);
                 anchor.click();
                 anchor.remove();
                 window.setTimeout(() => URL.revokeObjectURL(objectUrl), 5 * 60 * 1000);
@@ -468,8 +468,8 @@ export default function DashboardPage({active = true} = {}) {
                 anchor.href = objectUrl;
                 anchor.download = job.name || completedFile.name || "StoreLimitless-files.zip";
                 anchor.rel = "noreferrer";
-                document.body.appendChild(anchor);
                 ensureSession();
+                document.body.appendChild(anchor);
                 anchor.click();
                 anchor.remove();
                 window.setTimeout(() => {
@@ -547,8 +547,8 @@ export default function DashboardPage({active = true} = {}) {
                 anchor.href = objectUrl;
                 anchor.download = job.name || completedFile.name || "download";
                 anchor.rel = "noreferrer";
-                document.body.appendChild(anchor);
                 ensureSession();
+                document.body.appendChild(anchor);
                 anchor.click();
                 anchor.remove();
                 window.setTimeout(() => URL.revokeObjectURL(objectUrl), 5 * 60 * 1000);
@@ -557,6 +557,12 @@ export default function DashboardPage({active = true} = {}) {
             updateDownloadJob(job.id, {status: "completed", transferred: latestTotal, total: latestTotal, message: staged ? "Complete · browser download started" : "Download complete"});
         } catch (error) {
             if (error?.name === "AbortError" || controller.signal.aborted) {
+                if (getToken() !== sessionToken) {
+                    removeStagedFile(job);
+                    removeResumableDownloadChunks(job.id).catch(() => {});
+                    removeResumableDownload(job.id).catch(() => {});
+                    return;
+                }
                 let transferred = downloadJobsRef.current.find((item) => item.id === job.id)?.transferred || 0;
                 if (job.streamOnly && job.tempName && typeof navigator.storage?.getDirectory === "function") {
                     try {
@@ -860,10 +866,10 @@ export default function DashboardPage({active = true} = {}) {
                     createdAt: Date.now(),
                 };
                 if (getToken() !== token) {
-                removeStagedFile(job);
-                return;
-            }
-            const next = [job, ...downloadJobsRef.current];
+                    removeStagedFile(job);
+                    return;
+                }
+                const next = [job, ...downloadJobsRef.current];
                 downloadJobsRef.current = next;
                 setDownloadJobs(next);
                 await saveResumableDownload(job);
@@ -935,10 +941,10 @@ export default function DashboardPage({active = true} = {}) {
                         createdAt: Date.now(),
                     };
                     if (getToken() !== token) {
-                removeStagedFile(job);
-                return;
-            }
-            const next = [job, ...downloadJobsRef.current];
+                        removeStagedFile(job);
+                        return;
+                    }
+                    const next = [job, ...downloadJobsRef.current];
                     downloadJobsRef.current = next;
                     setDownloadJobs(next);
                     await saveResumableDownload(job);
