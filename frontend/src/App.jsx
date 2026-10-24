@@ -155,8 +155,10 @@ function PersistentRoutePages() {
     const [keepViewMounted, setKeepViewMounted] = useState(() => (
         Boolean(localStorage.getItem("token")) && isViewRoute
     ) || isPublicViewRoute);
-    const shouldMountDashboard = hasSession && (keepDashboardMounted || isDashboardRoute);
-    const shouldMountView = isPublicViewRoute || (hasSession && (keepViewMounted || isViewRoute));
+    // Read the token directly during render so route guards never see stale React session state.
+    const hasStoredSession = Boolean(localStorage.getItem("token"));
+    const shouldMountDashboard = hasStoredSession && (keepDashboardMounted || isDashboardRoute);
+    const shouldMountView = isPublicViewRoute || (hasStoredSession && (keepViewMounted || isViewRoute));
 
     useEffect(() => {
         const syncSession = () => {
@@ -198,11 +200,11 @@ function PersistentRoutePages() {
             <Route path="/" element={<Landing/>}/>
             <Route path="/login" element={<Auth initialMode="login"/>}/>
             <Route path="/signup" element={<Auth initialMode="signup"/>}/>
-            <Route path="/upload-tray" element={hasSession ? <UploadTrayPage/> : <Navigate to="/" replace/>}/>
+            <Route path="/upload-tray" element={hasStoredSession ? <UploadTrayPage/> : <Navigate to="/" replace/>}/>
             <Route path="/dashboard" element={<LegacyDashboardRedirect/>}/>
-            <Route path="/upload" element={hasSession ? <UploadPage/> : <Navigate to="/" replace/>}/>
-            <Route path="/home/*" element={hasSession ? null : <Navigate to="/" replace/>}/>
-            <Route path="/view/:fileId" element={!hasSession && !isPublicViewRoute ? <Navigate to="/" replace/> : null}/>
+            <Route path="/upload" element={hasStoredSession ? <UploadPage/> : <Navigate to="/" replace/>}/>
+            <Route path="/home/*" element={hasStoredSession ? null : <Navigate to="/" replace/>}/>
+            <Route path="/view/:fileId" element={!hasStoredSession && !isPublicViewRoute ? <Navigate to="/" replace/> : null}/>
         </Routes>
     </>);
 }
