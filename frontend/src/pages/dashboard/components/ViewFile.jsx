@@ -136,14 +136,13 @@ function VideoPlayer({file, streamUrl, heightClass = "h-[70vh]"}) {
         };
     }, []);
     
-    // Capture Space at the player level, but let normal form controls keep their native behavior.
+    // Space toggles playback throughout the viewer unless a control is being used.
     useEffect(() => {
         const handleKeyDown = (event) => {
             if (event.code !== "Space" || event.altKey || event.ctrlKey || event.metaKey) return;
-            const player = wrapRef.current;
-            const target = event.target;
-            if (!player || !player.contains(target)) return;
+            if (!videoRef.current) return;
 
+            const target = event.target;
             const tagName = target?.tagName?.toLowerCase();
             const isInteractive = tagName === "button" || tagName === "input" || tagName === "select"
                 || tagName === "textarea" || target?.isContentEditable;
@@ -154,10 +153,8 @@ function VideoPlayer({file, streamUrl, heightClass = "h-[70vh]"}) {
             togglePlayback();
         };
 
-        const player = wrapRef.current;
-        if (!player) return undefined;
-        player.addEventListener("keydown", handleKeyDown);
-        return () => player.removeEventListener("keydown", handleKeyDown);
+        window.addEventListener("keydown", handleKeyDown);
+        return () => window.removeEventListener("keydown", handleKeyDown);
     }, [togglePlayback]);
 
     return (
