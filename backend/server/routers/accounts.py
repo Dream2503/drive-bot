@@ -9,7 +9,6 @@ from fastapi.responses import JSONResponse
 
 from backend.database.models import Directory, File, User
 from backend.database.redis_server import Redis
-from backend.database.redis_server import Redis
 from backend.server.jwt_handler import OAuth2_scheme, create_access_token, get_current_user, verify_token
 from backend.server.security import hash_password, verify_password
 
