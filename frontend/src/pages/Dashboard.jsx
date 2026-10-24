@@ -1763,10 +1763,10 @@ export default function DashboardPage({active = true} = {}) {
                 return;
             }
 
-            const singleFolderName = actionItems.length === 1 && foldersToDownload.length === 1
-                ? String(foldersToDownload[0].name || foldersToDownload[0].path || "").split(/[\\/]/).filter(Boolean).at(-1)
-                : "";
-            setZipDownloadName(singleFolderName || "StoreLimitless-items");
+            // Name the archive after the current parent folder containing the selected items.
+            // At the Home root, use "home" because there is no deeper parent directory.
+            const parentFolderName = (currentFolder || "/home").split(/[\\/]/).filter(Boolean).at(-1) || "home";
+            setZipDownloadName(parentFolderName);
             setZipDownloadNameError("");
             setZipDownloadPrompt({
                 fileIds: filesToDownload.map((candidate) => candidate.id),
