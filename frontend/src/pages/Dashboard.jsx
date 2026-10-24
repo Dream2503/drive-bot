@@ -3006,7 +3006,8 @@ export default function DashboardPage({active = true} = {}) {
         />)}
 
         <UploadJobsTray
-            traySide={active ? "right" : "left"}
+            traySide="right"
+            trayPosition={active ? "bottom" : "top"}
             uploadJobs={uploadJobs}
             cancelUploadJob={cancelUploadJob}
             dismissUploadJob={dismissUploadJob}
