@@ -1349,7 +1349,7 @@ export default function ViewFile({active = true} = {}) {
 
         (async () => {
             try {
-                const response = await fetch(`${API_URL}/auth/file/${fileId}/public-link`, {
+                const response = await fetch(`${API_URL}/auth/file/${fileId}/private-stream-link`, {
                     method: "POST", headers: {Authorization: `Bearer ${token}`},
                 });
                 if (response.status === 401) {
