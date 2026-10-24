@@ -13,10 +13,9 @@ import {API_URL} from "../../../api.js";
  * @typedef {Object} VideoPlayerProps
  * @property {PreviewFile} file
  * @property {string} streamUrl
- * @property {string} publicToken
  * @property {string} [heightClass]
  */
-/** @typedef {{streamUrl: string, publicToken: string}} VideoSource */
+/** @typedef {{streamUrl: string}} VideoSource */
 
 
 /**
@@ -653,7 +652,7 @@ export default function ViewFile() {
         setCopyStatus(copied ? "Copied!" : "Copy failed");
         clearTimeout(copyTimer.current);
         copyTimer.current = window.setTimeout(() => setCopyStatus(""), 2500);
-    }, [source?.streamUrl, publicToken]);
+    }, [source?.streamUrl]);
 
     useEffect(() => () => clearTimeout(copyTimer.current), []);
 
@@ -666,7 +665,7 @@ export default function ViewFile() {
         setError("");
 
         if (publicToken) {
-            setSource({streamUrl: `${API_URL}/public/stream/${encodeURIComponent(publicToken)}`, publicToken});
+            setSource({streamUrl: `${API_URL}/public/stream/${encodeURIComponent(publicToken)}`});
             return () => {
                 cancelled = true;
             };
@@ -693,7 +692,7 @@ export default function ViewFile() {
                 const data = await response.json();
                 if (!response.ok) throw new Error(data.detail || "Could not open this file.");
                 if (!data.public_token) throw new Error("The server did not return a public stream token.");
-                if (!cancelled) setSource({streamUrl: `${API_URL}/public/stream/${data.public_token}`, publicToken: data.public_token});
+                if (!cancelled) setSource({streamUrl: `${API_URL}/public/stream/${data.public_token}`});
             } catch (err) {
                 if (!cancelled) setError(err.message || "Could not open this file.");
             }
