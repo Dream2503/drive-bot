@@ -33,6 +33,7 @@ def create_public_zip_token(
         *,
         folder_ids: list[int] | None = None,
         expires_in: int = 900,
+        session_token: str | None = None,
 ) -> str:
     """Create a short-lived signed token for downloading selected files and folders."""
 
@@ -43,6 +44,8 @@ def create_public_zip_token(
         "exp": int(time()) + max(60, int(expires_in)),
         "type": "zip",
     }
+    if session_token:
+        payload["session_hash"] = sha256(session_token.encode("utf-8")).hexdigest()
     encoded_payload = urlsafe_b64encode(dumps(payload, separators=(",", ":"), sort_keys=True).encode()).rstrip(b"=")
     signature = urlsafe_b64encode(hmac.new(SECRET_KEY.encode(), encoded_payload, sha256).digest()).rstrip(b"=")
     return f"{encoded_payload.decode()}.{signature.decode()}"
@@ -78,7 +81,16 @@ def verify_public_zip_token(token: str) -> dict[str, object]:
             raise ValueError("Duplicate ZIP selection ID")
         if not isinstance(expires_at, int) or expires_at < int(time()):
             raise ValueError("ZIP download token has expired")
-        return {"file_ids": file_ids, "folder_ids": folder_ids, "username": username, "exp": expires_at}
+        session_hash = data.get("session_hash")
+        if session_hash is not None and (not isinstance(session_hash, str) or len(session_hash) != 64):
+            raise ValueError("Invalid session binding")
+        return {
+            "file_ids": file_ids,
+            "folder_ids": folder_ids,
+            "username": username,
+            "exp": expires_at,
+            **({"session_hash": session_hash} if session_hash is not None else {}),
+        }
     except (ValueError, KeyError, TypeError, JSONDecodeError) as error:
         raise ValueError("Invalid or expired ZIP download token") from error
 
@@ -90,6 +102,31 @@ def create_public_stream_token(file: File, username: str) -> str:
         dumps({"file_id": file.id, "username": username}, separators=(",", ":"), sort_keys=True).encode()
     ).rstrip(b"=")
     encoded_signature: bytes = urlsafe_b64encode(hmac.new(SECRET_KEY.encode(), encoded_payload, sha256).digest()).rstrip(b"=")
+    return f"{encoded_payload.decode()}.{encoded_signature.decode()}"
+
+
+
+def create_session_bound_stream_token(
+        file: File,
+        username: str,
+        session_token: str,
+        *,
+        token_type: str,
+        expires_in: int = 86400,
+) -> str:
+    """Create a stream/download token that becomes unusable when its login session ends."""
+
+    if token_type not in {"private-stream", "private-download"}:
+        raise ValueError("Invalid private stream token type")
+    payload = {
+        "file_id": file.id,
+        "username": username,
+        "type": token_type,
+        "session_hash": sha256(session_token.encode("utf-8")).hexdigest(),
+        "exp": int(time()) + max(60, int(expires_in)),
+    }
+    encoded_payload = urlsafe_b64encode(dumps(payload, separators=(",", ":"), sort_keys=True).encode()).rstrip(b"=")
+    encoded_signature = urlsafe_b64encode(hmac.new(SECRET_KEY.encode(), encoded_payload, sha256).digest()).rstrip(b"=")
     return f"{encoded_payload.decode()}.{encoded_signature.decode()}"
 
 
@@ -106,12 +143,26 @@ def verify_public_stream_token(token: str) -> dict[str, str | int]:
         if not compare_digest(expected_signature, signature):
             raise ValueError("Invalid signature")
 
-        data: dict[str, str | int] = loads(urlsafe_b64decode(encoded_payload + "=" * (-len(encoded_payload) % 4)))
+        data = loads(urlsafe_b64decode(encoded_payload + "=" * (-len(encoded_payload) % 4)))
+        if not isinstance(data, dict):
+            raise ValueError("Invalid payload")
+        if not isinstance(data.get("file_id"), int) or isinstance(data.get("file_id"), bool):
+            raise ValueError("Invalid file ID")
+        if not isinstance(data.get("username"), str) or not data["username"]:
+            raise ValueError("Invalid username")
 
-        if isinstance(data["file_id"], int) and isinstance(data["username"], str):
-            return data
+        token_type = data.get("type")
+        if token_type is not None:
+            if token_type not in {"private-stream", "private-download"}:
+                raise ValueError("Invalid stream token type")
+            expires_at = data.get("exp")
+            session_hash = data.get("session_hash")
+            if not isinstance(expires_at, int) or isinstance(expires_at, bool) or expires_at < int(time()):
+                raise ValueError("Private stream token has expired")
+            if not isinstance(session_hash, str) or len(session_hash) != 64:
+                raise ValueError("Invalid session binding")
 
-        raise ValueError("Invalid payload")
+        return data
 
     except (ValueError, KeyError, TypeError, JSONDecodeError):
         raise ValueError("Invalid public stream token")
