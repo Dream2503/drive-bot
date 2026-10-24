@@ -29,10 +29,38 @@ def _message_entity_text(text: str, offset: int, length: int) -> str:
     return encoded[offset * 2:(offset + length) * 2].decode("utf-16-le", errors="ignore")
 
 
+_SMALL_CAPITAL_TRANSLATION = str.maketrans({
+    "ᴀ": "a",
+    "ʙ": "b",
+    "ᴄ": "c",
+    "ᴅ": "d",
+    "ᴇ": "e",
+    "ꜰ": "f",
+    "ɢ": "g",
+    "ʜ": "h",
+    "ɪ": "i",
+    "ᴊ": "j",
+    "ᴋ": "k",
+    "ʟ": "l",
+    "ᴍ": "m",
+    "ɴ": "n",
+    "ᴏ": "o",
+    "ᴘ": "p",
+    "ʀ": "r",
+    "ꜱ": "s",
+    "ᴛ": "t",
+    "ᴜ": "u",
+    "ᴠ": "v",
+    "ᴡ": "w",
+    "ʏ": "y",
+    "ᴢ": "z",
+})
+
+
 def _normalized_link_label(value: Any) -> str:
     """Normalize stylized Unicode button labels so matching ignores font variants."""
 
-    normalized = unicodedata.normalize("NFKC", str(value or "")).casefold()
+    normalized = unicodedata.normalize("NFKC", str(value or "")).translate(_SMALL_CAPITAL_TRANSLATION).casefold()
     return "".join(character for character in normalized if character.isalnum())
 
 
