@@ -144,7 +144,7 @@ class Stream:
         return data
 
     async def stream(self) -> AsyncGenerator[bytes, None]:
-        """Yield bytes in order while fetching up to eight storage links concurrently."""
+        """Yield bytes in order while fetching one storage link at a time."""
 
         from core.utils.download_manager import ordered_parallel_downloads
 
