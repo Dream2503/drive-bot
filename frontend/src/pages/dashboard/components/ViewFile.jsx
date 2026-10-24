@@ -319,6 +319,7 @@ function VideoPlayer({file, streamUrl, active = true, sources = Array.isArray(fi
     }, [seekTo]);
 
     const handleKeyboardShortcut = useCallback((event) => {
+        if (!active) return;
         const target = event.target;
         const tagName = target?.tagName?.toLowerCase();
         if (tagName === "input" || tagName === "textarea" || tagName === "select" || target?.isContentEditable) return;
@@ -404,7 +405,7 @@ function VideoPlayer({file, streamUrl, active = true, sources = Array.isArray(fi
         if (key === "," && video.paused) { event.preventDefault(); seekBy(-1 / 30, false); return; }
         if (key === "." && video.paused) event.preventDefault(), seekBy(1 / 30, false);
     }, [
-        revealControls, seekBy, seekTo, showSettings, showShortcuts, showCenterFeedback,
+        active, revealControls, seekBy, seekTo, showSettings, showShortcuts, showCenterFeedback,
         textTracks.length, toggleCaptions, toggleFullscreen, toggleMute,
     ]);
 
@@ -1203,7 +1204,7 @@ export default function ViewFile({active = true} = {}) {
          * @returns {void}
          */
         const handleKeyDown = (event) => {
-            if (event.key !== "Backspace" || event.altKey || event.ctrlKey || event.metaKey) return;
+            if (!active || event.key !== "Backspace" || event.altKey || event.ctrlKey || event.metaKey) return;
 
             const target = event.target;
             const tagName = target?.tagName?.toLowerCase();
@@ -1217,7 +1218,7 @@ export default function ViewFile({active = true} = {}) {
 
         window.addEventListener("keydown", handleKeyDown);
         return () => window.removeEventListener("keydown", handleKeyDown);
-    }, [navigate]);
+    }, [active, navigate]);
 
     const copyStreamLink = useCallback(async () => {
         const streamUrl = source?.streamUrl;
