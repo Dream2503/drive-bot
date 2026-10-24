@@ -585,6 +585,13 @@ export default function DashboardPage({active = true} = {}) {
             }
         } finally {
             downloadControllersRef.current.delete(job.id);
+            // Retry cleanup after all in-flight writes have unwound. The logout
+            // listener may have tried removing an OPFS file while a writer held it.
+            if (getToken() !== sessionToken) {
+                removeStagedFile(job);
+                removeResumableDownloadChunks(job.id).catch(() => {});
+                removeResumableDownload(job.id).catch(() => {});
+            }
         }
     };
     const pauseDownload = (jobId) => downloadControllersRef.current.get(jobId)?.abort();
