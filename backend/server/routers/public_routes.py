@@ -893,12 +893,24 @@ async def public_hls_segment(
         processed = get_processed_video(int(file.id)) if file.id is not None else None
         if processed is None:
             raise HTTPException(status_code=503, detail="Processed streaming assets are temporarily unavailable.")
+
+        cache_key = _media_segment_cache_key(file, kind, stream_index, index)
         try:
-            segment = await read_processed_segment(file, processed, kind, stream_index, index)
+            segment = await _get_or_generate_media_segment(
+                cache_key,
+                lambda: read_processed_segment(file, processed, kind, stream_index, index),
+            )
         except IndexError as error:
             raise HTTPException(status_code=404, detail="Processed media segment not found.") from error
         except (KeyError, OSError, ValueError) as error:
             raise HTTPException(status_code=502, detail="Could not read the stored media segment.") from error
+        if not segment:
+            raise HTTPException(status_code=502, detail="Stored media segment was empty.")
+
+        # The browser requests video and audio renditions independently. Cache each
+        # stored segment and fetch the next segments in the background so network reads
+        # overlap playback instead of starting only when the player needs each segment.
+        _schedule_media_segment_prefetch(file, token, kind, stream_index, index, duration)
         return Response(content=segment, media_type="video/mp2t", headers=_media_response_headers(request))
 
     cache_key = _media_segment_cache_key(file, kind, stream_index, index)
@@ -1027,20 +1039,33 @@ async def _prefetch_media_segment(
 
     cache_key = _media_segment_cache_key(file, kind, stream_index, index)
     try:
-        # Limit background work to one encoder so the active playback requests retain
-        # most of the shared FFmpeg/process capacity.
-        async with _MEDIA_PREFETCH_LIMIT:
+        # Processed segments are already encoded and only require a bounded storage read.
+        # Let video and audio prefetch overlap under the download manager's global limit.
+        processed = get_processed_video(int(file.id)) if file.id is not None else None
+        processed_assets = (processed or {}).get("assets") or {}
+        stored_tracks = (processed_assets.get(kind) or {}) if kind in {"video", "audio"} else {}
+        stored_segments = stored_tracks.get(str(stream_index)) or []
+
+        if index < len(stored_segments):
             await _get_or_generate_media_segment(
                 cache_key,
-                lambda: _generate_hls_media_segment(
-                    token,
-                    kind,
-                    stream_index,
-                    start,
-                    segment_duration,
-                    request=None,
-                ),
+                lambda: read_processed_segment(file, processed, kind, stream_index, index),
             )
+        else:
+            # Legacy media still needs FFmpeg encoding, so keep speculative encoders
+            # serialized and leave most process capacity for the segment being played.
+            async with _MEDIA_PREFETCH_LIMIT:
+                await _get_or_generate_media_segment(
+                    cache_key,
+                    lambda: _generate_hls_media_segment(
+                        token,
+                        kind,
+                        stream_index,
+                        start,
+                        segment_duration,
+                        request=None,
+                    ),
+                )
     except Exception:
         # Prefetch is opportunistic. A failed speculative request must never break playback.
         return
