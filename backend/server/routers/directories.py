@@ -630,7 +630,6 @@ async def create_private_stream_link(
     if file is None or file.username != user.username:
         raise HTTPException(status_code=404, detail="File not found")
 
-    write_log("INFO", Database, "PRIVATE LINK", user.username, f"Created session-bound stream link file_id={fid}")
     return {
         "public_token": create_session_bound_stream_token(
             file, user.username, session_token, token_type="private-stream",
@@ -651,7 +650,6 @@ async def create_private_download_link(
     if file is None or file.username != user.username:
         raise HTTPException(status_code=404, detail="File not found")
 
-    write_log("INFO", Database, "PRIVATE LINK", user.username, f"Created session-bound download link file_id={fid}")
     return {
         "public_token": create_session_bound_stream_token(
             file, user.username, session_token, token_type="private-download",

@@ -22,16 +22,7 @@ async def log_request_flow(request: Request, call_next):
     context_token = set_log_context(request_id)
     started_at: float = perf_counter()
     status_code: int = 500
-    request_path: str = request.url.path.rstrip("/") or "/"
-    is_upload_batch_poll: bool = (
-        request.method == "GET"
-        and request_path.rsplit("/", 1)[-1].lower() == "upload-batches"
-    )
-
-    # Batch polling is frequent by design. Keep its errors visible, but omit
-    # successful request-boundary logs so they do not drown out useful events.
-    if not is_upload_batch_poll:
-        write_log("INFO", Database, "HTTP", "anonymous", f"request started method={request.method}")
+    request_error_logged: bool = False
 
     try:
         response = await call_next(request)
@@ -51,14 +42,29 @@ async def log_request_flow(request: Request, call_next):
             f"request raised method={request.method} route={route_path} "
             f"error={type(error).__name__}: {safe_error}",
         )
+        request_error_logged = True
         raise
 
     finally:
         route = request.scope.get("route")
         route_path = getattr(route, "path", "<unmatched>")
         duration_ms: float = (perf_counter() - started_at) * 1000
-        level: str = "INFO" if status_code < 400 else "WARNING" if status_code < 500 else "ERROR"
-        if not is_upload_batch_poll or status_code >= 400:
+        # Routine successes (including playback range requests and status polling)
+        # stay quiet. Keep server failures, unhandled authorization failures, and slow calls.
+        auth_handled_routes = {
+            "/login", "/auth/login", "/register", "/auth/register", "/logout", "/auth/logout",
+        }
+        should_log: bool = (
+            status_code >= 500
+            or (status_code in {401, 403} and route_path not in auth_handled_routes)
+            or duration_ms >= 1000
+        )
+        if should_log and not request_error_logged:
+            level: str = (
+                "ERROR" if status_code >= 500
+                else "WARNING" if status_code in {401, 403}
+                else "INFO"
+            )
             write_log(
                 level,
                 Database,

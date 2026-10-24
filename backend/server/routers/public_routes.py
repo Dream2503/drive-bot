@@ -131,8 +131,6 @@ async def _stream_while_connected(stream: Stream, request: Request) -> AsyncGene
     """Stop reading remote storage chunks when the HTTP client disconnects."""
 
     iterator = stream.stream()
-    bytes_sent: int = 0
-    completed: bool = False
     try:
         while True:
             if await request.is_disconnected():
@@ -141,7 +139,6 @@ async def _stream_while_connected(stream: Stream, request: Request) -> AsyncGene
             try:
                 chunk = await anext(iterator)
             except StopAsyncIteration:
-                completed = True
                 return
 
             # A disconnect may occur while the next remote storage chunk is loading.
@@ -149,19 +146,11 @@ async def _stream_while_connected(stream: Stream, request: Request) -> AsyncGene
             if await request.is_disconnected():
                 return
             if chunk:
-                bytes_sent += len(chunk)
                 yield chunk
     finally:
+        # Seeking, closing a tab, and replacing an HTTP range normally cancel the
+        # previous stream. These are not storage failures and should not be warnings.
         await iterator.aclose()
-        level: str = "INFO" if completed else "WARNING"
-        state: str = "completed" if completed else "closed_early_or_disconnected"
-        write_log(
-            level,
-            Database,
-            "DOWNLOAD STREAM",
-            stream.file.username,
-            f"HTTP stream {state} file_id={stream.file.id} name={stream.file.name!r} bytes_sent={bytes_sent}",
-        )
 
 
 async def _file_response(file: File, request: Request, *, attachment: bool, head_only: bool = False) -> Response:
@@ -170,15 +159,6 @@ async def _file_response(file: File, request: Request, *, attachment: bool, head
     cors_headers: dict[str, str] = _public_cors_headers(request)
     range_header = request.headers.get("range")
     if_range = request.headers.get("if-range")
-    write_log(
-        "INFO",
-        Database,
-        "DOWNLOAD RESPONSE",
-        file.username,
-        f"Preparing file_id={file.id} name={file.name!r} bytes={file.size} "
-        f"method={request.method} attachment={attachment} range_requested={bool(range_header)} head_only={head_only}",
-    )
-
     if not file.links and int(file.size) == 0:
         content_type = file.type or guess_type(file.name)[0] or "application/octet-stream"
         headers = {
@@ -435,18 +415,23 @@ async def public_zip_download(
     async def stream_file(file: File):
         try:
             source = await Stream.prepare(file)
-            async for chunk in source.stream():
-                yield chunk
         except (OSError, ValueError) as error:
-            # The ZIP has already started by this point; a storage failure ends the stream.
+            # Preparation happens before Stream.stream() can record a storage failure.
             write_log(
                 "ERROR",
                 Database,
                 "ZIP DOWNLOAD",
                 file.username,
-                f"Entry stream failed file_id={file.id} name={file.name!r} "
+                f"Entry preparation failed file_id={file.id} name={file.name!r} "
                 f"error={type(error).__name__}: {sanitize_sensitive_urls(str(error))[:250]}",
             )
+            raise OSError(f'Cannot read "{file.name}": {error}') from error
+
+        try:
+            async for chunk in source.stream():
+                yield chunk
+        except (OSError, ValueError) as error:
+            # Stream.stream() already recorded the underlying failure.
             raise OSError(f'Cannot read "{file.name}": {error}') from error
 
     entries: list[ZipStreamEntry] = []
@@ -564,14 +549,6 @@ async def public_zip_download(
         )
 
     archive_length = zip64_stored_content_length(entries)
-    write_log(
-        "INFO",
-        Database,
-        "ZIP DOWNLOAD",
-        username,
-        f"Prepared streaming archive file_entries={len(entries)} selected_files={len(file_ids)} "
-        f"selected_folders={len(folder_ids)} archive_bytes={archive_length} method={request.method}",
-    )
     archive_etag = '"' + sha256(
         json.dumps(archive_identity, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
     ).hexdigest() + '"'
