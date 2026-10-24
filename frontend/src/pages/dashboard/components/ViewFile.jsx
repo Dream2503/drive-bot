@@ -1232,8 +1232,21 @@ export default function ViewFile({active = true} = {}) {
             }
         } finally {
             if (downloadControllerRef.current === controller) downloadControllerRef.current = null;
+            // An in-flight IndexedDB/OPFS write can settle after the logout listener ran.
+            // Clean again here so late writes cannot leave private bytes for the next session.
+            if (!publicToken && getToken() !== sessionToken) {
+                const stagedName = tempName || session.tempName;
+                if (stagedName && typeof navigator.storage?.getDirectory === "function") {
+                    navigator.storage.getDirectory().then((root) => root.removeEntry(stagedName)).catch(() => {});
+                }
+                session.tempName = "";
+                session.total = 0;
+                session.etag = "";
+                session.transferred = 0;
+                removeResumableDownloadChunks(session.id).catch(() => {});
+            }
         }
-    }, [downloadUrl, name, publicFile?.size]);
+    }, [downloadUrl, name, publicFile?.size, publicToken]);
 
     /** @type {[VideoSource | null, import("react").Dispatch<import("react").SetStateAction<VideoSource | null>>]} */
     const [source, setSource] = useState(null);
