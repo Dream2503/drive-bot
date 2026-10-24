@@ -188,9 +188,9 @@ function PersistentRoutePages() {
             <Route path="/" element={<Landing/>}/>
             <Route path="/login" element={<Auth initialMode="login"/>}/>
             <Route path="/signup" element={<Auth initialMode="signup"/>}/>
-            <Route path="/upload-tray" element={<UploadTrayPage/>}/>
+            <Route path="/upload-tray" element={hasSession ? <UploadTrayPage/> : <Navigate to="/" replace/>}/>
             <Route path="/dashboard" element={<LegacyDashboardRedirect/>}/>
-            <Route path="/upload" element={<UploadPage/>}/>
+            <Route path="/upload" element={hasSession ? <UploadPage/> : <Navigate to="/" replace/>}/>
             <Route path="/home/*" element={hasSession ? null : <Navigate to="/" replace/>}/>
             <Route path="/view/:fileId" element={!hasSession && !isPublicViewRoute ? <Navigate to="/" replace/> : null}/>
         </Routes>
