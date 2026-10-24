@@ -826,7 +826,7 @@ All dashboard-specific modules are under `src/pages/dashboard/`:
   jobs.
 - `utils/resumableDownloads.js` stores resumable download metadata and browser file handles in IndexedDB.
 - `uploadFiles.js` extracts files and relative paths from file drops, including supported dropped directory trees.
-- `components/ViewFile.jsx` routes by file extension and streams the original video URL directly in the native browser player. Its copy-stream-URL action gives VLC the raw signed byte-range URL; no HLS segments or server-side track processing are used.
+- `components/ViewFile.jsx` routes by file extension and streams the original video URL directly in the native browser player. Its **Copy stream URL** action gives VLC the original signed byte-range URL.
 - `components/FileContentPreview.jsx` fetches text content through an authenticated signed stream and renders source/config files as plain text,
   Markdown with a small safe subset, PDFs through the browser's PDF viewer, and audio through the native audio player. Common extensions include
   `.txt`, `.log`, `.json`, `.yaml`, `.html`, `.css`, `.js`, `.jsx`, `.ts`, `.tsx`, `.py`, `.c`, `.h`, `.cpp`, `.hpp`, `.rs`, `.go`, `.java`, `.sql`,
@@ -839,9 +839,9 @@ fenced code blocks, lists, blockquotes, horizontal rules, and HTTP (S) links; it
 
 #### Video streaming and VLC
 
-Video playback uses the original file's raw HTTP byte-range stream. StoreLimitless does not dynamically transcode the video, split it into HLS
-segments, or expose separate audio/subtitle-track extraction endpoints. Use the **Copy stream URL** action to copy the signed `/public/stream/{token}`
-URL, then open that URL in VLC. Browser preview depends on the browser's supported codecs; VLC can handle formats the browser cannot.
+Video playback uses the original file's raw HTTP byte-range stream. StoreLimitless does not dynamically transcode the video or extract separate audio and
+subtitle tracks. Use the **Copy stream URL** action to copy the signed `/public/stream/{token}` URL, then open it in VLC. Browser preview depends on the
+browser's supported codecs; VLC can handle formats the browser cannot.
 
 Treat the copied stream URL as a bearer link: anyone who has it can access the shared file, and the current signed-token format has no expiry timestamp.
 
