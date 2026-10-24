@@ -29,7 +29,7 @@ async def ordered_parallel_downloads(
     operation: Callable[[int], Awaitable[T]],
     *,
     concurrency: int = DOWNLOAD_CONCURRENCY,
-) -> AsyncGenerator[T, None]:
+) -> AsyncGenerator[T]:
     """Fetch links sequentially and yield results in index order."""
 
     if concurrency < 1:

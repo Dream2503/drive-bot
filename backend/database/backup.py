@@ -42,7 +42,7 @@ except Exception as e:
 for table in tables:
     print(f"Downloading table: {table}...")
     try:
-        primary_key: str = cast(str, pd.read_sql(
+        primary_key: str = cast("str", pd.read_sql(
             f"""
             SELECT kcu.column_name
             FROM information_schema.table_constraints tc

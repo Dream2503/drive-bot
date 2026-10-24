@@ -152,14 +152,14 @@ class Redis:
                 progress.last_updated_at = max(0.0, float(data.get("last_updated_at", 0) or 0))
                 try:
                     raw_counts: object = loads(data.get("file_counts", "{}"))
-                    progress.file_counts = cast(dict[str, int], raw_counts) if isinstance(raw_counts, dict) else {}
+                    progress.file_counts = cast("dict[str, int]", raw_counts) if isinstance(raw_counts, dict) else {}
                 except (TypeError, ValueError):
                     progress.file_counts = {}
                 raw_torrent_items: str = data.get("torrent_items", "[]")
 
                 try:
                     torrent_items: object = loads(raw_torrent_items)
-                    progress.torrent_items = cast(list[JsonObject], torrent_items) if isinstance(torrent_items, list) else []
+                    progress.torrent_items = cast("list[JsonObject]", torrent_items) if isinstance(torrent_items, list) else []
 
                 except (TypeError, ValueError):
                     progress.torrent_items = []
@@ -184,16 +184,16 @@ class Redis:
                     if not values:
                         return []
 
-                records: list[JsonObject] = [cast(JsonObject, loads(value)) for value in values]
+                records: list[JsonObject] = [cast("JsonObject", loads(value)) for value in values]
 
                 if type == "Directory":
                     items: list[Directory] | list[File] = [
                         Directory(
-                            id=cast(int, record["id"]),
-                            path=Path(cast(str, record["path"])),
-                            modified_at=datetime.fromisoformat(cast(str, record["modified_at"])),
-                            deleted_at=datetime.fromisoformat(cast(str, record["deleted_at"])) if record["deleted_at"] else None,
-                            username=cast(str, record["username"]),
+                            id=cast("int", record["id"]),
+                            path=Path(cast("str", record["path"])),
+                            modified_at=datetime.fromisoformat(cast("str", record["modified_at"])),
+                            deleted_at=datetime.fromisoformat(cast("str", record["deleted_at"])) if record["deleted_at"] else None,
+                            username=cast("str", record["username"]),
                         )
                         for record in records
                     ]
@@ -201,16 +201,16 @@ class Redis:
                 else:
                     items = [
                         File(
-                            id=cast(int, record["id"]),
-                            directory_id=cast(int, record["directory_id"]),
-                            name=cast(str, record["name"]),
-                            type=cast(str, record["type"]),
-                            size=cast(int, record["size"]),
-                            modified_at=datetime.fromisoformat(cast(str, record["modified_at"])),
-                            deleted_at=datetime.fromisoformat(cast(str, record["deleted_at"])) if record["deleted_at"] else None,
-                            data_center=cast(str, record["data_center"]),
-                            links=cast(list[str], record["links"]),
-                            username=cast(str, record["username"]),
+                            id=cast("int", record["id"]),
+                            directory_id=cast("int", record["directory_id"]),
+                            name=cast("str", record["name"]),
+                            type=cast("str", record["type"]),
+                            size=cast("int", record["size"]),
+                            modified_at=datetime.fromisoformat(cast("str", record["modified_at"])),
+                            deleted_at=datetime.fromisoformat(cast("str", record["deleted_at"])) if record["deleted_at"] else None,
+                            data_center=cast("str", record["data_center"]),
+                            links=cast("list[str]", record["links"]),
+                            username=cast("str", record["username"]),
                         )
                         for record in records
                     ]
