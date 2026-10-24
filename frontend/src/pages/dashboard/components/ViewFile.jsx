@@ -19,23 +19,280 @@ import {API_URL} from "../../../api.js";
 
 
 /**
- * Play the original stored file directly. The browser receives the raw byte-range
- * stream; formats unsupported by the browser can be opened with the copied URL in VLC.
+ * Play the original stored file directly with lightweight custom controls.
  * @param {VideoPlayerProps} props
  * @returns {import("react").ReactElement}
  */
 function VideoPlayer({file, streamUrl, heightClass = "h-[70vh]"}) {
+    const wrapRef = useRef(null);
+    const videoRef = useRef(null);
+    const lastSideTapRef = useRef({side: "", time: 0});
+    const feedbackTimeoutRef = useRef(null);
+
+    const [playing, setPlaying] = useState(false);
+    const [currentTime, setCurrentTime] = useState(0);
+    const [duration, setDuration] = useState(0);
+    const [volume, setVolume] = useState(1);
+    const [muted, setMuted] = useState(false);
+    const [playbackRate, setPlaybackRate] = useState(1);
+    const [fullscreen, setFullscreen] = useState(false);
+    const [seekFeedback, setSeekFeedback] = useState("");
+
+    const formatTime = (value) => {
+        if (!Number.isFinite(value) || value < 0) return "0:00";
+        const hours = Math.floor(value / 3600);
+        const minutes = Math.floor((value % 3600) / 60);
+        const seconds = Math.floor(value % 60).toString().padStart(2, "0");
+        return hours > 0
+            ? `${hours}:${minutes.toString().padStart(2, "0")}:${seconds}`
+            : `${minutes}:${seconds}`;
+    };
+
+    const togglePlayback = () => {
+        const video = videoRef.current;
+        if (!video) return;
+        if (video.paused) {
+            void video.play().catch(() => {});
+        } else {
+            video.pause();
+        }
+    };
+
+    const seekBy = (seconds) => {
+        const video = videoRef.current;
+        if (!video || !Number.isFinite(video.duration)) return;
+        video.currentTime = Math.max(0, Math.min(video.duration, video.currentTime + seconds));
+        setCurrentTime(video.currentTime);
+    };
+
+    const showSeekFeedback = (text) => {
+        setSeekFeedback(text);
+        window.clearTimeout(feedbackTimeoutRef.current);
+        feedbackTimeoutRef.current = window.setTimeout(() => setSeekFeedback(""), 650);
+    };
+
+    const handleVideoPointerUp = (event) => {
+        const video = videoRef.current;
+        if (!video) return;
+
+        const bounds = video.getBoundingClientRect();
+        if (!bounds.width || !bounds.height) return;
+
+        const x = (event.clientX - bounds.left) / bounds.width;
+        const y = (event.clientY - bounds.top) / bounds.height;
+        const centerTap = x >= 0.33 && x <= 0.67 && y >= 0.25 && y <= 0.75;
+
+        if (event.pointerType === "touch") {
+            if (centerTap) {
+                lastSideTapRef.current = {side: "", time: 0};
+                togglePlayback();
+                return;
+            }
+
+            const side = x < 0.33 ? "left" : x > 0.67 ? "right" : "";
+            if (!side) {
+                lastSideTapRef.current = {side: "", time: 0};
+                return;
+            }
+
+            const now = event.timeStamp;
+            const lastTap = lastSideTapRef.current;
+            if (lastTap.side === side && now - lastTap.time <= 320) {
+                const seconds = side === "right" ? 10 : -10;
+                seekBy(seconds);
+                showSeekFeedback(side === "right" ? "+10s" : "−10s");
+                lastSideTapRef.current = {side: "", time: 0};
+            } else {
+                // A single tap on either side does nothing. Only the second tap seeks.
+                lastSideTapRef.current = {side, time: now};
+            }
+            return;
+        }
+
+        // Desktop clicks only toggle play/pause in the center, never on the edges.
+        if (event.pointerType === "mouse" && event.button === 0 && centerTap) {
+            togglePlayback();
+        }
+    };
+
+    const toggleFullscreen = async () => {
+        const target = wrapRef.current;
+        if (!target) return;
+        try {
+            if (document.fullscreenElement) {
+                await document.exitFullscreen();
+            } else {
+                await target.requestFullscreen();
+            }
+        } catch {
+            // Fullscreen is optional and may be blocked by the browser.
+        }
+    };
+
+    useEffect(() => {
+        const handleFullscreenChange = () => setFullscreen(document.fullscreenElement === wrapRef.current);
+        document.addEventListener("fullscreenchange", handleFullscreenChange);
+        return () => {
+            document.removeEventListener("fullscreenchange", handleFullscreenChange);
+            window.clearTimeout(feedbackTimeoutRef.current);
+        };
+    }, []);
+
     return (
-        <div className={`flex ${heightClass} min-h-0 w-full flex-col bg-black`}>
+        <div
+            ref={wrapRef}
+            className={`relative ${heightClass} min-h-0 w-full overflow-hidden bg-black text-white select-none`}
+        >
             <video
-                className="min-h-0 min-w-0 flex-1 bg-black object-contain"
+                ref={videoRef}
+                className="absolute inset-0 h-full w-full bg-black object-contain"
                 src={streamUrl}
-                controls
                 preload="metadata"
                 playsInline
+                disablePictureInPicture
                 aria-label={file?.name || "Video preview"}
+                onPointerUp={handleVideoPointerUp}
+                onContextMenu={(event) => event.preventDefault()}
+                onLoadedMetadata={(event) => {
+                    setDuration(Number.isFinite(event.currentTarget.duration) ? event.currentTarget.duration : 0);
+                    setCurrentTime(event.currentTarget.currentTime || 0);
+                    setVolume(event.currentTarget.volume);
+                    setMuted(event.currentTarget.muted);
+                    setPlaybackRate(event.currentTarget.playbackRate);
+                }}
+                onDurationChange={(event) => {
+                    if (Number.isFinite(event.currentTarget.duration)) setDuration(event.currentTarget.duration);
+                }}
+                onTimeUpdate={(event) => setCurrentTime(event.currentTarget.currentTime || 0)}
+                onPlay={() => setPlaying(true)}
+                onPause={() => setPlaying(false)}
+                onVolumeChange={(event) => {
+                    setVolume(event.currentTarget.volume);
+                    setMuted(event.currentTarget.muted);
+                }}
+                onRateChange={(event) => setPlaybackRate(event.currentTarget.playbackRate)}
             />
-            <p className="shrink-0 border-t border-white/10 bg-[#171717] px-4 py-2 text-center text-xs text-[#a7a7a7]">
+
+            {seekFeedback && (
+                <div className={`pointer-events-none absolute inset-y-0 flex w-1/3 items-center justify-center ${seekFeedback.startsWith("+") ? "right-0" : "left-0"}`}>
+                    <span className="rounded-full bg-black/70 px-4 py-2 text-lg font-semibold">{seekFeedback}</span>
+                </div>
+            )}
+
+            <div className="absolute inset-x-0 bottom-6 bg-gradient-to-t from-black/95 via-black/65 to-transparent px-3 pb-3 pt-12 sm:px-5">
+                <div className="mb-2 flex items-center gap-3">
+                    <span className="w-11 shrink-0 text-right text-xs tabular-nums text-white/90">{formatTime(currentTime)}</span>
+                    <input
+                        type="range"
+                        min={0}
+                        max={duration || 0}
+                        step={0.1}
+                        value={Math.min(currentTime, duration || 0)}
+                        aria-label="Seek video"
+                        onChange={(event) => {
+                            const video = videoRef.current;
+                            if (!video) return;
+                            video.currentTime = Number(event.target.value);
+                            setCurrentTime(video.currentTime);
+                        }}
+                        className="h-1.5 min-w-0 flex-1 cursor-pointer accent-[#3ecf8e]"
+                    />
+                    <span className="w-11 shrink-0 text-xs tabular-nums text-white/90">{formatTime(duration)}</span>
+                </div>
+
+                <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+                    <button
+                        type="button"
+                        onClick={togglePlayback}
+                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-white transition-colors hover:bg-white/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#3ecf8e]"
+                        aria-label={playing ? "Pause video" : "Play video"}
+                        title={playing ? "Pause" : "Play"}
+                    >
+                        <span className="material-symbols-outlined text-[25px]" aria-hidden="true">{playing ? "pause" : "play_arrow"}</span>
+                    </button>
+
+                    <button
+                        type="button"
+                        onClick={() => seekBy(-10)}
+                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-white transition-colors hover:bg-white/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#3ecf8e]"
+                        aria-label="Back 10 seconds"
+                        title="Back 10 seconds"
+                    >
+                        <span className="material-symbols-outlined text-[22px]" aria-hidden="true">replay_10</span>
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => seekBy(10)}
+                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-white transition-colors hover:bg-white/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#3ecf8e]"
+                        aria-label="Forward 10 seconds"
+                        title="Forward 10 seconds"
+                    >
+                        <span className="material-symbols-outlined text-[22px]" aria-hidden="true">forward_10</span>
+                    </button>
+
+                    <div className="ml-auto flex min-w-0 items-center gap-2 sm:gap-3">
+                        <button
+                            type="button"
+                            onClick={() => {
+                                const video = videoRef.current;
+                                if (!video) return;
+                                video.muted = !video.muted;
+                            }}
+                            className="flex h-9 w-8 shrink-0 items-center justify-center rounded-md text-white transition-colors hover:bg-white/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#3ecf8e]"
+                            aria-label={muted || volume === 0 ? "Unmute video" : "Mute video"}
+                            title={muted || volume === 0 ? "Unmute" : "Mute"}
+                        >
+                            <span className="material-symbols-outlined text-[21px]" aria-hidden="true">{muted || volume === 0 ? "volume_off" : volume < 0.5 ? "volume_down" : "volume_up"}</span>
+                        </button>
+                        <input
+                            type="range"
+                            min={0}
+                            max={1}
+                            step={0.05}
+                            value={muted ? 0 : volume}
+                            aria-label="Volume"
+                            onChange={(event) => {
+                                const video = videoRef.current;
+                                if (!video) return;
+                                video.volume = Number(event.target.value);
+                                video.muted = video.volume === 0;
+                            }}
+                            className="hidden w-20 cursor-pointer accent-[#3ecf8e] sm:block"
+                        />
+
+                        <label className="flex shrink-0 items-center gap-1.5 text-xs text-white/90">
+                            <span className="hidden sm:inline">Speed</span>
+                            <select
+                                value={playbackRate}
+                                aria-label="Playback speed"
+                                onChange={(event) => {
+                                    const video = videoRef.current;
+                                    const nextRate = Number(event.target.value);
+                                    setPlaybackRate(nextRate);
+                                    if (video) video.playbackRate = nextRate;
+                                }}
+                                className="h-8 rounded-md border border-white/20 bg-[#171717] px-1.5 text-xs text-white outline-none focus:border-[#3ecf8e]"
+                            >
+                                {[0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2].map((rate) => (
+                                    <option key={rate} value={rate}>{rate}×</option>
+                                ))}
+                            </select>
+                        </label>
+
+                        <button
+                            type="button"
+                            onClick={() => void toggleFullscreen()}
+                            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-white transition-colors hover:bg-white/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#3ecf8e]"
+                            aria-label={fullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+                            title={fullscreen ? "Exit fullscreen" : "Fullscreen"}
+                        >
+                            <span className="material-symbols-outlined text-[22px]" aria-hidden="true">{fullscreen ? "fullscreen_exit" : "fullscreen"}</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <p className="pointer-events-none absolute inset-x-0 bottom-0 border-t border-white/10 bg-[#171717]/95 px-4 py-1.5 text-center text-[11px] text-[#a7a7a7]">
                 If this format does not play in your browser, copy the stream URL above and open it in VLC.
             </p>
         </div>
