@@ -1062,10 +1062,9 @@ export default function ViewFile({active = true} = {}) {
                 anchor.href = objectUrl;
                 anchor.download = name || "download";
                 anchor.rel = "noreferrer";
+                ensureSession();
                 document.body.appendChild(anchor);
-                ensureSession();
-                ensureSession();
-            anchor.click();
+                anchor.click();
                 anchor.remove();
                 window.setTimeout(() => URL.revokeObjectURL(objectUrl), 5 * 60 * 1000);
                 await removeResumableDownloadChunks(stagedDownloadId).catch((error) => {
@@ -1200,8 +1199,8 @@ export default function ViewFile({active = true} = {}) {
             anchor.href = objectUrl;
             anchor.download = name || stagedFile.name || "download";
             anchor.rel = "noreferrer";
-            document.body.appendChild(anchor);
             ensureSession();
+            document.body.appendChild(anchor);
             anchor.click();
             anchor.remove();
             window.setTimeout(() => {
