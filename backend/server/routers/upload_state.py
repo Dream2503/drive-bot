@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from asyncio import Task, gather, sleep
+from asyncio import CancelledError, Task, gather, sleep
 from pathlib import Path
 from time import time
 from typing import Any, cast, Iterable
@@ -13,6 +13,8 @@ from fastapi import HTTPException
 
 from backend.database.models import File
 from backend.database.redis_server import Redis
+from core.data_center import Database
+from core.utils import sanitize_sensitive_urls, write_log
 from core.transfer import file_upload
 from core.utils.progress import Progress
 
@@ -109,6 +111,15 @@ async def register_upload_job(job_id: str, *, username: str, name: str, kind: st
                 await Redis.set_json(upload_job_key(job_id), metadata)
                 await Redis.set(job_id, Progress(name, "Upload cancelled", 0))
                 await cleanup_upload_artifacts(job_id)
+
+    write_log(
+        "INFO",
+        Database,
+        "UPLOAD STATE",
+        username,
+        f"Registered job_id={job_id} kind={kind} data_center={data_center} "
+        f"name={name!r} expected_bytes={max(0, int(total))} batch_id={batch_id or '-'}",
+    )
 
 
 async def get_upload_job_metadata(job_id: str) -> dict[str, Any] | None:
@@ -878,6 +889,14 @@ async def list_user_upload_batches(username: str) -> list[dict[str, Any]]:
 async def run_chunk_upload_job(job_id: str, file: File, file_path: Path, producer_task: Task[None]) -> None:
     """Transfer received chunks and commit the database row only after a cancellation-safe final check."""
 
+    write_log(
+        "INFO",
+        Database,
+        "UPLOAD CHUNKS",
+        file.username,
+        f"Chunk upload worker started job_id={job_id} file={file.name!r} staged_path={file_path.name!r}",
+    )
+
     try:
         session_state: Any = await Redis.get_json(upload_session_key(job_id))
         download_total = int(session_state.get("total") or 0) if isinstance(session_state, dict) else 0
@@ -902,9 +921,17 @@ async def run_chunk_upload_job(job_id: str, file: File, file_path: Path, produce
 
             if producer_error is not None:
                 latest_metadata = await get_upload_job_metadata(job_id)
+                write_log(
+                    "ERROR",
+                    Database,
+                    "UPLOAD CHUNKS",
+                    file.username,
+                    f"Chunk producer failed job_id={job_id} error={type(producer_error).__name__}: "
+                    f"{sanitize_sensitive_urls(str(producer_error))[:250]}",
+                )
 
                 if not (latest_metadata and (latest_metadata.get("failed") or latest_metadata.get("cancelled"))):
-                    await Redis.set(job_id, Progress(file.name, f"Upload failed: {producer_error}", 0))
+                    await Redis.set(job_id, Progress(file.name, f"Upload failed: {sanitize_sensitive_urls(str(producer_error))[:250]}", 0))
 
                 return
 
@@ -923,6 +950,13 @@ async def run_chunk_upload_job(job_id: str, file: File, file_path: Path, produce
             latest_metadata["finalizing"] = True
             await Redis.set_json(upload_job_key(job_id), latest_metadata)
             await file.save()
+            write_log(
+                "INFO",
+                Database,
+                "UPLOAD CHUNKS",
+                file.username,
+                f"File metadata committed job_id={job_id} file_id={file.id} name={file.name!r} bytes={file.size}",
+            )
             complete = Progress(file.name, f"Upload Complete of id={file.id}", max(file.size, 0))
             complete.transfer = max(file.size, 0)
             complete.download_transfer = max(file.size, 0)
@@ -930,11 +964,23 @@ async def run_chunk_upload_job(job_id: str, file: File, file_path: Path, produce
             complete.download_active = True
             await Redis.set(job_id, complete)
 
+    except CancelledError:
+        write_log("INFO", Database, "UPLOAD CHUNKS", file.username, f"Chunk upload worker cancelled job_id={job_id}")
+        raise
+
     except Exception as error:
         metadata = await get_upload_job_metadata(job_id)
+        write_log(
+            "ERROR",
+            Database,
+            "UPLOAD CHUNKS",
+            file.username,
+            f"Chunk upload worker failed job_id={job_id} error={type(error).__name__}: "
+            f"{sanitize_sensitive_urls(str(error))[:300]}",
+        )
 
         if not (metadata and (metadata.get("failed") or metadata.get("cancelled"))):
-            await Redis.set(job_id, Progress(file.name, f"Upload failed: {error}", 0))
+            await Redis.set(job_id, Progress(file.name, f"Upload failed: {sanitize_sensitive_urls(str(error))[:250]}", 0))
 
     finally:
         if not producer_task.done():
@@ -942,3 +988,4 @@ async def run_chunk_upload_job(job_id: str, file: File, file_path: Path, produce
 
         await gather(producer_task, return_exceptions=True)
         await cleanup_upload_artifacts(job_id)
+        write_log("INFO", Database, "UPLOAD CHUNKS", file.username, f"Chunk upload cleanup completed job_id={job_id}")

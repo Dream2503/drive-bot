@@ -22,7 +22,7 @@ from backend.database.redis_server import Redis
 from backend.server.jwt_handler import get_current_user
 from backend.server.utils import perform_validation
 from core.config import TRANSFER_PATH
-from core.data_center import DataCenter
+from core.data_center import DataCenter, Database
 from core.transfer import link_upload
 from core.utils.telegram_link import resolve_telegram_message_link
 from core.utils import sanitize_sensitive_urls, write_log
@@ -113,6 +113,14 @@ async def upload_file(
         data_center=data_center,
         total=file_size,
         batch_id=batch_id,
+    )
+    write_log(
+        "INFO",
+        Database,
+        "UPLOAD JOB",
+        user.username,
+        f"Registered browser upload job_id={job_id} name={file_name!r} data_center={data_center} "
+        f"directory={directory_obj.path} expected_bytes={file_size} batch_id={batch_id or '-'}",
     )
     if batch_id:
         latest_batch = await get_upload_batch_metadata(batch_id)
@@ -898,6 +906,19 @@ async def upload_link(
         data_center=data_center,
         batch_id=batch_id,
     )
+    import_kind: str = (
+        "torrent" if is_magnet else "telegram-message" if is_telegram_message_link
+        else "youtube" if is_youtube else "http-link"
+    )
+    write_log(
+        "INFO",
+        Database,
+        "UPLOAD JOB",
+        user.username,
+        f"Registered link import job_id={job_id} kind={import_kind} source_host={source_host or 'unknown'} "
+        f"name={link_name!r} data_center={data_center} directory={directory_obj.path} "
+        f"batch_id={batch_id or '-'}",
+    )
 
     if batch_id:
         latest_batch = await get_upload_batch_metadata(batch_id)
@@ -917,6 +938,14 @@ async def upload_link(
 
         progress: Progress
 
+        write_log(
+            "INFO",
+            Database,
+            "UPLOAD JOB",
+            user.username,
+            f"Background import started job_id={job_id} kind={import_kind} name={file.name!r}",
+        )
+
         try:
             download_link: str = link
 
@@ -924,6 +953,7 @@ async def upload_link(
                 # Telegram processing happens inside this persistent job so the API request
                 # can return immediately while the bot works. Never pass the original
                 # Telegram message URL to the normal downloader.
+                write_log("INFO", Database, "TELEGRAM IMPORT", user.username, f"Resolving message link job_id={job_id}")
                 await Redis.set(job_id, Progress(file.name, "Processing Telegram message", 0))
 
                 if batch_id:
@@ -931,6 +961,13 @@ async def upload_link(
 
                 download_link, source_name = await resolve_telegram_message_link(link)
                 resolved_name: str = source_name.replace("\\", "/").rsplit("/", 1)[-1].strip()[:255] or "Telegram download"
+                write_log(
+                    "INFO",
+                    Database,
+                    "TELEGRAM IMPORT",
+                    user.username,
+                    f"Resolved message link job_id={job_id} filename={resolved_name!r} download_url_received={bool(download_link)}",
+                )
                 file.name = resolved_name
                 file.type = guess_type(file.name)[0] or "application/octet-stream"
                 await Redis.set(job_id, Progress(file.name, "Starting download", 0))
@@ -1048,10 +1085,18 @@ async def upload_link(
             # The storage worker, not the browser's polling loop, owns successful completion.
             # This avoids leaving a finished link/torrent batch stuck at 95% when a proxy
             # request drops the child's final status or the browser's final PATCH.
+            write_log(
+                "INFO",
+                Database,
+                "UPLOAD JOB",
+                user.username,
+                f"Transfer pipeline finished job_id={job_id}; background generator exhausted",
+            )
             if batch_id:
                 await reconcile_completed_link_batch(batch_id, user.username, job_id)
 
         except CancelledError:
+            write_log("INFO", Database, "UPLOAD JOB", user.username, f"Background import cancelled job_id={job_id}")
             return
 
         except Exception as error:
@@ -1063,6 +1108,14 @@ async def upload_link(
 
             failure_detail: str = " ".join(sanitize_sensitive_urls(str(error)).split())[:400]
             failure_message: str = f"Upload failed: {failure_detail or type(error).__name__}"
+            write_log(
+                "ERROR",
+                Database,
+                "UPLOAD JOB",
+                user.username,
+                f"Background import failed job_id={job_id} kind={import_kind} "
+                f"error={type(error).__name__}: {failure_detail or 'no error detail'}",
+            )
 
             try:
                 await Redis.set(job_id, Progress(file.name, failure_message, 0))
