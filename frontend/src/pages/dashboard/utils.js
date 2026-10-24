@@ -60,6 +60,17 @@ export function formatFileSize(bytes) {
     return `${(value / (1000 ** index)).toFixed(index === 0 ? 0 : 1)} ${units[index]}`;
 }
 
+/** Browser event emitted whenever the authenticated session ends. */
+export const AUTH_SESSION_END_EVENT = "storelimitless:session-ended";
+
+/** Clear the browser session and synchronously notify mounted pages to cancel private work. */
+export function endAuthSession() {
+    localStorage.removeItem("token");
+    if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event(AUTH_SESSION_END_EVENT));
+    }
+}
+
 /** Read the current bearer token from browser storage. */
 export function getToken() {
     return localStorage.getItem("token");
