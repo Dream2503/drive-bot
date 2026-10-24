@@ -1390,8 +1390,8 @@ export default function ViewFile({active = true} = {}) {
                     </div>)}
         </main>
         <UploadJobsTray
-            traySide="right"
-            trayPosition={active ? "bottom" : "top"}
+            traySide="left"
+            trayPosition="bottom"
             uploadJobs={[]}
             downloadJobs={downloadTrayJobs}
             pauseDownload={(jobId) => {
