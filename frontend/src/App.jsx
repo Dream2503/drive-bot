@@ -159,7 +159,15 @@ function PersistentRoutePages() {
     const shouldMountView = isPublicViewRoute || (hasSession && (keepViewMounted || isViewRoute));
 
     useEffect(() => {
-        const syncSession = () => setHasSession(Boolean(localStorage.getItem("token")));
+        const syncSession = () => {
+            const sessionActive = Boolean(localStorage.getItem("token"));
+            setHasSession(sessionActive);
+            if (!sessionActive) {
+                // A new login must not revive a viewer that belonged to the previous session.
+                setKeepDashboardMounted(false);
+                setKeepViewMounted(false);
+            }
+        };
         const handleStorage = (event) => {
             if (event.key === "token" && !event.newValue) {
                 window.dispatchEvent(new Event(AUTH_SESSION_END_EVENT));
