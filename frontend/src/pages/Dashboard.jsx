@@ -587,7 +587,8 @@ export default function DashboardPage({active = true} = {}) {
             downloadControllersRef.current.delete(job.id);
             // Retry cleanup after all in-flight writes have unwound. The logout
             // listener may have tried removing an OPFS file while a writer held it.
-            if (getToken() !== sessionToken) {
+            const jobStillTracked = downloadJobsRef.current.some((item) => item.id === job.id);
+            if (getToken() !== sessionToken || !jobStillTracked) {
                 removeStagedFile(job);
                 removeResumableDownloadChunks(job.id).catch(() => {});
                 removeResumableDownload(job.id).catch(() => {});
@@ -636,14 +637,20 @@ export default function DashboardPage({active = true} = {}) {
     };
     const removeDownload = (jobId) => {
         cancelQueuedDownloadTask(jobId);
-        downloadControllersRef.current.get(jobId)?.abort();
+        const controller = downloadControllersRef.current.get(jobId);
         const job = downloadJobsRef.current.find((item) => item.id === jobId);
-        removeStagedFile(job);
-        removeResumableDownloadChunks(jobId).catch((error) => console.warn("Could not remove saved download chunks:", error));
+        controller?.abort();
+
         const next = downloadJobsRef.current.filter((item) => item.id !== jobId);
         downloadJobsRef.current = next;
         setDownloadJobs(next);
-        removeResumableDownload(jobId).catch((error) => console.warn("Could not remove download task:", error));
+
+        // Keep a staged file until an active writer has settled; its finalizer cleans up after abort.
+        if (!controller) {
+            removeStagedFile(job);
+            removeResumableDownloadChunks(jobId).catch((error) => console.warn("Could not remove saved download chunks:", error));
+            removeResumableDownload(jobId).catch((error) => console.warn("Could not remove download task:", error));
+        }
     };
     const clearCompletedDownloads = () => {
         downloadJobsRef.current.filter((job) => job.status === "completed" || job.status === "error").forEach((job) => {
