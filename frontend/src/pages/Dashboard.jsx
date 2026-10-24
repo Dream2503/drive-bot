@@ -806,7 +806,7 @@ export default function DashboardPage({active = true} = {}) {
         // then trigger the user's actual browser download only after every byte is verified.
         if (typeof navigator.storage?.getDirectory === "function") {
             try {
-                const linkResponse = await fetch(`${API_URL}/auth/file/${encodeURIComponent(String(fileId))}/public-link`, {
+                const linkResponse = await fetch(`${API_URL}/auth/file/${encodeURIComponent(String(fileId))}/download-link`, {
                     method: "POST", headers: {Authorization: `Bearer ${token}`},
                 });
                 if (getToken() !== token) return;
@@ -967,7 +967,7 @@ export default function DashboardPage({active = true} = {}) {
         // Last-resort fallback for browsers without OPFS or a save-file picker.
         // Keep the transfer in the Downloads tray and delay the browser save until it is complete.
         try {
-            const response = await fetch(`${API_URL}/auth/file/${encodeURIComponent(String(fileId))}/public-link`, {
+            const response = await fetch(`${API_URL}/auth/file/${encodeURIComponent(String(fileId))}/download-link`, {
                 method: "POST", headers: {Authorization: `Bearer ${token}`},
             });
             if (getToken() !== token) return;
