@@ -61,6 +61,7 @@ export function formatFileSize(bytes) {
 }
 
 /** Browser event emitted whenever the authenticated session ends. */
+export const AUTH_SESSION_START_EVENT = "storelimitless:session-started";
 export const AUTH_SESSION_END_EVENT = "storelimitless:session-ended";
 
 /** Revoke server-issued private links, clear the browser session, and cancel private work. */
