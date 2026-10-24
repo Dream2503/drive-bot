@@ -931,6 +931,7 @@ export default function UploadJobsTray({
     fullscreen = false,
     onMinimize,
     traySide = "right",
+    trayPosition = "bottom",
 }) {
     const navigate = useNavigate();
     const location = useLocation();
@@ -1060,9 +1061,11 @@ export default function UploadJobsTray({
                    ? "flex h-[100dvh] w-full flex-col"
                    : trayMaximized
                        ? "fixed inset-3 z-[260] flex flex-col rounded-xl border border-[#303b34] shadow-2xl shadow-black/60"
-                       : traySide === "left"
-                           ? "fixed bottom-4 left-4 right-auto z-[120] w-[min(32rem,calc(100vw-2rem))] rounded-xl border border-[#303b34] shadow-2xl shadow-black/40"
-                           : "fixed bottom-4 right-4 left-auto z-[120] w-[min(32rem,calc(100vw-2rem))] rounded-xl border border-[#303b34] shadow-2xl shadow-black/40"}`}>
+                       : trayPosition === "top"
+                           ? "fixed top-16 right-4 left-auto z-[120] w-[min(32rem,calc(100vw-2rem))] rounded-xl border border-[#303b34] shadow-2xl shadow-black/40"
+                           : traySide === "left"
+                               ? "fixed bottom-4 left-4 right-auto z-[120] w-[min(32rem,calc(100vw-2rem))] rounded-xl border border-[#303b34] shadow-2xl shadow-black/40"
+                               : "fixed bottom-4 right-4 left-auto z-[120] w-[min(32rem,calc(100vw-2rem))] rounded-xl border border-[#303b34] shadow-2xl shadow-black/40"}`}>
             {minimized && !fullscreen ? (
                 <button type="button" onClick={() => setMinimized(false)}
                         className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-[#18221b]"
