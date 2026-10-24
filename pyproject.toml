@@ -4,7 +4,7 @@ line-length = 120
 
 [tool.ruff.lint]
 select = ["ANN", "UP", "TCH"]
-ignore = ["TC001", "TC002", "TC003"]
+ignore = ["TC001", "TC002", "TC003", "UP040"]
 
 [tool.mypy]
 python_version = "3.13"
