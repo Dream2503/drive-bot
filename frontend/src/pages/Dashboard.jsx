@@ -610,7 +610,19 @@ export default function DashboardPage({active = true} = {}) {
         }
     };
 
-    const pauseDownload = (jobId) => downloadControllersRef.current.get(jobId)?.abort();
+    const pauseDownload = (jobId) => {
+        const controller = downloadControllersRef.current.get(jobId);
+        if (controller) {
+            controller.abort();
+            return;
+        }
+        if (cancelQueuedDownloadTask(jobId)) {
+            updateDownloadJob(jobId, {
+                status: "paused",
+                message: "Paused while queued",
+            });
+        }
+    };
     const resumeDownload = (jobId) => {
         const job = downloadJobsRef.current.find((item) => item.id === jobId);
         const token = getToken();
