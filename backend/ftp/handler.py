@@ -6,6 +6,8 @@ from pyftpdlib.handlers import FTPHandler
 
 from backend.database.models import User
 from backend.ftp.filesystem.filesystem import StoreLimitlessFS
+from core.data_center import Database
+from core.utils import write_log
 
 
 class StoreLimitlessHandler(FTPHandler):
@@ -18,4 +20,5 @@ class StoreLimitlessHandler(FTPHandler):
     def on_logout(self, username: str) -> None:
         """Clear the authenticated user reference when the FTP session ends."""
 
+        write_log("INFO", Database, "FTP AUTH", username, "FTP session closed")
         self.store_limitless_user = None

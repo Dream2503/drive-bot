@@ -76,4 +76,14 @@ try:
         connection.commit()
 
 except Exception as e:
-    print(f"Failed to connect: {e}")
+    from core.data_center import Database
+    from core.utils import sanitize_sensitive_urls, write_log
+
+    write_log(
+        "ERROR",
+        Database,
+        "DATABASE INIT",
+        "server",
+        f"PostgreSQL connection or schema initialization failed: {type(e).__name__}: "
+        f"{sanitize_sensitive_urls(str(e))[:300]}",
+    )
